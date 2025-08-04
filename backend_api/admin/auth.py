@@ -18,7 +18,8 @@ from ..auth import (
 )
 from ..models import Admin
 
-router = APIRouter(prefix="/api/admin", tags=["admin"])
+# 修改路由前缀以匹配前端请求路径
+router = APIRouter(prefix="/api/admin/auth", tags=["admin-auth"])
 
 @router.post("/login", response_model=Token)
 async def login_for_access_token(
@@ -49,6 +50,16 @@ async def login_for_access_token(
         "access_token": access_token,
         "token_type": "bearer",
         "admin": AdminInDB.from_orm(admin)
+    }
+
+@router.get("/verify")
+async def verify_token(
+    current_admin: Admin = Depends(get_current_admin)
+):
+    """验证管理员token"""
+    return {
+        "valid": True,
+        "admin": AdminInDB.from_orm(current_admin)
     }
 
 @router.get("/me", response_model=AdminInDB)

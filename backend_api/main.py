@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 
 # 修改为相对导入
 from .admin import router as admin_router
+from .admin.auth import router as admin_auth_router
 from .admin.dashboard import router as dashboard_router
 from .admin.quotes import router as quotes_router
 from .admin.users import router as users_router
@@ -74,6 +75,7 @@ app.mount("/admin", StaticFiles(directory="admin", html=True), name="admin")
 # 注册路由
 app.include_router(auth_router)  # 添加认证路由
 app.include_router(admin_router)
+app.include_router(admin_auth_router)  # 添加admin认证路由
 app.include_router(dashboard_router)
 app.include_router(quotes_router)
 app.include_router(users_router)
