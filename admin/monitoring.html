@@ -1,0 +1,168 @@
+<!-- 系统监控页面 -->
+<div id="monitoringPage" class="page-content">
+    <div class="page-header">
+        <h2>系统监控</h2>
+        <div class="header-actions">
+            <button class="btn btn-secondary" onclick="refreshMonitoring()">刷新数据</button>
+            <button class="btn btn-primary" onclick="exportMonitoring()">导出报告</button>
+        </div>
+    </div>
+    
+    <!-- 系统状态概览 -->
+    <div class="system-overview">
+        <div class="overview-card">
+            <div class="overview-icon healthy">🟢</div>
+            <div class="overview-info">
+                <h3>系统状态</h3>
+                <p class="overview-status">健康</p>
+                <p class="overview-detail">运行时间: 15天 8小时 32分钟</p>
+            </div>
+        </div>
+        
+        <div class="overview-card">
+            <div class="overview-icon warning">🟡</div>
+            <div class="overview-info">
+                <h3>CPU使用率</h3>
+                <p class="overview-status">75%</p>
+                <p class="overview-detail">核心数: 8核</p>
+            </div>
+        </div>
+        
+        <div class="overview-card">
+            <div class="overview-icon healthy">🟢</div>
+            <div class="overview-info">
+                <h3>内存使用率</h3>
+                <p class="overview-status">45%</p>
+                <p class="overview-detail">总内存: 16GB</p>
+            </div>
+        </div>
+        
+        <div class="overview-card">
+            <div class="overview-icon healthy">🟢</div>
+            <div class="overview-info">
+                <h3>磁盘使用率</h3>
+                <p class="overview-status">32%</p>
+                <p class="overview-detail">可用空间: 680GB</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 性能监控图表 -->
+    <div class="monitoring-charts">
+        <div class="chart-section">
+            <div class="chart-card">
+                <h3>CPU使用率趋势</h3>
+                <div class="chart-container" id="cpuChart">
+                    <p>图表加载中...</p>
+                </div>
+            </div>
+            <div class="chart-card">
+                <h3>内存使用率趋势</h3>
+                <div class="chart-container" id="memoryChart">
+                    <p>图表加载中...</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="chart-section">
+            <div class="chart-card">
+                <h3>网络流量监控</h3>
+                <div class="chart-container" id="networkChart">
+                    <p>图表加载中...</p>
+                </div>
+            </div>
+            <div class="chart-card">
+                <h3>数据库连接数</h3>
+                <div class="chart-container" id="dbChart">
+                    <p>图表加载中...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 告警列表 -->
+    <div class="alerts-section">
+        <h3>系统告警</h3>
+        <div class="alerts-list" id="alertsList">
+            <div class="alert-item warning">
+                <div class="alert-icon">⚠️</div>
+                <div class="alert-content">
+                    <h4>CPU使用率过高</h4>
+                    <p>CPU使用率已达到75%，建议检查系统负载</p>
+                    <span class="alert-time">2分钟前</span>
+                </div>
+                <div class="alert-actions">
+                    <button class="btn btn-sm btn-secondary" onclick="acknowledgeAlert('cpu_high')">确认</button>
+                    <button class="btn btn-sm btn-primary" onclick="viewAlertDetails('cpu_high')">详情</button>
+                </div>
+            </div>
+            
+            <div class="alert-item info">
+                <div class="alert-icon">ℹ️</div>
+                <div class="alert-content">
+                    <h4>数据采集完成</h4>
+                    <p>今日股票数据采集任务已完成，共采集1,234条记录</p>
+                    <span class="alert-time">15分钟前</span>
+                </div>
+                <div class="alert-actions">
+                    <button class="btn btn-sm btn-secondary" onclick="acknowledgeAlert('data_collection')">确认</button>
+                    <button class="btn btn-sm btn-primary" onclick="viewAlertDetails('data_collection')">详情</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 服务状态 -->
+    <div class="services-section">
+        <h3>服务状态</h3>
+        <div class="services-grid">
+            <div class="service-card">
+                <div class="service-header">
+                    <h4>Web服务</h4>
+                    <span class="service-status running">运行中</span>
+                </div>
+                <div class="service-info">
+                    <p><strong>端口:</strong> 5000</p>
+                    <p><strong>响应时间:</strong> 45ms</p>
+                    <p><strong>请求数/分钟:</strong> 1,234</p>
+                </div>
+            </div>
+            
+            <div class="service-card">
+                <div class="service-header">
+                    <h4>数据库服务</h4>
+                    <span class="service-status running">运行中</span>
+                </div>
+                <div class="service-info">
+                    <p><strong>端口:</strong> 5432</p>
+                    <p><strong>连接数:</strong> 25/100</p>
+                    <p><strong>查询数/分钟:</strong> 5,678</p>
+                </div>
+            </div>
+            
+            <div class="service-card">
+                <div class="service-header">
+                    <h4>数据采集服务</h4>
+                    <span class="service-status running">运行中</span>
+                </div>
+                <div class="service-info">
+                    <p><strong>状态:</strong> 采集中</p>
+                    <p><strong>进度:</strong> 75%</p>
+                    <p><strong>剩余时间:</strong> 15分钟</p>
+                </div>
+            </div>
+            
+            <div class="service-card">
+                <div class="service-header">
+                    <h4>定时任务服务</h4>
+                    <span class="service-status stopped">已停止</span>
+                </div>
+                <div class="service-info">
+                    <p><strong>状态:</strong> 维护中</p>
+                    <p><strong>下次启动:</strong> 2024-01-16 09:00</p>
+                    <p><strong>任务数:</strong> 8个</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div> 

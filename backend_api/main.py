@@ -29,6 +29,8 @@ from .admin.auth import router as admin_auth_router
 from .admin.dashboard import router as dashboard_router
 from .admin.quotes import router as quotes_router
 from .admin.users import router as users_router
+from .admin.logs import router as logs_router
+from .admin.operation_logs import router as operation_logs_router
 from .watchlist_manage import router as watchlist_router
 from .user_manage import router as user_manage_router
 from .app_complete import router as system_router
@@ -79,6 +81,8 @@ app.include_router(admin_auth_router)  # 添加admin认证路由
 app.include_router(dashboard_router)
 app.include_router(quotes_router)
 app.include_router(users_router)
+app.include_router(logs_router)
+app.include_router(operation_logs_router)
 app.include_router(watchlist_router)
 app.include_router(user_manage_router)
 app.include_router(system_router)  # 添加系统路由

@@ -1,0 +1,160 @@
+<!-- 预测模型页面 -->
+<div id="modelsPage" class="page-content">
+    <div class="page-header">
+        <h2>预测模型管理</h2>
+        <div class="header-actions">
+            <button class="btn btn-primary" onclick="createModel()">创建模型</button>
+            <button class="btn btn-secondary" onclick="importModel()">导入模型</button>
+        </div>
+    </div>
+    
+    <!-- 模型概览 -->
+    <div class="models-overview">
+        <div class="overview-card">
+            <div class="overview-icon">🤖</div>
+            <div class="overview-info">
+                <h3>总模型数</h3>
+                <p class="overview-status">12</p>
+                <p class="overview-detail">活跃模型: 8个</p>
+            </div>
+        </div>
+        
+        <div class="overview-card">
+            <div class="overview-icon">📈</div>
+            <div class="overview-info">
+                <h3>平均准确率</h3>
+                <p class="overview-status">78.5%</p>
+                <p class="overview-detail">最近30天</p>
+            </div>
+        </div>
+        
+        <div class="overview-card">
+            <div class="overview-icon">⚡</div>
+            <div class="overview-info">
+                <h3>预测次数</h3>
+                <p class="overview-status">15,678</p>
+                <p class="overview-detail">今日: 1,234次</p>
+            </div>
+        </div>
+        
+        <div class="overview-card">
+            <div class="overview-icon">🔄</div>
+            <div class="overview-info">
+                <h3>训练中</h3>
+                <p class="overview-status">2</p>
+                <p class="overview-detail">预计完成: 2小时后</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 模型列表 -->
+    <div class="models-list">
+        <h3>模型列表</h3>
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>模型名称</th>
+                        <th>类型</th>
+                        <th>状态</th>
+                        <th>准确率</th>
+                        <th>最后训练</th>
+                        <th>预测次数</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="modelsTableBody">
+                    <tr>
+                        <td>LSTM价格预测模型</td>
+                        <td>深度学习</td>
+                        <td><span class="status-badge active">活跃</span></td>
+                        <td>82.3%</td>
+                        <td>2024-01-15 10:30:00</td>
+                        <td>5,234</td>
+                        <td>
+                            <button class="btn btn-sm btn-primary" onclick="viewModel('lstm_price')">查看</button>
+                            <button class="btn btn-sm btn-secondary" onclick="retrainModel('lstm_price')">重训练</button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteModel('lstm_price')">删除</button>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>随机森林趋势预测</td>
+                        <td>机器学习</td>
+                        <td><span class="status-badge active">活跃</span></td>
+                        <td>76.8%</td>
+                        <td>2024-01-14 15:45:00</td>
+                        <td>3,456</td>
+                        <td>
+                            <button class="btn btn-sm btn-primary" onclick="viewModel('random_forest')">查看</button>
+                            <button class="btn btn-sm btn-secondary" onclick="retrainModel('random_forest')">重训练</button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteModel('random_forest')">删除</button>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>XGBoost涨跌预测</td>
+                        <td>机器学习</td>
+                        <td><span class="status-badge training">训练中</span></td>
+                        <td>--</td>
+                        <td>2024-01-15 14:20:00</td>
+                        <td>0</td>
+                        <td>
+                            <button class="btn btn-sm btn-warning" onclick="stopTraining('xgboost')">停止</button>
+                            <button class="btn btn-sm btn-secondary" onclick="viewTrainingProgress('xgboost')">进度</button>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <!-- 模型性能图表 -->
+    <div class="model-performance">
+        <h3>模型性能对比</h3>
+        <div class="performance-charts">
+            <div class="chart-card">
+                <h4>准确率对比</h4>
+                <div class="chart-container" id="accuracyChart">
+                    <p>图表加载中...</p>
+                </div>
+            </div>
+            <div class="chart-card">
+                <h4>预测次数统计</h4>
+                <div class="chart-container" id="predictionChart">
+                    <p>图表加载中...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 最近预测结果 -->
+    <div class="recent-predictions">
+        <h3>最近预测结果</h3>
+        <div class="predictions-list" id="predictionsList">
+            <div class="prediction-item">
+                <div class="prediction-header">
+                    <span class="prediction-model">LSTM价格预测模型</span>
+                    <span class="prediction-time">2分钟前</span>
+                </div>
+                <div class="prediction-content">
+                    <p><strong>股票:</strong> 000001.SZ (平安银行)</p>
+                    <p><strong>预测:</strong> 上涨 2.3%</p>
+                    <p><strong>置信度:</strong> 85.2%</p>
+                    <p><strong>实际:</strong> 上涨 2.1% ✅</p>
+                </div>
+            </div>
+            
+            <div class="prediction-item">
+                <div class="prediction-header">
+                    <span class="prediction-model">随机森林趋势预测</span>
+                    <span class="prediction-time">5分钟前</span>
+                </div>
+                <div class="prediction-content">
+                    <p><strong>股票:</strong> 600036.SH (招商银行)</p>
+                    <p><strong>预测:</strong> 下跌 1.5%</p>
+                    <p><strong>置信度:</strong> 72.8%</p>
+                    <p><strong>实际:</strong> 上涨 0.8% ❌</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div> 

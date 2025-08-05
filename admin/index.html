@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="css/admin.css">
     <script src="config.js"></script>
     <script src="js/admin.js"></script>
+    <script src="js/logs.js"></script>
 </head>
 <body>
     <!-- 登录页面 -->
@@ -109,156 +110,11 @@
             </header>
 
             <!-- 页面内容 -->
-            <div class="content-body">
-                <!-- 仪表板页面 -->
-                <div id="dashboardPage" class="page-content active">
-                    <div class="dashboard-grid">
-                        <!-- 统计卡片 -->
-                        <div class="stat-card">
-                            <div class="stat-icon">👥</div>
-                            <div class="stat-info">
-                                <h3 id="userCount">0</h3>
-                                <p>注册用户</p>
-                            </div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-icon">📊</div>
-                            <div class="stat-info">
-                                <h3 id="stockCount">0</h3>
-                                <p>股票数量</p>
-                            </div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-icon">📈</div>
-                            <div class="stat-info">
-                                <h3 id="quoteCount">0</h3>
-                                <p>行情记录</p>
-                            </div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-icon">🔔</div>
-                            <div class="stat-info">
-                                <h3 id="alertCount">0</h3>
-                                <p>系统告警</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- 图表区域 -->
-                    <div class="chart-section">
-                        <div class="chart-card">
-                            <h3>用户增长趋势</h3>
-                            <div class="chart-placeholder" id="userGrowthChart">
-                                <p>图表加载中...</p>
-                            </div>
-                        </div>
-                        <div class="chart-card">
-                            <h3>系统性能监控</h3>
-                            <div class="chart-placeholder" id="performanceChart">
-                                <p>图表加载中...</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- 最近活动 -->
-                    <div class="recent-activity">
-                        <h3>最近活动</h3>
-                        <div class="activity-list" id="activityList">
-                            <div class="activity-item">
-                                <span class="activity-time">刚刚</span>
-                                <span class="activity-text">系统启动完成</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 用户管理页面 -->
-                <div id="usersPage" class="page-content">
-                    <div class="page-header">
-                        <h2>用户管理</h2>
-                        <button class="btn btn-primary" onclick="showAddUserModal()">添加用户</button>
-                    </div>
-                    <div class="table-container">
-                        <table class="data-table">
-                            <thead>
-                                <tr>
-                                    <th>ID</th>
-                                    <th>用户名</th>
-                                    <th>邮箱</th>
-                                    <th>状态</th>
-                                    <th>注册时间</th>
-                                    <th>操作</th>
-                                </tr>
-                            </thead>
-                            <tbody id="usersTableBody">
-                                <!-- 用户数据将通过JavaScript动态加载 -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <!-- 行情数据页面 -->
-                <div id="quotesPage" class="page-content">
-                    <div class="page-header">
-                        <h2>行情数据管理</h2>
-                        <div class="header-actions">
-                            <button class="btn btn-secondary" onclick="refreshQuotes()">刷新数据</button>
-                            <button class="btn btn-primary" onclick="exportQuotes()">导出数据</button>
-                        </div>
-                    </div>
-                    <div class="table-container">
-                        <table class="data-table">
-                            <thead>
-                                <tr>
-                                    <th>股票代码</th>
-                                    <th>股票名称</th>
-                                    <th>当前价格</th>
-                                    <th>涨跌幅</th>
-                                    <th>成交量</th>
-                                    <th>更新时间</th>
-                                </tr>
-                            </thead>
-                            <tbody id="quotesTableBody">
-                                <!-- 行情数据将通过JavaScript动态加载 -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <!-- 其他页面占位符 -->
-                <div id="datasourcePage" class="page-content">
-                    <h2>数据源配置</h2>
-                    <p>数据源配置功能开发中...</p>
-                </div>
-
-                <div id="datacollectPage" class="page-content">
-                    <h2>数据采集</h2>
-                    <p>数据采集功能开发中...</p>
-                </div>
-
-                <div id="monitoringPage" class="page-content">
-                    <h2>系统监控</h2>
-                    <p>系统监控功能开发中...</p>
-                </div>
-
-                <div id="modelsPage" class="page-content">
-                    <h2>预测模型</h2>
-                    <p>预测模型功能开发中...</p>
-                </div>
-
-                <div id="logsPage" class="page-content">
-                    <h2>系统日志</h2>
-                    <p>系统日志功能开发中...</p>
-                </div>
-
-                <div id="contentPage" class="page-content">
-                    <h2>内容管理</h2>
-                    <p>内容管理功能开发中...</p>
-                </div>
-
-                <div id="announcementsPage" class="page-content">
-                    <h2>公告发布</h2>
-                    <p>公告发布功能开发中...</p>
+            <div class="content-body" id="contentBody">
+                <!-- 页面内容将通过JavaScript动态加载 -->
+                <div id="loadingContent" class="loading-content">
+                    <div class="loading-spinner"></div>
+                    <p>加载中...</p>
                 </div>
             </div>
         </main>
@@ -282,5 +138,12 @@
         <div class="loading-spinner"></div>
         <p>加载中...</p>
     </div>
+    
+    <!-- JavaScript文件 -->
+    <script src="config.js"></script>
+    <script src="js/admin.js"></script>
+    <script src="js/logs.js"></script>
+    <script src="js/operation_logs.js"></script>
+    <script src="js/module-loader.js"></script>
 </body>
 </html> 

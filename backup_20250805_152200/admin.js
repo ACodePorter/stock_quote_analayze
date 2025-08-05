@@ -195,7 +195,7 @@ class AdminPanel {
                 this.loadQuotesData();
                 break;
             case 'logs':
-                this.loadLogsData();
+                // 日志页面由logs.js处理
                 break;
             default:
                 // 其他页面暂时显示占位符
@@ -219,44 +219,6 @@ class AdminPanel {
                 quoteCount: 56789,
                 alertCount: 5
             });
-        }
-    }
-
-    // 加载日志数据
-    async loadLogsData() {
-        try {
-            console.log('AdminPanel: 开始加载日志数据');
-            
-            // 检查是否在日志页面
-            const logsPage = document.getElementById('logsPage');
-            if (!logsPage) {
-                console.log('AdminPanel: 不在日志页面，跳过日志数据加载');
-                return;
-            }
-            
-            // 防止重复初始化
-            if (window.logsManager && window.logsManager.initialized) {
-                console.log('AdminPanel: LogsManager已初始化，跳过重复加载');
-                return;
-            }
-            
-            // 初始化LogsManager
-            if (typeof LogsManager !== 'undefined') {
-                if (!window.logsManager) {
-                    console.log('AdminPanel: 创建新的LogsManager实例');
-                    window.logsManager = new LogsManager();
-                } else {
-                    console.log('AdminPanel: 使用现有的LogsManager实例');
-                    // 只有在未初始化时才刷新
-                    if (!window.logsManager.initialized) {
-                        window.logsManager.refresh();
-                    }
-                }
-            } else {
-                console.error('AdminPanel: LogsManager类未定义');
-            }
-        } catch (error) {
-            console.error('AdminPanel: 加载日志数据失败:', error);
         }
     }
 
@@ -367,27 +329,44 @@ class AdminPanel {
             }
         };
 
-        const finalOptions = { ...defaultOptions, ...options };
-
         try {
-            const response = await fetch(url, finalOptions);
-            
-            if (response.status === 401) {
-                console.error('认证失败，请重新登录');
-                localStorage.removeItem(ADMIN_CONFIG.AUTH.TOKEN_KEY);
-                return { success: false, error: '认证失败，请重新登录' };
-            }
-            
+            const response = await fetch(url, { ...defaultOptions, ...options });
+            const data = await response.json();
+
             if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                if (response.status === 401) {
+                    this.logout();
+                    return;
+                }
+                throw new Error(data.message || '请求失败');
             }
 
-            const data = await response.json();
-            return { success: true, data };
+            return data;
         } catch (error) {
             console.error('API请求失败:', error);
-            return { success: false, error: error.message };
+            throw error;
         }
+    }
+
+    // 显示加载状态
+    showLoading(show) {
+        const overlay = document.getElementById('loadingOverlay');
+        overlay.style.display = show ? 'flex' : 'none';
+    }
+
+    // 显示提示消息
+    showToast(message, type = 'info') {
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+        toast.textContent = message;
+
+        document.body.appendChild(toast);
+
+        setTimeout(() => toast.classList.add('show'), 10);
+        setTimeout(() => {
+            toast.classList.remove('show');
+            setTimeout(() => toast.remove(), 300);
+        }, 3000);
     }
 
     // 格式化数字
@@ -417,31 +396,6 @@ class AdminPanel {
             .replace('HH', hours)
             .replace('mm', minutes)
             .replace('ss', seconds);
-    }
-
-    showLoading(show) {
-        const loadingOverlay = document.getElementById('loadingOverlay');
-        if (loadingOverlay) {
-            loadingOverlay.style.display = show ? 'flex' : 'none';
-        }
-    }
-
-    showToast(message, type = 'info') {
-        const toast = document.createElement('div');
-        toast.className = `toast toast-${type}`;
-        toast.textContent = message;
-        document.body.appendChild(toast);
-
-        setTimeout(() => {
-            toast.classList.add('show');
-        }, 100);
-
-        setTimeout(() => {
-            toast.classList.remove('show');
-            setTimeout(() => {
-                document.body.removeChild(toast);
-            }, 300);
-        }, 3000);
     }
 }
 
@@ -497,16 +451,4 @@ function closeModal() {
 let adminPanel;
 document.addEventListener('DOMContentLoaded', () => {
     adminPanel = new AdminPanel();
-    // 暴露到全局，供其他模块使用
-    window.adminPanel = adminPanel;
-});
-
-// 全局错误处理器
-window.addEventListener('error', function(event) {
-    console.error('🚨 全局错误:', event.error);
-});
-
-// 未处理的Promise拒绝
-window.addEventListener('unhandledrejection', function(event) {
-    console.error('🚨 未处理的Promise拒绝:', event.reason);
-});
+}); 

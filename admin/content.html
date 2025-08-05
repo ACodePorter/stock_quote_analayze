@@ -1,0 +1,228 @@
+<!-- 内容管理页面 -->
+<div id="contentPage" class="page-content">
+    <div class="page-header">
+        <h2>内容管理</h2>
+        <div class="header-actions">
+            <button class="btn btn-primary" onclick="addContent()">添加内容</button>
+            <button class="btn btn-secondary" onclick="importContent()">批量导入</button>
+        </div>
+    </div>
+    
+    <!-- 内容类型标签页 -->
+    <div class="content-tabs">
+        <div class="tab-nav">
+            <button class="tab-btn active" data-tab="news">新闻资讯</button>
+            <button class="tab-btn" data-tab="analysis">分析报告</button>
+            <button class="tab-btn" data-tab="tutorial">使用教程</button>
+            <button class="tab-btn" data-tab="faq">常见问题</button>
+        </div>
+        
+        <!-- 新闻资讯内容 -->
+        <div id="newsContent" class="content-section active">
+            <div class="content-header">
+                <h3>新闻资讯管理</h3>
+                <div class="content-filters">
+                    <select id="newsCategory" class="filter-select">
+                        <option value="">全部分类</option>
+                        <option value="market">市场动态</option>
+                        <option value="policy">政策解读</option>
+                        <option value="company">公司新闻</option>
+                        <option value="industry">行业资讯</option>
+                    </select>
+                    <input type="text" id="newsSearch" class="search-input" placeholder="搜索新闻标题...">
+                    <button class="btn btn-secondary" onclick="searchNews()">搜索</button>
+                </div>
+            </div>
+            
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>标题</th>
+                            <th>分类</th>
+                            <th>状态</th>
+                            <th>发布时间</th>
+                            <th>阅读量</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="newsTableBody">
+                        <tr>
+                            <td>1</td>
+                            <td>央行降准0.25个百分点，释放长期资金约5000亿元</td>
+                            <td>政策解读</td>
+                            <td><span class="status-badge published">已发布</span></td>
+                            <td>2024-01-15 09:00:00</td>
+                            <td>1,234</td>
+                            <td>
+                                <button class="btn btn-sm btn-primary" onclick="editNews(1)">编辑</button>
+                                <button class="btn btn-sm btn-secondary" onclick="previewNews(1)">预览</button>
+                                <button class="btn btn-sm btn-danger" onclick="deleteNews(1)">删除</button>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>2</td>
+                            <td>A股三大指数集体上涨，科技股领涨</td>
+                            <td>市场动态</td>
+                            <td><span class="status-badge draft">草稿</span></td>
+                            <td>--</td>
+                            <td>0</td>
+                            <td>
+                                <button class="btn btn-sm btn-primary" onclick="editNews(2)">编辑</button>
+                                <button class="btn btn-sm btn-success" onclick="publishNews(2)">发布</button>
+                                <button class="btn btn-sm btn-danger" onclick="deleteNews(2)">删除</button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- 分析报告内容 -->
+        <div id="analysisContent" class="content-section">
+            <div class="content-header">
+                <h3>分析报告管理</h3>
+                <div class="content-filters">
+                    <select id="analysisType" class="filter-select">
+                        <option value="">全部类型</option>
+                        <option value="technical">技术分析</option>
+                        <option value="fundamental">基本面分析</option>
+                        <option value="sentiment">情绪分析</option>
+                        <option value="macro">宏观分析</option>
+                    </select>
+                    <input type="text" id="analysisSearch" class="search-input" placeholder="搜索报告标题...">
+                    <button class="btn btn-secondary" onclick="searchAnalysis()">搜索</button>
+                </div>
+            </div>
+            
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>标题</th>
+                            <th>类型</th>
+                            <th>作者</th>
+                            <th>状态</th>
+                            <th>发布时间</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="analysisTableBody">
+                        <tr>
+                            <td>1</td>
+                            <td>2024年A股市场展望：结构性机会与风险并存</td>
+                            <td>宏观分析</td>
+                            <td>张分析师</td>
+                            <td><span class="status-badge published">已发布</span></td>
+                            <td>2024-01-10 14:30:00</td>
+                            <td>
+                                <button class="btn btn-sm btn-primary" onclick="editAnalysis(1)">编辑</button>
+                                <button class="btn btn-sm btn-secondary" onclick="previewAnalysis(1)">预览</button>
+                                <button class="btn btn-sm btn-danger" onclick="deleteAnalysis(1)">删除</button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- 使用教程内容 -->
+        <div id="tutorialContent" class="content-section">
+            <div class="content-header">
+                <h3>使用教程管理</h3>
+                <div class="content-filters">
+                    <select id="tutorialLevel" class="filter-select">
+                        <option value="">全部级别</option>
+                        <option value="beginner">初级</option>
+                        <option value="intermediate">中级</option>
+                        <option value="advanced">高级</option>
+                    </select>
+                    <input type="text" id="tutorialSearch" class="search-input" placeholder="搜索教程标题...">
+                    <button class="btn btn-secondary" onclick="searchTutorial()">搜索</button>
+                </div>
+            </div>
+            
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>标题</th>
+                            <th>级别</th>
+                            <th>状态</th>
+                            <th>创建时间</th>
+                            <th>学习人数</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tutorialTableBody">
+                        <tr>
+                            <td>1</td>
+                            <td>股票分析系统入门指南</td>
+                            <td>初级</td>
+                            <td><span class="status-badge published">已发布</span></td>
+                            <td>2024-01-05 10:00:00</td>
+                            <td>567</td>
+                            <td>
+                                <button class="btn btn-sm btn-primary" onclick="editTutorial(1)">编辑</button>
+                                <button class="btn btn-sm btn-secondary" onclick="previewTutorial(1)">预览</button>
+                                <button class="btn btn-sm btn-danger" onclick="deleteTutorial(1)">删除</button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- 常见问题内容 -->
+        <div id="faqContent" class="content-section">
+            <div class="content-header">
+                <h3>常见问题管理</h3>
+                <div class="content-filters">
+                    <select id="faqCategory" class="filter-select">
+                        <option value="">全部分类</option>
+                        <option value="account">账户相关</option>
+                        <option value="function">功能使用</option>
+                        <option value="data">数据问题</option>
+                        <option value="technical">技术支持</option>
+                    </select>
+                    <input type="text" id="faqSearch" class="search-input" placeholder="搜索问题...">
+                    <button class="btn btn-secondary" onclick="searchFAQ()">搜索</button>
+                </div>
+            </div>
+            
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>问题</th>
+                            <th>分类</th>
+                            <th>状态</th>
+                            <th>创建时间</th>
+                            <th>查看次数</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="faqTableBody">
+                        <tr>
+                            <td>1</td>
+                            <td>如何注册账户？</td>
+                            <td>账户相关</td>
+                            <td><span class="status-badge published">已发布</span></td>
+                            <td>2024-01-01 09:00:00</td>
+                            <td>1,890</td>
+                            <td>
+                                <button class="btn btn-sm btn-primary" onclick="editFAQ(1)">编辑</button>
+                                <button class="btn btn-sm btn-secondary" onclick="previewFAQ(1)">预览</button>
+                                <button class="btn btn-sm btn-danger" onclick="deleteFAQ(1)">删除</button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div> 

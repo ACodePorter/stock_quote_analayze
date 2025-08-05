@@ -201,7 +201,23 @@
 
 ---
 
-## 10. 其他注意事项
+
+## 10. 管理端需求
+
+### 9.1 监控日志查询功能需求
+
+- 实现对所有系统运行产生的日志表，进行查询监控。包括historical_collect_operation_logs表，operation_logs表，realtime_collect_operation_logs表，watchlist_history_collection_logs表。
+- 实现系统日志菜单功能，在同一个页面实现，多个标签页区分不同日志。
+- 前端相关工件在@admin目录下，后端相关代码和逻辑实现在@backend_api/admin 目录下。
+
+---
+
+如需详细接口字段、表结构、采集/定时任务代码示例，可进一步补充。  
+如需自动化脚本或代码重构示例，请指定具体模块或功能。
+
+---
+
+## 11. 其他注意事项
 
 - 所有API需有详细日志，便于排查。
 - 所有表结构、字段类型需兼容 PostgreSQL。
