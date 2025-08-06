@@ -3,32 +3,65 @@
 """
 
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import desc
+from sqlalchemy import desc, or_
+from pydantic import BaseModel
 
 from ..models import UserCreate, UserUpdate, UserInDB
 from ..database import get_db
-from ..auth import get_current_admin, get_password_hash
+from ..auth import get_password_hash
+from . import get_current_active_user
 from ..models import User
 
 router = APIRouter(prefix="/api/admin/users", tags=["admin"])
 
-@router.get("", response_model=List[UserInDB])
+class UsersResponse(BaseModel):
+    data: List[UserInDB]
+    total: int
+    page: int
+    pageSize: int
+
+@router.get("", response_model=UsersResponse)
 async def get_users(
-    skip: int = 0,
-    limit: int = 100,
-    current_admin: User = Depends(get_current_admin),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+    search: Optional[str] = Query(None),
+    current_user = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     """获取用户列表"""
-    users = db.query(User).order_by(desc(User.created_at)).offset(skip).limit(limit).all()
-    return users
+    query = db.query(User)
+    
+    # 搜索功能
+    if search:
+        query = query.filter(
+            or_(
+                User.username.contains(search),
+                User.email.contains(search)
+            )
+        )
+    
+    # 获取总数
+    total = query.count()
+    
+    # 分页和排序
+    users = query.order_by(desc(User.created_at)).offset(skip).limit(limit).all()
+    
+    # 计算当前页
+    page = (skip // limit) + 1
+    
+    return UsersResponse(
+        data=users,
+        total=total,
+        page=page,
+        pageSize=limit
+    )
 
 @router.post("", response_model=UserInDB)
 async def create_user(
     user: UserCreate,
-    current_admin: User = Depends(get_current_admin),
+    current_user = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     """创建新用户"""
@@ -47,6 +80,7 @@ async def create_user(
         username=user.username,
         email=user.email,
         password_hash=get_password_hash(user.password),
+        role=user.role,
         status="active"
     )
     db.add(db_user)
@@ -58,7 +92,7 @@ async def create_user(
 async def update_user(
     user_id: int,
     user_update: UserUpdate,
-    current_admin: User = Depends(get_current_admin),
+    current_user = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     """更新用户信息"""
@@ -82,7 +116,7 @@ async def update_user(
 async def update_user_status(
     user_id: int,
     status: str,
-    current_admin: User = Depends(get_current_admin),
+    current_user = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     """更新用户状态"""
@@ -106,7 +140,7 @@ async def update_user_status(
 @router.delete("/{user_id}")
 async def delete_user(
     user_id: int,
-    current_admin: User = Depends(get_current_admin),
+    current_user = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     """删除用户"""
@@ -117,10 +151,48 @@ async def delete_user(
             detail="用户不存在"
         )
     
-    # 删除用户相关的所有数据
-    db.query(Watchlist).filter(Watchlist.user_id == user_id).delete()
-    db.query(WatchlistGroup).filter(WatchlistGroup.user_id == user_id).delete()
+    # 删除用户（这里假设已经处理了外键约束或级联删除）
     db.delete(db_user)
     db.commit()
     
-    return {"message": "用户删除成功"} 
+    return {"message": "用户删除成功"}
+
+@router.get("/stats")
+async def get_user_stats(
+    current_user = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """获取用户统计信息"""
+    total = db.query(User).count()
+    active = db.query(User).filter(User.status == "active").count()
+    inactive = db.query(User).filter(User.status == "inactive").count()
+    suspended = db.query(User).filter(User.status == "suspended").count()
+    
+    return {
+        "total": total,
+        "active": active,
+        "inactive": inactive,
+        "suspended": suspended
+    }
+
+@router.get("/test")
+async def test_users_api():
+    """测试用户API是否正常工作"""
+    return {
+        "message": "用户管理API正常工作",
+        "timestamp": "2024-01-01T00:00:00Z",
+        "data": [
+            {
+                "id": 1,
+                "username": "test_user",
+                "email": "test@example.com",
+                "role": "user",
+                "status": "active",
+                "created_at": "2024-01-01T00:00:00Z",
+                "updated_at": "2024-01-01T00:00:00Z"
+            }
+        ],
+        "total": 1,
+        "page": 1,
+        "pageSize": 20
+    } 

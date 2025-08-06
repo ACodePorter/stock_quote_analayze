@@ -572,7 +572,8 @@ function initLogsManager() {
             isInitializing = true;
             try {
                 window.logsManager = new LogsManager();
-                console.log('LogsManager创建成功');
+                window.logsManager.init(); // 确保调用init方法
+                console.log('LogsManager创建并初始化成功');
             } catch (error) {
                 console.error('LogsManager创建失败:', error);
             } finally {
@@ -581,6 +582,9 @@ function initLogsManager() {
         } else {
             console.log('LogsManager已经存在，刷新数据');
             try {
+                if (!window.logsManager.initialized) {
+                    window.logsManager.init();
+                }
                 window.logsManager.refresh();
             } catch (error) {
                 console.error('LogsManager刷新失败:', error);
@@ -608,38 +612,38 @@ window.initLogsManager = initLogsManager;
 
 // 全局函数，供HTML调用
 function refreshLogs() {
-    if (logsManager) {
-        logsManager.refresh();
+    if (window.logsManager) {
+        window.logsManager.refresh();
     }
 }
 
 function previousPage() {
-    if (logsManager) {
-        logsManager.previousPage();
+    if (window.logsManager) {
+        window.logsManager.previousPage();
     }
 }
 
 function nextPage() {
-    if (logsManager) {
-        logsManager.nextPage();
+    if (window.logsManager) {
+        window.logsManager.nextPage();
     }
 }
 
 function applyFilters() {
-    if (logsManager) {
-        logsManager.applyFilters();
+    if (window.logsManager) {
+        window.logsManager.applyFilters();
     }
 }
 
 function clearFilters() {
-    if (logsManager) {
-        logsManager.clearFilters();
+    if (window.logsManager) {
+        window.logsManager.clearFilters();
     }
 }
 
 function exportLogs() {
-    if (logsManager) {
-        logsManager.exportLogs();
+    if (window.logsManager) {
+        window.logsManager.exportLogs();
     }
 }
 

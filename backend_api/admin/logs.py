@@ -83,6 +83,62 @@ async def get_log_tables():
         ]
     }
 
+@router.get("/stats")
+async def get_overall_stats(
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_active_user)
+):
+    """获取全局统计信息"""
+    try:
+        stats = {}
+        
+        for table_key, table_config in LOG_TABLES.items():
+            table_name = table_config["table_name"]
+            field_mapping = get_field_mapping(table_config)
+            
+            # 获取基本统计
+            try:
+                count_sql = f"SELECT COUNT(*) FROM {table_name}"
+                total_count = db.execute(text(count_sql)).scalar() or 0
+                
+                # 获取今日记录数
+                today_sql = f"""
+                    SELECT COUNT(*) FROM {table_name} 
+                    WHERE DATE({field_mapping['created_at']}) = CURRENT_DATE
+                """
+                today_count = db.execute(text(today_sql)).scalar() or 0
+                
+                # 获取错误记录数
+                if field_mapping['status']:
+                    error_sql = f"""
+                        SELECT COUNT(*) FROM {table_name} 
+                        WHERE {field_mapping['status']} = 'error'
+                    """
+                    error_count = db.execute(text(error_sql)).scalar() or 0
+                else:
+                    error_count = 0
+                
+                stats[table_key] = {
+                    "table_name": table_config["display_name"],
+                    "total_count": total_count,
+                    "today_count": today_count,
+                    "error_count": error_count
+                }
+            except Exception as e:
+                # 如果某个表查询失败，设置默认值
+                stats[table_key] = {
+                    "table_name": table_config["display_name"],
+                    "total_count": 0,
+                    "today_count": 0,
+                    "error_count": 0,
+                    "error": str(e)
+                }
+        
+        return stats
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"获取统计信息失败: {str(e)}")
+
 @router.get("/query/{table_key}")
 async def query_logs(
     table_key: str,

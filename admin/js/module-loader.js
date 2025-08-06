@@ -197,33 +197,32 @@ class ModuleLoader {
         // 系统日志初始化
         console.log('初始化系统日志模块');
         
-        // 参考dashboard的实现方式，直接调用AdminPanel的方法
-        if (window.adminPanel && typeof window.adminPanel.loadLogsData === 'function') {
-            console.log('调用AdminPanel的loadLogsData方法');
-            window.adminPanel.loadLogsData();
-        } else {
-            console.log('AdminPanel未找到或loadLogsData方法不存在，使用传统初始化方式');
-            // 简化延迟逻辑，参考dashboard的实现方式
-            setTimeout(() => {
-                if (window.initLogsManager) {
-                    console.log('调用全局initLogsManager函数');
-                    window.initLogsManager();
-                } else {
-                    console.log('initLogsManager函数不存在，尝试直接初始化');
-                    if (window.logsManager) {
-                        console.log('使用现有的LogsManager实例');
-                        window.logsManager.refresh();
-                    } else {
-                        console.log('创建新的LogsManager实例');
-                        if (typeof LogsManager !== 'undefined') {
-                            window.logsManager = new LogsManager();
-                        } else {
-                            console.error('LogsManager类未定义，logs.js可能未正确加载');
-                        }
-                    }
-                }
-            }, 100); // 减少延迟时间，参考dashboard的实现方式
+        // 确保DOM元素存在
+        const logsPage = document.getElementById('logsPage');
+        if (!logsPage) {
+            console.error('logsPage元素不存在，无法初始化日志模块');
+            return;
         }
+        
+        // 使用简化的初始化方式
+        setTimeout(() => {
+            if (typeof LogsManager !== 'undefined') {
+                if (!window.logsManager) {
+                    console.log('创建新的LogsManager实例');
+                    window.logsManager = new LogsManager();
+                }
+                
+                if (!window.logsManager.initialized) {
+                    console.log('初始化LogsManager');
+                    window.logsManager.init();
+                } else {
+                    console.log('LogsManager已初始化，刷新数据');
+                    window.logsManager.refresh();
+                }
+            } else {
+                console.error('LogsManager类未定义，logs.js可能未正确加载');
+            }
+        }, 200); // 增加延迟确保DOM完全加载
     }
 
     initDataSource() {

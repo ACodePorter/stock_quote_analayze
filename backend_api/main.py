@@ -53,6 +53,8 @@ app.add_middleware(RequestLoggingMiddleware)
 
 # 配置CORS
 origins = [
+    "http://localhost:3000",     # Vue 开发服务器
+    "http://127.0.0.1:3000",
     "http://localhost:8000",
     "http://127.0.0.1:8000",
     "http://localhost:8001",

@@ -4,10 +4,11 @@
 
 from datetime import timedelta
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Form
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from datetime import datetime
+from pydantic import BaseModel
 from ..models import Token, AdminInDB
 from ..database import get_db
 from ..auth import (
@@ -18,16 +19,21 @@ from ..auth import (
 )
 from ..models import Admin
 
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
 # 修改路由前缀以匹配前端请求路径
 router = APIRouter(prefix="/api/admin/auth", tags=["admin-auth"])
 
 @router.post("/login", response_model=Token)
 async def login_for_access_token(
-    form_data: OAuth2PasswordRequestForm = Depends(),
+    username: str = Form(...),
+    password: str = Form(...),
     db: Session = Depends(get_db)
 ):
     """管理员登录"""
-    admin = authenticate_admin(db, form_data.username, form_data.password)
+    admin = authenticate_admin(db, username, password)
     if not admin:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -65,4 +71,11 @@ async def verify_token(
 @router.get("/me", response_model=AdminInDB)
 async def read_admin_me(current_admin: Admin = Depends(get_current_admin)):
     """获取当前管理员信息"""
-    return current_admin 
+    return current_admin
+
+@router.post("/logout")
+async def logout(current_admin: Admin = Depends(get_current_admin)):
+    """管理员登出"""
+    # 在实际应用中，这里可以将token加入黑名单
+    # 或者执行其他登出逻辑
+    return {"message": "登出成功"} 

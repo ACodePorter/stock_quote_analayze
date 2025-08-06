@@ -19,6 +19,7 @@ class User(Base):
     username = Column(String, unique=True, nullable=False)
     email = Column(String, unique=True, nullable=False)
     password_hash = Column(String, nullable=False)
+    role = Column(String, default="user")
     status = Column(String, default="active")
     created_at = Column(DateTime, default=datetime.now)
     last_login = Column(DateTime, nullable=True)
@@ -77,14 +78,17 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
     password: str
+    role: Optional[str] = "user"
 
 class UserUpdate(BaseModel):
     username: Optional[str] = None
     email: Optional[EmailStr] = None
+    role: Optional[str] = None
     status: Optional[str] = None
 
 class UserInDB(UserBase):
     id: int
+    role: str
     status: str
     created_at: datetime
     last_login: Optional[datetime] = None

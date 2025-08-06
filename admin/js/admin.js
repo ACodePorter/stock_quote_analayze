@@ -70,14 +70,8 @@ class AdminPanel {
             this.handleLogin();
         });
 
-        // 导航链接点击
-        document.querySelectorAll('.nav-link').forEach(link => {
-            link.addEventListener('click', (e) => {
-                e.preventDefault();
-                const page = e.currentTarget.getAttribute('data-page');
-                this.navigateToPage(page);
-            });
-        });
+        // 移除导航链接点击事件绑定，让ModuleLoader处理导航
+        // 这样可以避免与ModuleLoader的导航系统冲突
     }
 
     // 处理登录
@@ -147,7 +141,10 @@ class AdminPanel {
         document.querySelectorAll('.nav-link').forEach(link => {
             link.classList.remove('active');
         });
-        document.querySelector(`[data-page="${page}"]`).classList.add('active');
+        const activeLink = document.querySelector(`[data-page="${page}"]`);
+        if (activeLink) {
+            activeLink.classList.add('active');
+        }
 
         // 更新页面标题
         const pageTitles = {
@@ -163,15 +160,34 @@ class AdminPanel {
             'announcements': '公告发布'
         };
 
-        document.getElementById('pageTitle').textContent = pageTitles[page] || '页面';
-        document.getElementById('currentPage').textContent = pageTitles[page] || '页面';
+        const pageTitle = pageTitles[page] || '页面';
+        const pageTitleElement = document.getElementById('pageTitle');
+        const currentPageElement = document.getElementById('currentPage');
+        
+        if (pageTitleElement) {
+            pageTitleElement.textContent = pageTitle;
+        }
+        if (currentPageElement) {
+            currentPageElement.textContent = pageTitle;
+        }
 
-        // 加载页面内容
+        // 使用ModuleLoader加载页面内容
         this.loadPageContent(page);
     }
 
     // 加载页面内容
     loadPageContent(page) {
+        // 使用ModuleLoader来加载页面内容
+        if (window.moduleLoader) {
+            window.moduleLoader.loadModule(page, false);
+        } else {
+            // 如果ModuleLoader不可用，使用备用方案
+            this.loadPageContentFallback(page);
+        }
+    }
+
+    // 备用页面加载方案
+    loadPageContentFallback(page) {
         // 隐藏所有页面
         document.querySelectorAll('.page-content').forEach(content => {
             content.classList.remove('active');
