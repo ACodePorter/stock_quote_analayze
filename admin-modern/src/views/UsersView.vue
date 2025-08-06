@@ -550,7 +550,7 @@ const handleUserAction = async (action: string, user: UserType) => {
 onMounted(() => {
   usersStore.fetchUsers()
 })
-</script>
+</script> 
 
 <style scoped>
 .users-view {
