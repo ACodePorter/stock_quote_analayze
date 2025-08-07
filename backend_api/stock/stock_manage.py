@@ -207,6 +207,15 @@ def get_quote_board_list(
         # 4. 字段重命名和格式化
         df = df.replace({np.nan: None})
         
+        # 确保数值字段的数据类型正确
+        numeric_columns = ['current_price', 'change_percent', 'open', 'pre_close', 'high', 'low', 
+                          'volume', 'amount', 'turnover_rate', 'pe_dynamic', 'pb_ratio', 
+                          'total_market_value', 'circulating_market_value']
+        
+        for col in numeric_columns:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors='coerce')
+        
         field_rename_map = {
             'code': 'code',
             'name': 'name',
@@ -231,7 +240,10 @@ def get_quote_board_list(
 
         # Calculate 'change' if possible
         if 'current' in df_selected.columns and 'pre_close' in df_selected.columns:
-            df_selected['change'] = (df_selected['current'] - df_selected['pre_close']).round(2)
+            # 确保数据类型为数值型，处理可能的字符串或None值
+            current_numeric = pd.to_numeric(df_selected['current'], errors='coerce')
+            pre_close_numeric = pd.to_numeric(df_selected['pre_close'], errors='coerce')
+            df_selected['change'] = (current_numeric - pre_close_numeric).round(2)
         else:
             df_selected['change'] = None
 
