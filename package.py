@@ -60,13 +60,14 @@ class ProjectPackager:
             "frontend/**/*",
             "frontend/*.html",
             "frontend/*.txt",
-            "admin/**/*",
-            "admin/*.html",
-            "admin/*.txt",
-            "admin/*.css",
-            "admin/*.js",
-            "admin/*.json",
-            "admin/*.txt",
+            "admin-modern/**/*",
+            "admin-modern/*.html",
+            "admin-modern/*.json",
+            "admin-modern/*.js",
+            "admin-modern/*.ts",
+            "admin-modern/*.vue",
+            "admin-modern/*.css",
+            "admin-modern/*.md",
             
             # 根目录重要文件
             "requirements.txt",
@@ -337,7 +338,17 @@ class ProjectPackager:
         total_size = 0
         files_count = 0
         
+        # 创建包信息
+        package_info = self.create_package_info()
+        
+        # 创建临时包信息文件
+        info_file = output_dir / "package_info.json"
+        with open(info_file, 'w', encoding='utf-8') as f:
+            json.dump(package_info, f, indent=2, ensure_ascii=False)
+        
+        # 创建tar包，包含所有文件和包信息
         with tarfile.open(tar_path, 'w:gz') as tar:
+            # 添加所有项目文件
             for file_path in files:
                 try:
                     # 计算相对路径
@@ -353,23 +364,16 @@ class ProjectPackager:
                     
                 except Exception as e:
                     logger.warning(f"添加文件失败 {file_path}: {e}")
-        
-        # 添加包信息
-        package_info = self.create_package_info()
-        package_info["files_count"] = files_count
-        package_info["total_size"] = total_size
-        
-        # 创建临时包信息文件
-        info_file = output_dir / "package_info.json"
-        with open(info_file, 'w', encoding='utf-8') as f:
-            json.dump(package_info, f, indent=2, ensure_ascii=False)
-        
-        # 添加到tar包
-        with tarfile.open(tar_path, 'a:gz') as tar:
+            
+            # 添加包信息文件
             tar.add(info_file, arcname="package_info.json")
         
         # 删除临时文件
         info_file.unlink()
+        
+        # 更新包信息中的统计信息
+        package_info["files_count"] = files_count
+        package_info["total_size"] = total_size
         
         logger.info(f"✅ TAR包创建完成: {tar_path}")
         logger.info(f"📊 文件数量: {files_count}, 总大小: {total_size / 1024 / 1024:.2f} MB")
@@ -484,7 +488,7 @@ class ProjectPackager:
             "backend_api/**/*.py",
             "backend_core/**/*.py",
             "frontend/**/*",
-            "admin/**/*",
+            "admin-modern/**/*",
             "requirements.txt",
             "requirements-prod.txt",
             "start_system.py",
