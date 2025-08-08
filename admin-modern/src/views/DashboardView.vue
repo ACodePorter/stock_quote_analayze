@@ -133,7 +133,7 @@ const stats = ref({
 })
 
 // 快速操作
-const quickActions = [
+const quickActions: { name: string; path: string; type: '' | 'text' | 'default' | 'success' | 'primary' | 'warning' | 'info' | 'danger'; icon: any }[] = [
   { name: '查看日志', path: '/logs', type: 'primary', icon: Document },
   { name: '用户管理', path: '/users', type: 'success', icon: User },
   { name: '行情数据', path: '/quotes', type: 'warning', icon: TrendCharts },
@@ -144,7 +144,12 @@ const quickActions = [
 ]
 
 // 最近活动
-const recentActivities = ref([
+const recentActivities = ref<{
+  id: number
+  content: string
+  time: string
+  type: 'success' | 'primary' | 'warning' | 'info' | 'danger'
+}[]>([
   {
     id: 1,
     content: '系统启动完成',

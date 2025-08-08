@@ -20,6 +20,9 @@ class ApiService {
         const authStore = useAuthStore()
         if (authStore.token) {
           config.headers.Authorization = `Bearer ${authStore.token}`
+          console.log('Adding auth token to request:', config.url)
+        } else {
+          console.warn('No auth token found for request:', config.url)
         }
         return config
       },

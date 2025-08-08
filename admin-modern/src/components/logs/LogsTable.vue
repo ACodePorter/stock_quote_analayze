@@ -119,20 +119,12 @@ const formatDateTime = (timestamp: string) => {
   return dayjs(timestamp).format('YYYY-MM-DD HH:mm:ss')
 }
 
-// 获取日志级别对应的标签类型
-const getLevelType = (level: string) => {
-  switch (level) {
-    case 'INFO':
-      return 'info'
-    case 'WARNING':
-      return 'warning'
-    case 'ERROR':
-      return 'danger'
-    case 'DEBUG':
-      return ''
-    default:
-      return 'info'
-  }
+// 获取日志级别对应的标签类型（限定为 Element Plus 允许的取值）
+const getLevelType = (level: string): 'primary' | 'success' | 'warning' | 'info' | 'danger' => {
+  if (level === 'WARNING') return 'warning'
+  if (level === 'ERROR') return 'danger'
+  // INFO、DEBUG 或未知都使用 'info'
+  return 'info'
 }
 
 // 显示详情

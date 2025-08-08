@@ -50,16 +50,19 @@ export const useUsersStore = defineStore('users', () => {
     error.value = null
     
     try {
+      console.log('Fetching users...', { page: currentPage.value, pageSize: pageSize.value, search: searchKeyword.value })
       const response = await usersService.getUsers(
         currentPage.value,
         pageSize.value,
         searchKeyword.value
       )
+      console.log('Users response:', response)
       users.value = response.data
       total.value = response.total
     } catch (err: any) {
+      console.error('Error fetching users:', err)
       error.value = err.message || '获取用户列表失败'
-      ElMessage.error(error.value)
+      ElMessage.error(error.value || '获取用户列表失败')
     } finally {
       loading.value = false
     }
@@ -77,7 +80,7 @@ export const useUsersStore = defineStore('users', () => {
       return newUser
     } catch (err: any) {
       error.value = err.message || '创建用户失败'
-      ElMessage.error(error.value)
+      ElMessage.error(error.value || '创建用户失败')
       throw err
     } finally {
       loading.value = false
@@ -98,7 +101,7 @@ export const useUsersStore = defineStore('users', () => {
       return updatedUser
     } catch (err: any) {
       error.value = err.message || '更新用户失败'
-      ElMessage.error(error.value)
+      ElMessage.error(error.value || '更新用户失败')
       throw err
     } finally {
       loading.value = false
@@ -115,7 +118,7 @@ export const useUsersStore = defineStore('users', () => {
       ElMessage.success('用户状态更新成功')
     } catch (err: any) {
       error.value = err.message || '更新用户状态失败'
-      ElMessage.error(error.value)
+      ElMessage.error(error.value || '更新用户状态失败')
       throw err
     }
   }
@@ -131,7 +134,7 @@ export const useUsersStore = defineStore('users', () => {
       ElMessage.success('用户删除成功')
     } catch (err: any) {
       error.value = err.message || '删除用户失败'
-      ElMessage.error(error.value)
+      ElMessage.error(error.value || '删除用户失败')
       throw err
     }
   }

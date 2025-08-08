@@ -10,8 +10,10 @@ export default defineConfig({
       '@': resolve(__dirname, 'src'),
     },
   },
+  // 添加基础路径配置，支持生产环境部署
+  base: process.env.NODE_ENV === 'production' ? '/admin/' : '/',
   server: {
-    port: 3000,
+    port: 8001,
     host: true,
     proxy: {
       '/api': {
@@ -21,9 +23,16 @@ export default defineConfig({
       },
     },
   },
+  // 新增：生产预览端口配置
+  preview: {
+    port: 8001,
+    host: true,
+  },
   build: {
     outDir: 'dist',
-    sourcemap: true,
+    sourcemap: false, // 生产环境关闭sourcemap
+    // 确保资源路径正确
+    assetsDir: 'assets',
     rollupOptions: {
       output: {
         manualChunks: {

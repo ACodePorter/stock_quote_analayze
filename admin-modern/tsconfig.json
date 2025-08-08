@@ -36,7 +36,8 @@
     "src/**/*.d.ts",
     "src/**/*.tsx",
     "src/**/*.vue",
-    "src/env.d.ts"
+    "src/env.d.ts",
+    "src/types/element-plus.d.ts"
   ],
   "exclude": [
     "node_modules",

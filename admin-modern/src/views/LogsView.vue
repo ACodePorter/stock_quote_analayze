@@ -18,7 +18,7 @@
     <LogsStats :stats="stats" />
 
     <!-- 标签页 -->
-    <el-tabs v-model="currentTab" @tab-change="handleTabChange">
+<el-tabs v-model="currentTab" @tab-change="onTabChange">
       <el-tab-pane label="历史采集日志" name="historical_collect">
         <!-- 过滤器 -->
         <LogsFilter 
@@ -118,8 +118,9 @@ const refreshLogs = () => {
   refresh()
 }
 
-const handleTabChange = (tab: string) => {
-  switchTab(tab as 'historical_collect' | 'operation')
+type TabName = 'historical_collect' | 'operation'
+const onTabChange = (name: string | number) => {
+  switchTab(String(name) as TabName)
 }
 
 const handlePageChange = (page: number, pageSize: number) => {

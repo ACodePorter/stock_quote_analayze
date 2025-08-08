@@ -300,8 +300,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, nextTick } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ref, onMounted } from 'vue'
+import { ElMessageBox } from 'element-plus'
 import {
   Plus,
   Search,
@@ -379,7 +379,6 @@ const editRules: FormRules = {
 
 // Computed
 const { 
-  users, 
   loading, 
   total, 
   currentPage, 
@@ -402,13 +401,13 @@ const getRoleText = (role: string) => {
   return roleMap[role as keyof typeof roleMap] || role
 }
 
-const getRoleTagType = (role: string) => {
+const getRoleTagType = (role: string): 'success' | 'primary' | 'warning' | 'info' | 'danger' => {
   const typeMap = {
     admin: 'danger',
     user: 'primary',
     guest: 'info'
-  }
-  return typeMap[role as keyof typeof typeMap] || ''
+  } as const
+  return (typeMap as any)[role] ?? 'info'
 }
 
 const getStatusText = (status: string) => {
@@ -420,13 +419,13 @@ const getStatusText = (status: string) => {
   return statusMap[status as keyof typeof statusMap] || status
 }
 
-const getStatusTagType = (status: string) => {
+const getStatusTagType = (status: string): 'success' | 'primary' | 'warning' | 'info' | 'danger' => {
   const typeMap = {
     active: 'success',
     inactive: 'danger',
     suspended: 'warning'
-  }
-  return typeMap[status as keyof typeof typeMap] || ''
+  } as const
+  return (typeMap as any)[status] ?? 'info'
 }
 
 const handleSearch = () => {
