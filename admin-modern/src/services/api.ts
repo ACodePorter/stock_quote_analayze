@@ -3,6 +3,7 @@ import { useAuthStore } from '@/stores/auth'
 
 class ApiService {
   private api: AxiosInstance
+  private isLoggingOut = false
 
   constructor() {
     this.api = axios.create({
@@ -29,7 +30,8 @@ class ApiService {
     this.api.interceptors.response.use(
       (response) => response.data,
       (error) => {
-        if (error.response?.status === 401) {
+        // 避免在登出请求时触发无限循环
+        if (error.response?.status === 401 && !this.isLoggingOut) {
           const authStore = useAuthStore()
           authStore.logout()
         }

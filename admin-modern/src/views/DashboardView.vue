@@ -78,6 +78,7 @@
             :key="action.path"
             :type="action.type"
             :icon="action.icon"
+            class="action-button"
             @click="navigateTo(action.path)"
           >
             {{ action.name }}
@@ -270,6 +271,20 @@ onMounted(() => {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 1rem;
+  align-items: stretch;
+  justify-items: stretch;
+}
+
+.action-button {
+  height: 48px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  white-space: nowrap;
+  min-width: 0;
+  max-width: none;
+  padding-left: 1rem;
 }
 
 @media (min-width: 768px) {
@@ -277,6 +292,14 @@ onMounted(() => {
     grid-template-columns: repeat(4, 1fr);
   }
 }
+
+@media (min-width: 1200px) {
+  .actions-grid {
+    grid-template-columns: repeat(5, 1fr);
+  }
+}
+
+
 
 .recent-activity {
   margin-bottom: 1.5rem;

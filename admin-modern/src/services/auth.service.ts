@@ -15,7 +15,14 @@ export class AuthService {
   }
 
   async logout(): Promise<void> {
-    return apiService.post('/auth/logout')
+    // 设置登出标志，避免响应拦截器触发无限循环
+    ;(apiService as any).isLoggingOut = true
+    try {
+      return await apiService.post('/auth/logout')
+    } finally {
+      // 重置标志
+      ;(apiService as any).isLoggingOut = false
+    }
   }
 
   async verifyToken(): Promise<{ valid: boolean }> {

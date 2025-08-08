@@ -41,6 +41,7 @@ export const useAuthStore = defineStore('auth', () => {
       await authService.logout()
     } catch (err) {
       console.error('Logout error:', err)
+      // 即使后端请求失败，也要清除本地状态
     } finally {
       // 清除状态
       token.value = null
