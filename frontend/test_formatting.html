@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数据格式化测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .test-section h3 {
+            color: #555;
+            margin-top: 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        th, td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background-color: #f8f9fa;
+            font-weight: bold;
+        }
+        .test-data {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .test-data pre {
+            margin: 0;
+            font-family: monospace;
+        }
+        .result {
+            background-color: #e8f5e8;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .result.success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .result.error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>数据格式化功能测试</h1>
+        
+        <div class="test-section">
+            <h3>1. 成交量格式化测试（以万为单位，保留两位小数）</h3>
+            <div class="test-data">
+                <strong>测试数据：</strong>
+                <pre>原始数据: 249429 → 期望结果: 24.94万
+原始数据: 440976 → 期望结果: 44.10万
+原始数据: 911677 → 期望结果: 91.17万</pre>
+            </div>
+            <div id="volumeTestResult" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>2. 成交额格式化测试（以亿为单位，保留两位小数）</h3>
+            <div class="test-data">
+                <strong>测试数据：</strong>
+                <pre>原始数据: 761129800 → 期望结果: 7.61亿
+原始数据: 569809400 → 期望结果: 5.70亿
+原始数据: 2180958700 → 期望结果: 21.81亿</pre>
+            </div>
+            <div id="turnoverTestResult" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>3. 换手率格式化测试（加上%符号，保留两位小数）</h3>
+            <div class="test-data">
+                <strong>测试数据：</strong>
+                <pre>原始数据: 21.83 → 期望结果: 21.83%
+原始数据: 5.15 → 期望结果: 5.15%
+原始数据: 21.91 → 期望结果: 21.91%</pre>
+            </div>
+            <div id="rateTestResult" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>4. 综合测试表格</h3>
+            <table id="testTable">
+                <thead>
+                    <tr>
+                        <th>股票名称</th>
+                        <th>成交量</th>
+                        <th>成交额</th>
+                        <th>换手率</th>
+                    </tr>
+                </thead>
+                <tbody id="testTableBody">
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        // 模拟MarketsPage的格式化函数
+        const MarketsPage = {
+            // 格式化成交量（以万为单位，保留两位小数）
+            formatVolume(volume) {
+                if (volume === null || typeof volume === 'undefined' || isNaN(volume)) return '--';
+                // 转换为万为单位
+                const volumeInWan = volume / 10000;
+                return `${volumeInWan.toFixed(2)}万`;
+            },
+
+            // 格式化成交额（以亿为单位，保留两位小数）
+            formatTurnover(turnover) {
+                if (turnover === null || typeof turnover === 'undefined' || isNaN(turnover)) return '--';
+                // 转换为亿为单位
+                const turnoverInYi = turnover / 100000000;
+                return `${turnoverInYi.toFixed(2)}亿`;
+            },
+
+            // 格式化换手率（加上%符号，保留两位小数）
+            formatTurnoverRate(rate) {
+                if (rate === null || typeof rate === 'undefined' || isNaN(rate)) return '--';
+                return `${rate.toFixed(2)}%`;
+            }
+        };
+
+        // 测试数据
+        const testData = [
+            { name: '华密新材', volume: 249429, turnover: 761129800, rate: 21.83 },
+            { name: '云意电气', volume: 440976, turnover: 569809400, rate: 5.15 },
+            { name: '赛诺医疗', volume: 911677, turnover: 2180958700, rate: 21.91 },
+            { name: '莱尔科技', volume: 76671, turnover: 250742880, rate: 4.94 },
+            { name: '双一科技', volume: 271213, turnover: 855631170, rate: 24.48 }
+        ];
+
+        // 运行测试
+        function runTests() {
+            // 测试成交量格式化
+            const volumeTestResult = document.getElementById('volumeTestResult');
+            let volumeTestPassed = true;
+            let volumeTestOutput = '';
+
+            testData.forEach(item => {
+                const formatted = MarketsPage.formatVolume(item.volume);
+                const expected = `${(item.volume / 10000).toFixed(2)}万`;
+                const passed = formatted === expected;
+                volumeTestPassed = volumeTestPassed && passed;
+                volumeTestOutput += `${item.name}: ${item.volume} → ${formatted} ${passed ? '✅' : '❌'}<br>`;
+            });
+
+            volumeTestResult.innerHTML = volumeTestOutput;
+            volumeTestResult.className = `result ${volumeTestPassed ? 'success' : 'error'}`;
+
+            // 测试成交额格式化
+            const turnoverTestResult = document.getElementById('turnoverTestResult');
+            let turnoverTestPassed = true;
+            let turnoverTestOutput = '';
+
+            testData.forEach(item => {
+                const formatted = MarketsPage.formatTurnover(item.turnover);
+                const expected = `${(item.turnover / 100000000).toFixed(2)}亿`;
+                const passed = formatted === expected;
+                turnoverTestPassed = turnoverTestPassed && passed;
+                turnoverTestOutput += `${item.name}: ${item.turnover} → ${formatted} ${passed ? '✅' : '❌'}<br>`;
+            });
+
+            turnoverTestResult.innerHTML = turnoverTestOutput;
+            turnoverTestResult.className = `result ${turnoverTestPassed ? 'success' : 'error'}`;
+
+            // 测试换手率格式化
+            const rateTestResult = document.getElementById('rateTestResult');
+            let rateTestPassed = true;
+            let rateTestOutput = '';
+
+            testData.forEach(item => {
+                const formatted = MarketsPage.formatTurnoverRate(item.rate);
+                const expected = `${item.rate.toFixed(2)}%`;
+                const passed = formatted === expected;
+                rateTestPassed = rateTestPassed && passed;
+                rateTestOutput += `${item.name}: ${item.rate} → ${formatted} ${passed ? '✅' : '❌'}<br>`;
+            });
+
+            rateTestResult.innerHTML = rateTestOutput;
+            rateTestResult.className = `result ${rateTestPassed ? 'success' : 'error'}`;
+
+            // 渲染测试表格
+            renderTestTable();
+        }
+
+        // 渲染测试表格
+        function renderTestTable() {
+            const tbody = document.getElementById('testTableBody');
+            tbody.innerHTML = testData.map(item => `
+                <tr>
+                    <td>${item.name}</td>
+                    <td>${MarketsPage.formatVolume(item.volume)}</td>
+                    <td>${MarketsPage.formatTurnover(item.turnover)}</td>
+                    <td>${MarketsPage.formatTurnoverRate(item.rate)}</td>
+                </tr>
+            `).join('');
+        }
+
+        // 页面加载完成后运行测试
+        document.addEventListener('DOMContentLoaded', function() {
+            runTests();
+        });
+    </script>
+</body>
+</html>

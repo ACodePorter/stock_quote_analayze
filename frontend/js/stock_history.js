@@ -78,7 +78,7 @@
             const changePercent = changePercentVal !== '' ? changePercentVal.toFixed(2) + '%' : '';
             const changeVal = row.change !== undefined && row.change !== null ? parseFloat(row.change) : '';
             const change = changeVal !== '' ? changeVal : '';
-            const turnoverRate = row.turnover_rate !== undefined ? row.turnover_rate : '';
+            const turnoverRate = row.turnover_rate !== undefined ? (parseFloat(row.turnover_rate) || 0).toFixed(2) + '%' : '';
             // 涨跌额、涨跌幅单元格加色
             let changePercentClass = '', changeClass = '';
             if (changeVal !== '') {

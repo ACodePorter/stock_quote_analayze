@@ -265,9 +265,9 @@ async loadRankingData(page = 1) {
                 <td class="price-column ${this.getChangeClass(stock.change)}">
                     ${this.formatChange(stock.change)}
                 </td>
-                <td class="price-column">${stock.volume}</td>
-                <td class="price-column">${stock.turnover}</td>
-                <td class="price-column">${stock.rate}</td>
+                <td class="price-column">${this.formatVolume(stock.volume)}</td>
+                <td class="price-column">${this.formatTurnover(stock.turnover)}</td>
+                <td class="price-column">${this.formatTurnoverRate(stock.rate)}</td>
                 <td>
                     <button class="btn btn-sm btn-primary" onclick="addToWatchlist('${stock.code}', event)">+自选</button>
                 </td>
@@ -450,6 +450,28 @@ async loadRankingData(page = 1) {
     formatPercent(percent) {
         if (percent === null || typeof percent === 'undefined' || isNaN(percent)) return '--';
         return `${percent.toFixed(2)}%`;
+    },
+
+    // 格式化成交量（以万为单位，保留两位小数）
+    formatVolume(volume) {
+        if (volume === null || typeof volume === 'undefined' || isNaN(volume)) return '--';
+        // 转换为万为单位
+        const volumeInWan = volume / 10000;
+        return `${volumeInWan.toFixed(2)}万`;
+    },
+
+    // 格式化成交额（以亿为单位，保留两位小数）
+    formatTurnover(turnover) {
+        if (turnover === null || typeof turnover === 'undefined' || isNaN(turnover)) return '--';
+        // 转换为亿为单位
+        const turnoverInYi = turnover / 100000000;
+        return `${turnoverInYi.toFixed(2)}亿`;
+    },
+
+    // 格式化换手率（加上%符号，保留两位小数）
+    formatTurnoverRate(rate) {
+        if (rate === null || typeof rate === 'undefined' || isNaN(rate)) return '--';
+        return `${rate.toFixed(2)}%`;
     },
 
     // 获取涨跌颜色

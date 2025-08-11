@@ -78,7 +78,7 @@ app.add_middleware(
 )
 
 # 挂载静态文件目录
-app.mount("/admin", StaticFiles(directory="admin", html=True), name="admin")
+#app.mount("/admin", StaticFiles(directory="admin", html=True), name="admin")
 
 # 注册路由
 app.include_router(auth_router)  # 添加认证路由
