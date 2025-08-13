@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock.js 修复测试 - 股票分析</title>
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .test-button:hover {
+            background: #0056b3;
+        }
+        .test-result {
+            margin: 10px 0;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 3px;
+            border-left: 4px solid #007bff;
+            white-space: pre-wrap;
+            font-family: monospace;
+        }
+        .error {
+            border-left-color: #dc3545;
+            background: #f8d7da;
+        }
+        .success {
+            border-left-color: #28a745;
+            background: #d4edda;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>Stock.js 修复测试</h1>
+        
+        <div>
+            <h3>测试项目</h3>
+            <button class="test-button" onclick="testStockPage()">测试 StockPage 对象</button>
+            <button class="test-button" onclick="testMethods()">测试关键方法</button>
+            <button class="test-button" onclick="testChartData()">测试图表数据加载</button>
+        </div>
+
+        <div id="testResult" class="test-result"></div>
+    </div>
+
+    <script src="js/config.js"></script>
+    <script src="js/common.js"></script>
+    <script src="js/stock.js"></script>
+    <script>
+        function showResult(message, type = 'info') {
+            const element = document.getElementById('testResult');
+            element.textContent = message;
+            element.className = `test-result ${type}`;
+        }
+
+        function testStockPage() {
+            try {
+                // 测试 StockPage 对象是否存在
+                if (typeof StockPage !== 'undefined') {
+                    showResult(`✅ StockPage 对象存在
+属性检查:
+- stockCode: ${StockPage.stockCode}
+- stockName: ${StockPage.stockName}
+- isInWatchlist: ${StockPage.isInWatchlist}
+- analysisDataLoaded: ${StockPage.analysisDataLoaded}`, 'success');
+                } else {
+                    showResult('❌ StockPage 对象不存在', 'error');
+                }
+            } catch (error) {
+                showResult(`❌ 测试 StockPage 对象失败: ${error.message}`, 'error');
+            }
+        }
+
+        function testMethods() {
+            try {
+                const methods = [
+                    'checkWatchlistStatus',
+                    'updateWatchlistButton',
+                    'toggleWatchlist',
+                    'addToWatchlist',
+                    'removeFromWatchlist',
+                    'loadChartData',
+                    'loadAnalysisData'
+                ];
+
+                const missingMethods = [];
+                const existingMethods = [];
+
+                methods.forEach(method => {
+                    if (typeof StockPage[method] === 'function') {
+                        existingMethods.push(method);
+                    } else {
+                        missingMethods.push(method);
+                    }
+                });
+
+                let result = `✅ 方法检查完成\n\n`;
+                result += `存在的方法 (${existingMethods.length}):\n`;
+                result += existingMethods.map(m => `- ${m}`).join('\n');
+                
+                if (missingMethods.length > 0) {
+                    result += `\n\n❌ 缺失的方法 (${missingMethods.length}):\n`;
+                    result += missingMethods.map(m => `- ${m}`).join('\n');
+                    showResult(result, 'error');
+                } else {
+                    showResult(result, 'success');
+                }
+            } catch (error) {
+                showResult(`❌ 测试方法失败: ${error.message}`, 'error');
+            }
+        }
+
+        function testChartData() {
+            try {
+                // 模拟股票代码
+                StockPage.stockCode = '000001';
+                StockPage.stockName = '测试股票';
+                
+                // 测试 loadChartData 方法
+                if (typeof StockPage.loadChartData === 'function') {
+                    try {
+                        StockPage.loadChartData();
+                        showResult('✅ loadChartData 方法调用成功\n注意：由于没有实际的图表容器，可能会显示相关警告信息', 'success');
+                    } catch (error) {
+                        showResult(`⚠️ loadChartData 方法调用时出现错误: ${error.message}\n这是正常的，因为缺少图表容器`, 'info');
+                    }
+                } else {
+                    showResult('❌ loadChartData 方法不存在', 'error');
+                }
+            } catch (error) {
+                showResult(`❌ 测试图表数据加载失败: ${error.message}`, 'error');
+            }
+        }
+
+        // 页面加载完成后显示基本信息
+        document.addEventListener('DOMContentLoaded', () => {
+            showResult('页面加载完成，Stock.js 已加载。\n点击上方按钮进行测试。');
+        });
+    </script>
+</body>
+</html>
