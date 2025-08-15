@@ -55,3 +55,7 @@ htmlcov/
 # node_modules 目录及其所有内容不纳入版本控制
 node_modules/
 **/node_modules/
+
+
+/docs/chat_history/
+

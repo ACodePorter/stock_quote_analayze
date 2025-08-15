@@ -216,3 +216,209 @@ flowchart TD
     B5 --> C7
 
 ```
+
+# 新版管理端web架构图
+
+```mermaid
+
+flowchart TD
+  %% 前端入口与主结构
+  main_ts[main.ts]
+  AppVue[App.vue]
+  router[router/index.ts]
+  pinia[Pinia]
+  style_css[style.css]
+
+  %% 视图层
+  LoginView[LoginView.vue]
+  AdminLayout[AdminLayout.vue]
+  DashboardView[DashboardView.vue]
+  LogsView[LogsView.vue]
+  UsersView[UsersView.vue]
+  QuotesView[QuotesView.vue]
+  DataSourceView[DataSourceView.vue]
+  DataCollectView[DataCollectView.vue]
+  MonitoringView[MonitoringView.vue]
+  ModelsView[ModelsView.vue]
+  ContentView[ContentView.vue]
+  AnnouncementsView[AnnouncementsView.vue]
+
+  %% 组件层
+  LogsTable[LogsTable.vue]
+  LogsFilter[LogsFilter.vue]
+  LogsPagination[LogsPagination.vue]
+  LogsStats[LogsStats.vue]
+
+  %% 状态管理
+  authStore[stores/auth.ts]
+  logsStore[stores/logs.ts]
+  usersStore[stores/users.ts]
+
+  %% 服务层
+  apiService[services/api.ts]
+  authService[services/auth.service.ts]
+  logsService[services/logs.service.ts]
+  usersService[services/users.service.ts]
+
+  %% 类型定义
+  types[types/*.ts]
+
+  %% 关系
+  main_ts --> AppVue
+  AppVue --> router
+  AppVue --> pinia
+  AppVue --> style_css
+  router -->|路由| LoginView & AdminLayout & DashboardView & LogsView & UsersView & QuotesView & DataSourceView & DataCollectView & MonitoringView & ModelsView & ContentView & AnnouncementsView
+  pinia --> authStore & logsStore & usersStore
+  authStore --> authService
+  logsStore --> logsService
+  usersStore --> usersService
+  authService --> apiService
+  logsService --> apiService
+  usersService --> apiService
+  LogsView --> LogsTable & LogsFilter & LogsPagination & LogsStats
+  types -.-> authStore
+  types -.-> logsStore
+  types -.-> usersStore
+
+  %% 后端API
+  subgraph BackendAPI [RESTful API]
+    API[后端接口 /auth /logs /users /quotes ...]
+  end
+  apiService -- HTTP请求 --> API
+
+  %% 样式
+  style main_ts fill:#f9f,stroke:#333,stroke-width:2px
+  style API fill:#bbf,stroke:#333,stroke-width:2px
+
+```
+
+# 数据库设计架构图
+
+```mermaid
+
+---
+config:
+  theme: mc
+  layout: elk
+---
+flowchart TB
+ subgraph ManagementTools["Management Tools"]
+        migration["migration_script.sql<br/>Schema Definition"]
+        usermgr["user_manager.py<br/>User Administration"]
+        quickadd["quick_add_user.py<br/>Quick User Creation"]
+        adduser["add_user_interactive.py<br/>Interactive User Setup"]
+        checkdb["check_db.py<br/>Database Inspection"]
+  end
+ subgraph ApplicationLayer["Application Layer"]
+        fastapi["FastAPI Services<br/>stock_manage, market_routes, etc."]
+        collectors["Data Collectors<br/>AkShare, Tushare"]
+        auth["Authentication<br/>auth.py"]
+  end
+ subgraph ORMLayer["ORM Layer"]
+        session["SessionLocal<br/>backend_api.database"]
+        orm["SQLAlchemy ORM<br/>backend_api.models"]
+  end
+ subgraph DatabaseLayer["Database Layer"]
+        pg["stock_analysis<br/>PostgreSQL Database<br/>Primary Storage"]
+  end
+    migration --> pg
+    usermgr --> session
+    quickadd --> session
+    adduser --> session
+    checkdb --> session
+    fastapi --> session
+    collectors --> session
+    auth --> session
+    session --> orm
+    orm --> pg
+
+```
+
+# 数据库er图
+
+```mermaid
+
+erDiagram
+  users {
+    SERIAL id PK
+    VARCHAR username UK
+    VARCHAR email UK
+    VARCHAR password_hash
+    VARCHAR status
+    TIMESTAMP created_at
+    TIMESTAMP last_login
+  }
+  admins {
+    SERIAL id PK
+    VARCHAR username UK
+    VARCHAR email
+    VARCHAR password_hash
+    VARCHAR role
+    TIMESTAMP created_at
+    TIMESTAMP last_login
+  }
+  watchlist {
+    SERIAL id PK
+    INTEGER user_id FK
+    VARCHAR stock_code
+    VARCHAR stock_name
+    VARCHAR group_name
+    TIMESTAMP created_at
+  }
+  watchlist_groups {
+    SERIAL id PK
+    INTEGER user_id FK
+    VARCHAR group_name
+    TIMESTAMP created_at
+  }
+  stock_basic_info {
+    INTEGER code PK
+    VARCHAR name
+  }
+  stock_realtime_quote {
+    VARCHAR code PK
+    VARCHAR name
+    DECIMAL current_price
+    DECIMAL change_percent
+    DECIMAL volume
+    DECIMAL amount
+    TIMESTAMP update_time
+  }
+  historical_quotes {
+    VARCHAR code PK
+    DATE date PK
+    VARCHAR ts_code
+    VARCHAR name
+    DECIMAL open
+    DECIMAL close
+    DECIMAL high
+    DECIMAL low
+    BIGINT volume
+    TIMESTAMP collected_date
+  }
+  stock_news {
+    SERIAL id PK
+    VARCHAR stock_code
+    TEXT title
+    TEXT content
+    TIMESTAMP publish_time
+    VARCHAR source
+    TEXT url
+  }
+  quote_sync_tasks {
+    SERIAL id PK
+    VARCHAR task_name
+    VARCHAR status
+    INTEGER progress
+    INTEGER total_items
+    TEXT error_message
+    TIMESTAMP created_at
+  }
+
+  users ||--o{ watchlist : owns
+  users ||--o{ watchlist_groups : creates
+  stock_basic_info ||--o{ stock_realtime_quote : has_quotes
+  stock_basic_info ||--o{ historical_quotes : has_history
+
+```
