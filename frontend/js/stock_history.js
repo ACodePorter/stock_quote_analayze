@@ -106,59 +106,84 @@
         document.getElementById('lastPage').disabled = (page === pageCount || pageCount === 0);
     }
 
-
-
-    document.getElementById('searchBtn').onclick = function() {
-        const start = document.getElementById('startDate').value;
-        const end = document.getElementById('endDate').value;
-        if (!isDateRangeValid(start, end)) {
-            alert('结束日期不能小于开始日期！');
-            return;
-        }
-        page = 1;
-        fetchHistory();
-    };
-    document.getElementById('prevPage').onclick = function() {
-        if (page > 1) {
-            page--;
-            fetchHistory();
-        }
-    };
-    document.getElementById('nextPage').onclick = function() {
-        const pageCount = Math.ceil(total / size);
-        if (page < pageCount) {
-            page++;
-            fetchHistory();
-        }
-    };
-    document.getElementById('exportBtn').onclick = function() {
-        const start = document.getElementById('startDate').value;
-        const end = document.getElementById('endDate').value;
-        if (!isDateRangeValid(start, end)) {
-            alert('结束日期不能小于开始日期！');
-            return;
-        }
-        startDate = start;
-        endDate = end;
-        let url = `${API_BASE_URL}/api/stock/history/export?code=${code}`;
-        if (startDate) url += `&start_date=${startDate}`;
-        if (endDate) url += `&end_date=${endDate}`;
-        window.open(url, '_blank');
-    };
-    document.getElementById('firstPage').onclick = function() {
-        if (page !== 1) {
+    // 绑定事件
+    function bindEvents() {
+        // 历史行情相关事件
+        document.getElementById('searchBtn').onclick = function() {
+            const start = document.getElementById('startDate').value;
+            const end = document.getElementById('endDate').value;
+            if (!isDateRangeValid(start, end)) {
+                alert('结束日期不能小于开始日期！');
+                return;
+            }
             page = 1;
             fetchHistory();
-        }
-    };
-    document.getElementById('lastPage').onclick = function() {
-        const pageCount = Math.ceil(total / size);
-        if (page !== pageCount && pageCount > 0) {
-            page = pageCount;
-            fetchHistory();
-        }
-    };
+        };
+        
+        document.getElementById('prevPage').onclick = function() {
+            if (page > 1) {
+                page--;
+                fetchHistory();
+            }
+        };
+        
+        document.getElementById('nextPage').onclick = function() {
+            const pageCount = Math.ceil(total / size);
+            if (page < pageCount) {
+                page++;
+                fetchHistory();
+            }
+        };
+        
+        document.getElementById('exportBtn').onclick = function() {
+            const start = document.getElementById('startDate').value;
+            const end = document.getElementById('endDate').value;
+            if (!isDateRangeValid(start, end)) {
+                alert('结束日期不能小于开始日期！');
+                return;
+            }
+            startDate = start;
+            endDate = end;
+            let url = `${API_BASE_URL}/api/stock/history/export?code=${code}`;
+            if (startDate) url += `&start_date=${startDate}`;
+            if (endDate) url += `&end_date=${endDate}`;
+            window.open(url, '_blank');
+        };
+        
+        document.getElementById('firstPage').onclick = function() {
+            if (page !== 1) {
+                page = 1;
+                fetchHistory();
+            }
+        };
+        
+        document.getElementById('lastPage').onclick = function() {
+            const pageCount = Math.ceil(total / size);
+            if (page !== pageCount && pageCount > 0) {
+                page = pageCount;
+                fetchHistory();
+            }
+        };
+    }
 
-    // 页面加载时自动拉取数据
-    fetchHistory();
+    // 初始化
+    function init() {
+        if (!code) {
+            alert('未指定股票代码');
+            return;
+        }
+        
+        // 绑定事件
+        bindEvents();
+        
+        // 页面加载时自动拉取历史数据
+        fetchHistory();
+    }
+
+    // 页面加载完成后初始化
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
 })(); 
