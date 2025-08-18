@@ -2,10 +2,11 @@ import argparse
 from backend_core.data_collectors.tushare.realtime import RealtimeQuoteCollector
 from backend_core.data_collectors.tushare.historical import HistoricalQuoteCollector
 from backend_core.data_collectors.tushare.index import IndexQuoteCollector
+from backend_core.data_collectors.tushare.historical_import_from_file import HistoricalQuoteImportFromFileCollector
 
 def main():
     parser = argparse.ArgumentParser(description='Tushare数据采集工具')
-    parser.add_argument('--type', choices=['realtime', 'historical', 'index'], required=True, help='采集类型')
+    parser.add_argument('--type', choices=['realtime', 'historical', 'index', 'historical_import_from_file'], required=True, help='采集类型')
     parser.add_argument('--date', type=str, help='历史行情采集日期，格式YYYYMMDD')
     args = parser.parse_args()
     if args.type == 'realtime':
@@ -20,6 +21,12 @@ def main():
     elif args.type == 'index':
         collector = IndexQuoteCollector()
         collector.collect_index_quotes()
+    elif args.type == 'historical_import_from_file':
+        if not args.date:
+            print('请指定--date参数')
+            return
+        collector = HistoricalQuoteImportFromFileCollector()
+        collector.collect_historical_quotes(args.date)
 
 if __name__ == '__main__':
     main()

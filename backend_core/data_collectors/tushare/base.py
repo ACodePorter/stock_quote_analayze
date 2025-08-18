@@ -14,6 +14,7 @@ class TushareCollector:
         logging.basicConfig(
             filename=log_file,
             level=logging.INFO,
-            format='%(asctime)s %(levelname)s %(message)s'
+            format='%(asctime)s %(levelname)s %(message)s',
+            encoding='utf-8'
         )
         self.logger = logging.getLogger(self.__class__.__name__)
