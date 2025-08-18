@@ -26,65 +26,93 @@ class HistoricalQuoteImportFromFileCollector(TushareCollector):
             success_count = 0
             fail_count = 0
             fail_detail = []
-            # 从本地文件采集历史行情数据
+            # 从本地文件采集历史行情数据（重写：直接执行SQL插入MKT_STK_BASICINFO表，若表不存在则创建）
+            # 1. 先确保表存在
+            create_table_sql = """
+            CREATE TABLE IF NOT EXISTS MKT_STK_BASICINFO (
+                ts_code VARCHAR(32),
+                trade_date VARCHAR(16),
+                open FLOAT,
+                high FLOAT,
+                low FLOAT,
+                close FLOAT,
+                pre_close FLOAT,
+                change FLOAT,
+                pct_chg FLOAT,
+                vol FLOAT,
+                amount FLOAT,
+                UNIQUE(ts_code, trade_date)
+            );
+            """
+            try:
+                session.execute(text(create_table_sql))
+                # 再次尝试添加唯一约束，防止表已存在但无唯一约束
+                try:
+                    session.execute(text("ALTER TABLE MKT_STK_BASICINFO ADD CONSTRAINT uniq_ts_code_trade_date UNIQUE(ts_code, trade_date);"))
+                except Exception as e:
+                    if 'already exists' not in str(e):
+                        self.logger.error(f"添加唯一约束失败: {e}")
+                session.commit()
+            except Exception as e:
+                self.logger.error(f"创建表MKT_STK_BASICINFO失败: {e}")
+                session.rollback()
+                return False
+
+            # 2. 读取文件中的SQL语句并插入
             file_path = Path(f'backend_core/data/daily_{date_str}.txt')
             if not file_path.exists():
                 self.logger.error(f"历史行情数据文件不存在: {file_path}")
                 return False
-            # 兼容CSV和SQL两种格式
-            use_sql_mode = False
+
+            with open(file_path, "r", encoding="utf-8") as f:
+                lines = f.readlines()
+            insert_count = 0
+            for line in lines:
+                sql_line = line.strip()
+                if not sql_line:
+                    continue
+                try:
+                    # 自动转换REPLACE INTO为PostgreSQL兼容语法
+                    if sql_line.lower().startswith("replace into"):
+                        import re
+                        # 字段名替换
+                        sql_line = sql_line.replace('`pct_change`', '`pct_chg`').replace('pct_change', 'pct_chg')
+                        m = re.match(r"replace into\s+(\w+)\s*\(([^)]*)\)\s*values\s*\(([^)]*)\);?", sql_line, re.IGNORECASE)
+                        if m:
+                            table = m.group(1)
+                            fields = m.group(2).replace('`', '')  # 去除反引号
+                            values = m.group(3)
+                            field_list = [f.strip() for f in fields.split(',')]
+                            # 构造 ON CONFLICT 语句（假设 ts_code, trade_date 为唯一约束）
+                            update_clause = ', '.join([f"{f}=EXCLUDED.{f}" for f in field_list if f not in ('ts_code', 'trade_date')])
+                            sql_line = f"INSERT INTO {table} ({fields}) VALUES ({values}) ON CONFLICT (ts_code, trade_date) DO UPDATE SET {update_clause};"
+                    if (("insert" in sql_line.lower() or "replace" in sql_line.lower())
+                        and "mkt_stk_basicinfo" in sql_line.lower()):
+                        session.execute(text(sql_line))
+                        insert_count += 1
+                except Exception as e:
+                    self.logger.error(f"插入SQL失败: {e}, SQL: {sql_line}")
+                    session.rollback()
+                    continue
+            session.commit()
+            self.logger.info(f"成功插入 {insert_count} 条历史行情数据到MKT_STK_BASICINFO表")
+            # 直接从MKT_STK_BASICINFO表取数据，去除文件读取和解析逻辑
             try:
-                df = pd.read_csv(file_path, dtype=str)
-                use_sql_mode = False
+                result = session.execute(
+                    text("SELECT * FROM MKT_STK_BASICINFO WHERE trade_date = :trade_date"),
+                    {"trade_date": date_str}
+                )
+                rows = result.fetchall()
+                if not rows:
+                    self.logger.error(f"MKT_STK_BASICINFO表中未找到日期为{date_str}的历史行情数据")
+                    return False
+                # 获取字段名
+                columns = result.keys()
+                row_iter = (dict(zip(columns, row)) for row in rows)
+                self.logger.info(f"从MKT_STK_BASICINFO表采集到 {len(rows)} 条历史行情数据")
             except Exception as e:
-                self.logger.warning(f"读取为CSV失败，尝试SQL模式: {e}")
-                use_sql_mode = True
-            if not use_sql_mode:
-                self.logger.info("采集到 %d 条历史行情数据", len(df))
-                row_iter = (row.to_dict() for _, row in df.iterrows())
-            else:
-                def parse_sql_line_to_dict(sql_line):
-                    import re
-                    import csv
-                    try:
-                        # 1. 提取字段名部分
-                        field_match = re.search(r'\((.*?)\)\s*VALUES', sql_line, re.DOTALL)
-                        value_match = re.search(r'VALUES\s*\((.*?)\)\s*;?$', sql_line, re.DOTALL)
-                        if not field_match or not value_match:
-                            self.logger.error(f"SQL解析失败: {sql_line}")
-                            return None
-                        fields_raw = field_match.group(1)
-                        values_raw = value_match.group(1)
-                        # 2. 字段名处理
-                        fields = [f.strip().strip('`').strip() for f in fields_raw.split(',')]
-                        # 3. 用csv模块分割值，支持带引号和逗号
-                        try:
-                            values = next(csv.reader([values_raw], quotechar="'", skipinitialspace=True))
-                        except Exception as e:
-                            self.logger.error(f"值分割失败: {values_raw}, 错误: {e}, SQL: {sql_line}")
-                            return None
-                        values = [v.strip().strip("'") for v in values]
-                        if len(fields) != len(values):
-                            self.logger.error(f"字段数与值数不一致，fields={fields}, values={values}, SQL: {sql_line}")
-                            return None
-                        row = dict(zip(fields, values))
-                        # 兼容所有可能的 key 变体，全部转小写去空格
-                        row_norm = {k.strip().lower(): v for k, v in row.items()}
-                        # 兼容 ts_code 变体
-                        if 'ts_code' not in row_norm:
-                            for k in row_norm:
-                                if 'ts_code' in k:
-                                    row_norm['ts_code'] = row_norm[k]
-                                    break
-                        return row_norm
-                    except Exception as e:
-                        self.logger.error(f"parse_sql_line_to_dict 解析异常: {e}, SQL: {sql_line}")
-                        return None
-                with open(file_path, encoding='utf-8') as f:
-                    sql_content = f.read()
-                sql_statements = [stmt.strip() for stmt in sql_content.split(';') if stmt.strip().startswith('REPLACE INTO')]
-                self.logger.info(f"采集到 {len(sql_statements)} 条历史行情SQL数据")
-                row_iter = (parse_sql_line_to_dict(stmt) for stmt in sql_statements)
+                self.logger.error(f"查询MKT_STK_BASICINFO表失败: {e}")
+                return False
             try:
                 for row in row_iter:
                     if not row:
