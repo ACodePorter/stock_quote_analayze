@@ -140,7 +140,7 @@ scheduler.add_job(
 scheduler.add_job(
     collect_akshare_stock_notices,
     'interval',
-    minutes=59,
+    minutes=240,
     id='akshare_stock_notices',
 )
 

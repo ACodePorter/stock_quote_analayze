@@ -18,7 +18,7 @@ class HistoricalQuoteImportFromFileCollector(TushareCollector):
     def extract_code_from_ts_code(self, ts_code: str) -> str:
         return ts_code.split(".")[0] if ts_code else ""
     
-    def collect_historical_quotes(self, date_str: str) -> bool:
+    def collect_historical_quotes(self, date_str: str, file_type: str) -> bool:
         session = SessionLocal()  # 新建 session
         try:
             input_params = {'date': date_str}
@@ -58,44 +58,84 @@ class HistoricalQuoteImportFromFileCollector(TushareCollector):
                 session.rollback()
                 return False
 
-            # 2. 读取文件中的SQL语句并插入
-            file_path = Path(f'backend_core/data/daily_{date_str}.txt')
-            if not file_path.exists():
-                self.logger.error(f"历史行情数据文件不存在: {file_path}")
-                return False
-
-            with open(file_path, "r", encoding="utf-8") as f:
-                lines = f.readlines()
-            insert_count = 0
-            for line in lines:
-                sql_line = line.strip()
-                if not sql_line:
-                    continue
-                try:
-                    # 自动转换REPLACE INTO为PostgreSQL兼容语法
-                    if sql_line.lower().startswith("replace into"):
-                        import re
-                        # 字段名替换
-                        sql_line = sql_line.replace('`pct_change`', '`pct_chg`').replace('pct_change', 'pct_chg')
-                        m = re.match(r"replace into\s+(\w+)\s*\(([^)]*)\)\s*values\s*\(([^)]*)\);?", sql_line, re.IGNORECASE)
-                        if m:
-                            table = m.group(1)
-                            fields = m.group(2).replace('`', '')  # 去除反引号
-                            values = m.group(3)
-                            field_list = [f.strip() for f in fields.split(',')]
-                            # 构造 ON CONFLICT 语句（假设 ts_code, trade_date 为唯一约束）
+            # 2. 读取文件并插入数据
+            if file_type == 'txt':
+                file_path = Path(f'backend_core/data/daily_{date_str}.txt')
+                if not file_path.exists():
+                    self.logger.error(f"历史行情数据文件不存在: {file_path}")
+                    return False
+                with open(file_path, "r", encoding="utf-8") as f:
+                    lines = f.readlines()
+                insert_count = 0
+                for line in lines:
+                    sql_line = line.strip()
+                    if not sql_line:
+                        continue
+                    try:
+                        # 自动转换REPLACE INTO为PostgreSQL兼容语法
+                        if sql_line.lower().startswith("replace into"):
+                            import re
+                            sql_line = sql_line.replace('`pct_change`', '`pct_chg`').replace('pct_change', 'pct_chg')
+                            m = re.match(r"replace into\s+(\w+)\s*\(([^)]*)\)\s*values\s*\(([^)]*)\);?", sql_line, re.IGNORECASE)
+                            if m:
+                                table = m.group(1)
+                                fields = m.group(2).replace('`', '')
+                                values = m.group(3)
+                                field_list = [f.strip() for f in fields.split(',')]
+                                update_clause = ', '.join([f"{f}=EXCLUDED.{f}" for f in field_list if f not in ('ts_code', 'trade_date')])
+                                sql_line = f"INSERT INTO {table} ({fields}) VALUES ({values}) ON CONFLICT (ts_code, trade_date) DO UPDATE SET {update_clause};"
+                        if (("insert" in sql_line.lower() or "replace" in sql_line.lower())
+                            and "mkt_stk_basicinfo" in sql_line.lower()):
+                            session.execute(text(sql_line))
+                            insert_count += 1
+                    except Exception as e:
+                        self.logger.error(f"插入SQL失败: {e}, SQL: {sql_line}")
+                        session.rollback()
+                        continue
+                session.commit()
+                self.logger.info(f"成功插入 {insert_count} 条历史行情数据到MKT_STK_BASICINFO表")
+            elif file_type == 'csv':
+                import csv
+                file_path = Path(f'backend_core/data/daily_{date_str}.csv')
+                if not file_path.exists():
+                    self.logger.error(f"历史行情数据文件不存在: {file_path}")
+                    return False
+                insert_count = 0
+                with open(file_path, "r", encoding="utf-8") as f:
+                    reader = csv.DictReader(f)
+                    # 字段名兼容处理
+                    field_list = [f.replace('pct_change', 'pct_chg') for f in reader.fieldnames]
+                    if not field_list:
+                        self.logger.error(f"CSV文件无表头: {file_path}")
+                        return False
+                    for row in reader:
+                        try:
+                            # 行数据兼容处理
+                            row = {k.replace('pct_change', 'pct_chg'): v for k, v in row.items()}
+                            fields = ', '.join(field_list)
+                            values = []
+                            for k in field_list:
+                                v = row.get(k, '')
+                                if v is None or v == '':
+                                    values.append('NULL')
+                                elif k in ('ts_code', 'trade_date', 'name', 'market') or not self._is_number(v):
+                                    values.append(f"'{v}'")
+                                else:
+                                    values.append(v)
+                            values_str = ', '.join(values)
                             update_clause = ', '.join([f"{f}=EXCLUDED.{f}" for f in field_list if f not in ('ts_code', 'trade_date')])
-                            sql_line = f"INSERT INTO {table} ({fields}) VALUES ({values}) ON CONFLICT (ts_code, trade_date) DO UPDATE SET {update_clause};"
-                    if (("insert" in sql_line.lower() or "replace" in sql_line.lower())
-                        and "mkt_stk_basicinfo" in sql_line.lower()):
-                        session.execute(text(sql_line))
-                        insert_count += 1
-                except Exception as e:
-                    self.logger.error(f"插入SQL失败: {e}, SQL: {sql_line}")
-                    session.rollback()
-                    continue
-            session.commit()
-            self.logger.info(f"成功插入 {insert_count} 条历史行情数据到MKT_STK_BASICINFO表")
+                            sql_line = f"INSERT INTO MKT_STK_BASICINFO ({fields}) VALUES ({values_str}) ON CONFLICT (ts_code, trade_date) DO UPDATE SET {update_clause};"
+                            session.execute(text(sql_line))
+                            insert_count += 1
+                        except Exception as e:
+                            self.logger.error(f"CSV插入SQL失败: {e}, 行: {row}")
+                            session.rollback()
+                            continue
+                session.commit()
+                self.logger.info(f"成功插入 {insert_count} 条历史行情数据到MKT_STK_BASICINFO表")
+            else:
+                self.logger.error(f"不支持的 file_type: {file_type}")
+                return False
             # 直接从MKT_STK_BASICINFO表取数据，去除文件读取和解析逻辑
             try:
                 result = session.execute(
@@ -271,4 +311,12 @@ class HistoricalQuoteImportFromFileCollector(TushareCollector):
             return False
         finally:
             session.close()
+
+    # 新增辅助方法
+    def _is_number(self, s):
+        try:
+            float(s)
+            return True
+        except Exception:
+            return False
 
