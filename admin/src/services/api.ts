@@ -1,13 +1,17 @@
 import axios, { type AxiosInstance, type AxiosRequestConfig } from 'axios'
 import { useAuthStore } from '@/stores/auth'
+import { getCurrentEnvConfig, logEnvironmentInfo } from '@/config/environment'
 
 class ApiService {
   private api: AxiosInstance
   private isLoggingOut = false
 
   constructor() {
+    // 打印环境信息
+    logEnvironmentInfo()
+    
     this.api = axios.create({
-      baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api/admin',
+      baseURL: import.meta.env.VITE_API_BASE_URL || getCurrentEnvConfig().apiBaseUrl,
       timeout: 30000,
       headers: {
         'Content-Type': 'application/json'

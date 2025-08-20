@@ -80,17 +80,43 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
         detail="无效的认证凭据",
         headers={"WWW-Authenticate": "Bearer"},
     )
+    
+    if not token:
+        print("JWT验证失败: 令牌为空")
+        raise credentials_exception
+    
     try:
+        # 解码JWT令牌
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         username: str = payload.get("sub")
+        
         if username is None:
+            print(f"JWT验证失败: 令牌中缺少用户名 (sub字段)")
             raise credentials_exception
+            
         token_data = TokenData(username=username)
-    except jwt.PyJWTError:
+        print(f"JWT验证成功: 用户 {username}")
+        
+    except jwt.ExpiredSignatureError:
+        print("JWT验证失败: 令牌已过期")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="认证令牌已过期",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    except jwt.InvalidTokenError as e:
+        print(f"JWT验证失败: 无效令牌 - {str(e)}")
         raise credentials_exception
+    except Exception as e:
+        print(f"JWT验证失败: 未知错误 - {str(e)}")
+        raise credentials_exception
+    
+    # 验证用户是否存在
     user = get_user(fake_users_db, username=token_data.username)
     if user is None:
+        print(f"JWT验证失败: 用户 {username} 不存在")
         raise credentials_exception
+        
     return user
 
 async def get_current_active_user(current_user: User = Depends(get_current_user)):

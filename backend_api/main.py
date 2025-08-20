@@ -61,6 +61,8 @@ origins = [
     "http://127.0.0.1:8001",
     "http://192.168.3.60:8000",  # 建议加上你的本地IP端口
     "http://192.168.3.60:5000",  # 如果有需要
+    "http://192.168.31.117:8000",  # 建议加上你的本地IP端口
+    "http://192.168.31.117:5000",  # 如果有需要
     "http://www.icemaplecity.com",  # 生产环境域名
     "https://www.icemaplecity.com",  # 生产环境HTTPS域名
     "http://icemaplecity.com",  # 生产环境域名（无www）
