@@ -45,7 +45,7 @@ def get_stock_history(
     start_date_fmt = format_date_yyyymmdd(start_date)
     end_date_fmt = format_date_yyyymmdd(end_date)
     print(f"[get_stock_history] 输入参数: code={code}, start_date={start_date_fmt}, end_date={end_date_fmt}, page={page}, size={size}")
-    query = "SELECT code,name,date, open, close, high, low, volume,amount,change_percent,change FROM historical_quotes WHERE code = :code"
+    query = "SELECT code,name,date, open, close, high, low, volume,amount,change_percent,change,turnover_rate FROM historical_quotes WHERE code = :code"
     params = {"code": code}
     if start_date_fmt:
         query += " AND date >= :start_date"
@@ -73,7 +73,8 @@ def get_stock_history(
             "volume": row[7],
             "amount": row[8],
             "change_percent": row[9],
-            "change": row[10]
+            "change": row[10],
+            "turnover_rate": row[11]
         }
         for row in result.fetchall()
     ]
@@ -91,7 +92,7 @@ def export_stock_history(
     end_date_fmt = format_date_yyyymmdd(end_date)
     print(f"[export_stock_history] 输入参数: code={code}, start_date={start_date_fmt}, end_date={end_date_fmt}")
     # 字段顺序与表头一致
-    query = "SELECT code, name, date, open, close, high, low, volume, amount, change_percent, change FROM historical_quotes WHERE code = :code"
+    query = "SELECT code, name, date, open, close, high, low, volume, amount, change_percent, change, turnover_rate FROM historical_quotes WHERE code = :code"
     params = {"code": code}
     if start_date_fmt:
         query += " AND date >= :start_date"
@@ -102,7 +103,7 @@ def export_stock_history(
     query += " ORDER BY date DESC"
     result = db.execute(text(query), params)
     rows = result.fetchall()
-    columns = ["股票代码", "股票名称", "日期", "开盘价", "收盘价", "最高价", "最低价", "成交量", "成交额", "涨跌幅", "涨跌额"]
+    columns = ["股票代码", "股票名称", "日期", "开盘价", "收盘价", "最高价", "最低价", "成交量", "成交额", "涨跌幅", "涨跌额", "换手率"]
     df = pd.DataFrame(rows, columns=columns)
 
     # 格式化成交量

@@ -148,8 +148,8 @@ scheduler.add_job(
 scheduler.add_job(
     run_watchlist_history_collection,
     'cron',
-    hour=13,
-    minute=57,
+    hour=9,
+    minute=17,
     id='watchlist_history_daily',
 )
 
