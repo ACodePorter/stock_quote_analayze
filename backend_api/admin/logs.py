@@ -236,12 +236,9 @@ async def query_logs(
             "table_key": table_key,
             "table_name": table_config["display_name"],
             "data": logs,
-            "pagination": {
-                "page": page,
-                "page_size": page_size,
-                "total_count": total_count,
-                "total_pages": (total_count + page_size - 1) // page_size
-            }
+            "total": total_count,
+            "page": page,
+            "pageSize": page_size
         }
         
     except Exception as e:

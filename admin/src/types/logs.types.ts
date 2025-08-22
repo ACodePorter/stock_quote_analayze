@@ -9,8 +9,44 @@ export interface LogEntry {
   ip_address?: string
 }
 
+// 历史采集日志条目
+export interface HistoricalCollectLogEntry {
+  id: number
+  operation_type: string
+  operation_desc: string
+  affected_rows: number
+  status: string
+  error_message?: string
+  created_at: string
+}
+
+// 实时行情采集日志条目
+export interface RealtimeCollectLogEntry {
+  id: number
+  operation_type: string
+  operation_desc: string
+  affected_rows: number
+  status: string
+  error_message?: string
+  created_at: string
+}
+
+// 操作日志条目
+export interface OperationLogEntry {
+  id: number
+  log_type: string
+  log_message: string
+  affected_count: number
+  log_status: string
+  error_info?: string
+  log_time: string
+}
+
+// 通用日志条目类型
+export type AnyLogEntry = LogEntry | HistoricalCollectLogEntry | RealtimeCollectLogEntry | OperationLogEntry
+
 export interface LogFilter {
-  type: 'all' | 'historical_collect' | 'operation'
+  type: 'all' | 'historical_collect' | 'realtime_collect' | 'operation'
   level: 'all' | 'INFO' | 'WARNING' | 'ERROR' | 'DEBUG'
   startDate: string | null
   endDate: string | null
@@ -35,9 +71,8 @@ export interface LogTable {
 }
 
 export interface LogsResponse {
-  data: LogEntry[]
+  data: AnyLogEntry[]
   total: number
   page: number
   pageSize: number
-  stats: LogStats
 } 

@@ -10,41 +10,142 @@
       >
         <el-table-column prop="id" label="ID" width="80" />
         
-        <el-table-column prop="timestamp" label="时间" width="180">
-          <template #default="{ row }">
-            {{ formatDateTime(row.timestamp) }}
-          </template>
-        </el-table-column>
+        <!-- 历史采集日志字段 -->
+        <template v-if="props.logType === 'historical_collect' || props.logType === 'realtime_collect'">
+          <el-table-column prop="operation_type" label="操作类型" width="150">
+            <template #default="{ row }">
+              <el-tag :type="getOperationTypeTag(row.operation_type)" size="small">
+                {{ row.operation_type }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          
+          <el-table-column prop="operation_desc" label="操作描述" min-width="300">
+            <template #default="{ row }">
+              <div class="message-cell">
+                <span class="message-text">{{ row.operation_desc }}</span>
+                <el-button
+                  v-if="row.error_message"
+                  type="text"
+                  size="small"
+                  @click="showDetails(row)"
+                >
+                  错误详情
+                </el-button>
+              </div>
+            </template>
+          </el-table-column>
+          
+          <el-table-column prop="affected_rows" label="影响行数" width="120">
+            <template #default="{ row }">
+              <el-tag :type="row.affected_rows > 0 ? 'success' : 'info'" size="small">
+                {{ row.affected_rows }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          
+          <el-table-column prop="status" label="状态" width="100">
+            <template #default="{ row }">
+              <el-tag :type="getStatusType(row.status)" size="small">
+                {{ getStatusText(row.status) }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          
+          <el-table-column prop="created_at" label="创建时间" width="180">
+            <template #default="{ row }">
+              {{ formatDateTime(row.created_at) }}
+            </template>
+          </el-table-column>
+        </template>
         
-        <el-table-column prop="level" label="级别" width="100">
-          <template #default="{ row }">
-            <el-tag :type="getLevelType(row.level)" size="small">
-              {{ row.level }}
-            </el-tag>
-          </template>
-        </el-table-column>
+        <!-- 操作日志字段 -->
+        <template v-else-if="props.logType === 'operation'">
+          <el-table-column prop="log_type" label="日志类型" width="150">
+            <template #default="{ row }">
+              <el-tag :type="getLogTypeTag(row.log_type)" size="small">
+                {{ row.log_type }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          
+          <el-table-column prop="log_message" label="日志消息" min-width="300">
+            <template #default="{ row }">
+              <div class="message-cell">
+                <span class="message-text">{{ row.log_message }}</span>
+                <el-button
+                  v-if="row.error_info"
+                  type="text"
+                  size="small"
+                  @click="showDetails(row)"
+                >
+                  错误详情
+                </el-button>
+              </div>
+            </template>
+          </el-table-column>
+          
+          <el-table-column prop="affected_count" label="影响数量" width="120">
+            <template #default="{ row }">
+              <el-tag :type="row.affected_count > 0 ? 'success' : 'info'" size="small">
+                {{ row.affected_count }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          
+          <el-table-column prop="log_status" label="状态" width="100">
+            <template #default="{ row }">
+              <el-tag :type="getStatusType(row.log_status)" size="small">
+                {{ getStatusText(row.log_status) }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          
+          <el-table-column prop="log_time" label="日志时间" width="180">
+            <template #default="{ row }">
+              {{ formatDateTime(row.log_time) }}
+            </template>
+          </el-table-column>
+        </template>
         
-        <el-table-column prop="source" label="来源" width="150" />
-        
-        <el-table-column prop="message" label="消息" min-width="300">
-          <template #default="{ row }">
-            <div class="message-cell">
-              <span class="message-text">{{ row.message }}</span>
-              <el-button
-                v-if="row.details"
-                type="text"
-                size="small"
-                @click="showDetails(row)"
-              >
-                详情
-              </el-button>
-            </div>
-          </template>
-        </el-table-column>
-        
-        <el-table-column prop="user_id" label="用户ID" width="100" />
-        
-        <el-table-column prop="ip_address" label="IP地址" width="120" />
+        <!-- 默认日志字段（兼容旧版本） -->
+        <template v-else>
+          <el-table-column prop="timestamp" label="时间" width="180">
+            <template #default="{ row }">
+              {{ formatDateTime(row.timestamp) }}
+            </template>
+          </el-table-column>
+          
+          <el-table-column prop="level" label="级别" width="100">
+            <template #default="{ row }">
+              <el-tag :type="getLevelType(row.level)" size="small">
+                {{ row.level }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          
+          <el-table-column prop="source" label="来源" width="150" />
+          
+          <el-table-column prop="message" label="消息" min-width="300">
+            <template #default="{ row }">
+              <div class="message-cell">
+                <span class="message-text">{{ row.message }}</span>
+                <el-button
+                  v-if="row.details"
+                  type="text"
+                  size="small"
+                  @click="showDetails(row)"
+                >
+                  详情
+                </el-button>
+              </div>
+            </template>
+          </el-table-column>
+          
+          <el-table-column prop="user_id" label="用户ID" width="100" />
+          
+          <el-table-column prop="ip_address" label="IP地址" width="120" />
+        </template>
       </el-table>
     </el-card>
 
@@ -59,40 +160,104 @@
           <span class="detail-label">ID:</span>
           <span class="detail-value">{{ selectedLog.id }}</span>
         </div>
-        <div class="detail-item">
-          <span class="detail-label">时间:</span>
-          <span class="detail-value">{{ formatDateTime(selectedLog.timestamp) }}</span>
-        </div>
-        <div class="detail-item">
-          <span class="detail-label">级别:</span>
-          <span class="detail-value">
-            <el-tag :type="getLevelType(selectedLog.level)" size="small">
-              {{ selectedLog.level }}
-            </el-tag>
-          </span>
-        </div>
-        <div class="detail-item">
-          <span class="detail-label">来源:</span>
-          <span class="detail-value">{{ selectedLog.source }}</span>
-        </div>
-        <div class="detail-item">
-          <span class="detail-label">消息:</span>
-          <span class="detail-value">{{ selectedLog.message }}</span>
-        </div>
-        <div v-if="selectedLog.details" class="detail-item">
-          <span class="detail-label">详情:</span>
-          <div class="detail-value details-content">
-            <pre>{{ selectedLog.details }}</pre>
+        
+                 <!-- 历史采集日志详情 -->
+         <template v-if="props.logType === 'historical_collect' || props.logType === 'realtime_collect'">
+          <div class="detail-item">
+            <span class="detail-label">操作类型:</span>
+            <span class="detail-value">{{ selectedLog.operation_type }}</span>
           </div>
-        </div>
-        <div v-if="selectedLog.user_id" class="detail-item">
-          <span class="detail-label">用户ID:</span>
-          <span class="detail-value">{{ selectedLog.user_id }}</span>
-        </div>
-        <div v-if="selectedLog.ip_address" class="detail-item">
-          <span class="detail-label">IP地址:</span>
-          <span class="detail-value">{{ selectedLog.ip_address }}</span>
-        </div>
+          <div class="detail-item">
+            <span class="detail-label">操作描述:</span>
+            <span class="detail-value">{{ selectedLog.operation_desc }}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">影响行数:</span>
+            <span class="detail-value">{{ selectedLog.affected_rows }}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">状态:</span>
+            <span class="detail-value">{{ getStatusText(selectedLog.status) }}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">创建时间:</span>
+            <span class="detail-value">{{ formatDateTime(selectedLog.created_at) }}</span>
+          </div>
+          <div v-if="selectedLog.error_message" class="detail-item">
+            <span class="detail-label">错误信息:</span>
+            <div class="detail-value details-content">
+              <pre>{{ selectedLog.error_message }}</pre>
+            </div>
+          </div>
+        </template>
+        
+        <!-- 操作日志详情 -->
+        <template v-else-if="props.logType === 'operation'">
+          <div class="detail-item">
+            <span class="detail-label">日志类型:</span>
+            <span class="detail-value">{{ selectedLog.log_type }}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">日志消息:</span>
+            <span class="detail-value">{{ selectedLog.log_message }}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">影响数量:</span>
+            <span class="detail-value">{{ selectedLog.affected_count }}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">状态:</span>
+            <span class="detail-value">{{ getStatusText(selectedLog.log_status) }}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">日志时间:</span>
+            <span class="detail-value">{{ formatDateTime(selectedLog.log_time) }}</span>
+          </div>
+          <div v-if="selectedLog.error_info" class="detail-item">
+            <span class="detail-label">错误信息:</span>
+            <div class="detail-value details-content">
+              <pre>{{ selectedLog.error_info }}</pre>
+            </div>
+          </div>
+        </template>
+        
+        <!-- 默认日志详情 -->
+        <template v-else>
+          <div class="detail-item">
+            <span class="detail-label">时间:</span>
+            <span class="detail-value">{{ formatDateTime(selectedLog.timestamp) }}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">级别:</span>
+            <span class="detail-value">
+              <el-tag :type="getLevelType(selectedLog.level)" size="small">
+                {{ selectedLog.level }}
+              </el-tag>
+            </span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">来源:</span>
+            <span class="detail-value">{{ selectedLog.source }}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">消息:</span>
+            <span class="detail-value">{{ selectedLog.message }}</span>
+          </div>
+          <div v-if="selectedLog.details" class="detail-item">
+            <span class="detail-label">详情:</span>
+            <div class="detail-value details-content">
+              <pre>{{ selectedLog.details }}</pre>
+            </div>
+          </div>
+          <div v-if="selectedLog.user_id" class="detail-item">
+            <span class="detail-label">用户ID:</span>
+            <span class="detail-value">{{ selectedLog.user_id }}</span>
+          </div>
+          <div v-if="selectedLog.ip_address" class="detail-item">
+            <span class="detail-label">IP地址:</span>
+            <span class="detail-value">{{ selectedLog.ip_address }}</span>
+          </div>
+        </template>
       </div>
     </el-dialog>
   </div>
@@ -101,18 +266,21 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import dayjs from 'dayjs'
-import type { LogEntry } from '@/types/logs.types'
+import type { AnyLogEntry } from '@/types/logs.types'
 
 interface Props {
-  logs: LogEntry[]
+  logs: AnyLogEntry[]
   loading: boolean
+  logType?: 'historical_collect' | 'realtime_collect' | 'operation' | string
 }
 
-defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  logType: 'historical_collect'
+})
 
 // 详情对话框
 const detailsVisible = ref(false)
-const selectedLog = ref<LogEntry | null>(null)
+const selectedLog = ref<AnyLogEntry | null>(null)
 
 // 格式化日期时间
 const formatDateTime = (timestamp: string) => {
@@ -127,8 +295,44 @@ const getLevelType = (level: string): 'primary' | 'success' | 'warning' | 'info'
   return 'info'
 }
 
+// 获取操作类型对应的标签类型
+const getOperationTypeTag = (type: string): 'primary' | 'success' | 'warning' | 'info' | 'danger' => {
+  if (type.includes('historical')) return 'primary'
+  if (type.includes('realtime')) return 'success'
+  if (type.includes('watchlist')) return 'warning'
+  return 'info'
+}
+
+// 获取日志类型对应的标签类型
+const getLogTypeTag = (type: string): 'primary' | 'success' | 'warning' | 'info' | 'danger' => {
+  if (type.includes('error')) return 'danger'
+  if (type.includes('warning')) return 'warning'
+  if (type.includes('success')) return 'success'
+  return 'info'
+}
+
+// 获取状态对应的标签类型
+const getStatusType = (status: string): 'primary' | 'success' | 'warning' | 'info' | 'danger' => {
+  if (status === 'success') return 'success'
+  if (status === 'error') return 'danger'
+  if (status === 'partial_success') return 'warning'
+  return 'info'
+}
+
+// 获取状态文本
+const getStatusText = (status: string): string => {
+  const statusMap: Record<string, string> = {
+    'success': '成功',
+    'error': '失败',
+    'partial_success': '部分成功',
+    'pending': '待处理',
+    'running': '运行中'
+  }
+  return statusMap[status] || status
+}
+
 // 显示详情
-const showDetails = (log: LogEntry) => {
+const showDetails = (log: AnyLogEntry) => {
   selectedLog.value = log
   detailsVisible.value = true
 }

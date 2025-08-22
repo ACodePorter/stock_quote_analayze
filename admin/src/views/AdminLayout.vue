@@ -145,10 +145,12 @@ const handleLogout = async () => {
 
 .nav-item {
   @apply flex items-center px-4 py-3 text-gray-700 rounded-lg transition-colors hover:bg-gray-100;
+  text-decoration: none;
 }
 
 .nav-item.active {
   @apply bg-blue-50 text-blue-700;
+  text-decoration: none;
 }
 
 .nav-icon {
@@ -157,6 +159,17 @@ const handleLogout = async () => {
 
 .nav-text {
   @apply font-medium;
+  text-decoration: none;
+}
+
+/* 确保所有导航链接都没有下划线 */
+.nav-item,
+.nav-item:hover,
+.nav-item:focus,
+.nav-item:active,
+.nav-item.router-link-active,
+.nav-item.router-link-exact-active {
+  text-decoration: none !important;
 }
 
 .sidebar-footer {

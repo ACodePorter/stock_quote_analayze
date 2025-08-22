@@ -12,7 +12,18 @@ export class UsersService {
       params.append('search', search)
     }
     
-    return apiService.get<UsersResponse>(`/users?${params}`)
+    const url = `/users?${params}`
+    console.log('🌐 调用用户API:', url)
+    console.log('📋 请求参数:', { page, pageSize, search, skip: (page - 1) * pageSize, limit: pageSize })
+    
+    try {
+      const response = await apiService.get<UsersResponse>(url)
+      console.log('✅ 用户API调用成功:', response)
+      return response
+    } catch (error) {
+      console.error('❌ 用户API调用失败:', error)
+      throw error
+    }
   }
 
   async createUser(userData: CreateUserRequest): Promise<User> {

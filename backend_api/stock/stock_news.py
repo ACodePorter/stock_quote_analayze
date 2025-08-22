@@ -567,14 +567,36 @@ async def save_research_reports_to_db(symbol: str, research_data: list):
                 pdf_url = item.get('url', '').strip()
                 
                 # 检查是否已存在相同的研报
+                # 改进重复检测：考虑标点符号差异和内容相似性
+                existing_report = None
+                
+                # 首先尝试精确匹配
                 existing_report = db.query(StockResearchReport).filter(
                     StockResearchReport.stock_code == symbol,
                     StockResearchReport.report_name == report_name,
-                    StockResearchReport.report_date == report_date_str
+                    StockResearchReport.report_date.like(f"{report_date_str}%")
                 ).first()
                 
+                # 如果精确匹配失败，尝试模糊匹配（处理标点符号差异）
+                if not existing_report:
+                    # 标准化标题进行比较（移除标点符号差异）
+                    normalized_report_name = _normalize_title(report_name)
+                    
+                    # 查询同一天的所有研报（使用日期字符串匹配，忽略时间部分）
+                    same_date_reports = db.query(StockResearchReport).filter(
+                        StockResearchReport.stock_code == symbol,
+                        StockResearchReport.report_date.like(f"{report_date_str}%")
+                    ).all()
+                    
+                    # 检查是否有内容相似的研报
+                    for existing in same_date_reports:
+                        if _is_similar_title(report_name, existing.report_name):
+                            existing_report = existing
+                            print(f"[DEBUG] 发现相似研报（标点符号差异）: '{report_name}' vs '{existing.report_name}'")
+                            break
+                
                 if existing_report:
-                    print(f"[DEBUG] 跳过重复研报: {report_name} (已存在)")
+                    print(f"[DEBUG] 跳过重复研报: {report_name} (已存在或内容相似)")
                     skipped_count += 1
                     continue
                 
@@ -683,6 +705,52 @@ async def get_stock_industry(symbol: str) -> str:
         print(f"[get_stock_industry] 获取股票行业失败: {e}")
     
     return ""
+
+def _normalize_title(title: str) -> str:
+    """标准化研报标题，移除标点符号差异"""
+    if not title:
+        return ""
+    
+    # 替换中文标点为英文标点
+    normalized = title
+    normalized = normalized.replace('：', ':')  # 中文冒号 -> 英文冒号
+    normalized = normalized.replace('，', ',')  # 中文逗号 -> 英文逗号
+    normalized = normalized.replace('；', ';')  # 中文分号 -> 英文分号
+    normalized = normalized.replace('！', '!')  # 中文感叹号 -> 英文感叹号
+    normalized = normalized.replace('？', '?')  # 中文问号 -> 英文问号
+    normalized = normalized.replace('（', '(')  # 中文括号 -> 英文括号
+    normalized = normalized.replace('）', ')')
+    normalized = normalized.replace('【', '[')  # 中文方括号 -> 英文方括号
+    normalized = normalized.replace('】', ']')
+    normalized = normalized.replace('《', '<')  # 中文书名号 -> 英文尖括号
+    normalized = normalized.replace('》', '>')
+    
+    return normalized
+
+def _is_similar_title(title1: str, title2: str) -> bool:
+    """判断两个研报标题是否相似（考虑标点符号差异）"""
+    if not title1 or not title2:
+        return False
+    
+    # 标准化两个标题
+    norm1 = _normalize_title(title1)
+    norm2 = _normalize_title(title2)
+    
+    # 如果标准化后完全相同，认为是相似标题
+    if norm1 == norm2:
+        return True
+    
+    # 计算编辑距离，如果相似度很高也认为是相似标题
+    # 这里使用简单的字符匹配率
+    common_chars = sum(1 for c1, c2 in zip(norm1, norm2) if c1 == c2)
+    total_chars = max(len(norm1), len(norm2))
+    
+    if total_chars > 0:
+        similarity = common_chars / total_chars
+        # 如果相似度超过90%，认为是相似标题
+        return similarity > 0.9
+    
+    return False
 
 @router.get("/research_reports")
 async def get_research_reports(

@@ -300,7 +300,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { ElMessageBox } from 'element-plus'
 import {
   Plus,
@@ -383,9 +383,36 @@ const {
   total, 
   currentPage, 
   pageSize,
-  filteredUsers,
   userStats
 } = usersStore
+
+// 使用store中的searchKeyword，确保数据同步
+const filteredUsers = computed(() => {
+  console.log('🔄 计算filteredUsers:', {
+    storeUsers: usersStore.users.length,
+    storeSearchKeyword: usersStore.searchKeyword,
+    localSearchKeyword: searchKeyword.value
+  })
+  
+  if (!usersStore.searchKeyword) {
+    console.log('✅ 无搜索关键词，返回所有用户:', usersStore.users.length)
+    return usersStore.users
+  }
+  
+  const keyword = usersStore.searchKeyword.toLowerCase()
+  const filtered = usersStore.users.filter(user =>
+    user.username.toLowerCase().includes(keyword) ||
+    user.email.toLowerCase().includes(keyword)
+  )
+  
+  console.log('🔍 搜索过滤结果:', {
+    keyword,
+    totalUsers: usersStore.users.length,
+    filteredCount: filtered.length
+  })
+  
+  return filtered
+})
 
 // Methods
 const formatDate = (dateStr: string) => {
@@ -429,6 +456,7 @@ const getStatusTagType = (status: string): 'success' | 'primary' | 'warning' | '
 }
 
 const handleSearch = () => {
+  // 直接调用store的搜索方法，确保数据同步
   usersStore.setSearchKeyword(searchKeyword.value)
 }
 
@@ -546,8 +574,15 @@ const handleUserAction = async (action: string, user: UserType) => {
 }
 
 // Lifecycle
-onMounted(() => {
-  usersStore.fetchUsers()
+onMounted(async () => {
+  console.log('🚀 用户管理页面已挂载，开始加载数据...')
+  
+  try {
+    await usersStore.fetchUsers()
+    console.log('✅ 用户数据加载完成')
+  } catch (error) {
+    console.error('❌ 用户数据加载失败:', error)
+  }
 })
 </script> 
 

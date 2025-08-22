@@ -1,8 +1,12 @@
 <template>
   <div class="logs-view">
-    <div class="logs-header">
-      <h1 class="text-2xl font-bold text-gray-900">系统日志</h1>
-      <div class="flex gap-2">
+    <!-- 页面标题区域 - 已隐藏 -->
+    <!-- <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; padding: 16px; background-color: #f8f9fa; border-radius: 8px;">
+      <div style="flex: 1;">
+        <div style="font-size: 14px; color: #6b7280; margin-bottom: 8px;">管理后台 / 系统日志</div>
+        <h1 style="font-size: 24px; font-weight: bold; color: #111827; margin: 0;">系统日志</h1>
+      </div>
+      <div style="display: flex; gap: 8px;">
         <el-button @click="refreshLogs" :loading="loading">
           <el-icon><Refresh /></el-icon>
           刷新
@@ -12,7 +16,7 @@
           导出
         </el-button>
       </div>
-    </div>
+    </div> -->
 
     <!-- 统计信息 -->
     <LogsStats :stats="stats" />
@@ -30,6 +34,31 @@
         <LogsTable 
           :logs="filteredLogs"
           :loading="loading"
+          :log-type="currentTab"
+          @refresh="loadLogs"
+        />
+
+        <!-- 分页 -->
+        <LogsPagination 
+          v-model:current="pagination.current"
+          v-model:page-size="pagination.pageSize"
+          :total="pagination.total"
+          @change="handlePageChange"
+        />
+      </el-tab-pane>
+
+      <el-tab-pane label="实时行情采集日志" name="realtime_collect">
+        <!-- 过滤器 -->
+        <LogsFilter 
+          :filters="filters"
+          @update-filters="updateFilters"
+        />
+
+        <!-- 日志表格 -->
+        <LogsTable 
+          :logs="filteredLogs"
+          :loading="loading"
+          :log-type="currentTab"
           @refresh="loadLogs"
         />
 
@@ -53,6 +82,7 @@
         <LogsTable 
           :logs="filteredLogs"
           :loading="loading"
+          :log-type="currentTab"
           @refresh="loadLogs"
         />
 
@@ -88,6 +118,7 @@ import LogsFilter from '@/components/logs/LogsFilter.vue'
 import LogsTable from '@/components/logs/LogsTable.vue'
 import LogsPagination from '@/components/logs/LogsPagination.vue'
 
+
 const logsStore = useLogsStore()
 
 // 从store获取状态
@@ -118,7 +149,7 @@ const refreshLogs = () => {
   refresh()
 }
 
-type TabName = 'historical_collect' | 'operation'
+type TabName = 'historical_collect' | 'realtime_collect' | 'operation'
 const onTabChange = (name: string | number) => {
   switchTab(String(name) as TabName)
 }
@@ -136,10 +167,8 @@ onMounted(() => {
 
 <style scoped>
 .logs-view {
-  @apply space-y-6;
+  margin-top: 24px;
 }
 
-.logs-header {
-  @apply flex justify-between items-center;
-}
+/* 移除可能有问题的Tailwind样式 */
 </style> 

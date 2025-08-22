@@ -50,21 +50,55 @@ export const useUsersStore = defineStore('users', () => {
     error.value = null
     
     try {
-      console.log('Fetching users...', { page: currentPage.value, pageSize: pageSize.value, search: searchKeyword.value })
+      console.log('🔄 开始获取用户列表...', { 
+        page: currentPage.value, 
+        pageSize: pageSize.value, 
+        search: searchKeyword.value 
+      })
+      
       const response = await usersService.getUsers(
         currentPage.value,
         pageSize.value,
         searchKeyword.value
       )
-      console.log('Users response:', response)
-      users.value = response.data
-      total.value = response.total
+      
+      console.log('✅ 用户API响应成功:', response)
+      console.log('📊 响应数据结构:', {
+        hasData: !!response.data,
+        dataLength: response.data?.length || 0,
+        total: response.total,
+        page: response.page,
+        pageSize: response.pageSize
+      })
+      
+      if (response.data && Array.isArray(response.data)) {
+        users.value = response.data
+        total.value = response.total
+        console.log(`✅ 用户数据更新成功: ${users.value.length} 个用户`)
+      } else {
+        console.warn('⚠️ 响应数据格式异常:', response)
+        users.value = []
+        total.value = 0
+      }
+      
     } catch (err: any) {
-      console.error('Error fetching users:', err)
+      console.error('❌ 获取用户列表失败:', err)
+      console.error('错误详情:', {
+        message: err.message,
+        status: err.status,
+        response: err.response,
+        stack: err.stack
+      })
+      
       error.value = err.message || '获取用户列表失败'
       ElMessage.error(error.value || '获取用户列表失败')
+      
+      // 清空数据，避免显示旧数据
+      users.value = []
+      total.value = 0
     } finally {
       loading.value = false
+      console.log('🔄 用户列表获取完成，loading状态:', loading.value)
     }
   }
 
@@ -74,8 +108,8 @@ export const useUsersStore = defineStore('users', () => {
     
     try {
       const newUser = await usersService.createUser(userData)
-      users.value.unshift(newUser)
-      total.value++
+      // 重新获取用户列表以确保数据一致性
+      await fetchUsers()
       ElMessage.success('用户创建成功')
       return newUser
     } catch (err: any) {
@@ -93,10 +127,8 @@ export const useUsersStore = defineStore('users', () => {
     
     try {
       const updatedUser = await usersService.updateUser(userId, userData)
-      const index = users.value.findIndex(user => user.id === userId)
-      if (index !== -1) {
-        users.value[index] = updatedUser
-      }
+      // 重新获取用户列表以确保数据一致性
+      await fetchUsers()
       ElMessage.success('用户信息更新成功')
       return updatedUser
     } catch (err: any) {
@@ -111,10 +143,8 @@ export const useUsersStore = defineStore('users', () => {
   const updateUserStatus = async (userId: number, status: string) => {
     try {
       await usersService.updateUserStatus(userId, status)
-      const user = users.value.find(u => u.id === userId)
-      if (user) {
-        user.status = status as 'active' | 'inactive' | 'suspended'
-      }
+      // 重新获取用户列表以确保数据一致性
+      await fetchUsers()
       ElMessage.success('用户状态更新成功')
     } catch (err: any) {
       error.value = err.message || '更新用户状态失败'
@@ -126,11 +156,8 @@ export const useUsersStore = defineStore('users', () => {
   const deleteUser = async (userId: number) => {
     try {
       await usersService.deleteUser(userId)
-      const index = users.value.findIndex(user => user.id === userId)
-      if (index !== -1) {
-        users.value.splice(index, 1)
-        total.value--
-      }
+      // 重新获取用户列表以确保数据一致性
+      await fetchUsers()
       ElMessage.success('用户删除成功')
     } catch (err: any) {
       error.value = err.message || '删除用户失败'
@@ -151,9 +178,11 @@ export const useUsersStore = defineStore('users', () => {
   }
 
   const setSearchKeyword = (keyword: string) => {
+    console.log('🔍 设置搜索关键词:', keyword)
     searchKeyword.value = keyword
     currentPage.value = 1
-    fetchUsers()
+    // 搜索是前端过滤，不需要重新请求API
+    // fetchUsers()
   }
 
   const clearError = () => {

@@ -26,6 +26,27 @@ export class LogsService {
     return apiService.get<LogsResponse>(`/logs/query/historical_collect?${queryParams}`)
   }
 
+  async getRealtimeLogs(params: LogFilter & { page: number; pageSize: number }): Promise<LogsResponse> {
+    const queryParams = new URLSearchParams()
+    
+    if (params.level !== 'all') {
+      queryParams.append('level', params.level)
+    }
+    if (params.startDate) {
+      queryParams.append('start_date', params.startDate)
+    }
+    if (params.endDate) {
+      queryParams.append('end_date', params.endDate)
+    }
+    if (params.keyword) {
+      queryParams.append('keyword', params.keyword)
+    }
+    queryParams.append('page', params.page.toString())
+    queryParams.append('page_size', params.pageSize.toString())
+    
+    return apiService.get<LogsResponse>(`/logs/query/realtime_collect?${queryParams}`)
+  }
+
   async getOperationLogs(params: LogFilter & { page: number; pageSize: number }): Promise<LogsResponse> {
     const queryParams = new URLSearchParams()
     

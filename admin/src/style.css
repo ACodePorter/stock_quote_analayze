@@ -28,6 +28,28 @@ body {
   background-color: transparent;
 }
 
+/* 全局导航链接样式 - 去掉下划线 */
+.nav-item,
+.nav-item:hover,
+.nav-item:focus,
+.nav-item:active,
+.nav-item.router-link-active,
+.nav-item.router-link-exact-active,
+a.nav-item,
+a.nav-item:hover,
+a.nav-item:focus,
+a.nav-item:active,
+a.nav-item.router-link-active,
+a.nav-item.router-link-exact-active {
+  text-decoration: none !important;
+}
+
+/* 确保router-link没有默认的下划线 */
+.router-link-active,
+.router-link-exact-active {
+  text-decoration: none !important;
+}
+
 /* Loading animation */
 .el-loading-mask {
   z-index: 9999;
