@@ -273,11 +273,20 @@ async def get_realtime_quote_by_code(code: str = Query(None, description="股票
         print("[realtime_quote_by_code] 缺少参数")
         return JSONResponse({"success": False, "message": "缺少股票代码参数code"}, status_code=400)
     try:
-        df = ak.stock_bid_ask_em(symbol=code)
-        if df.empty:
+        # 优先从数据库获取市盈率等财务指标数据
+        db = next(get_db())
+        db_stock_data = db.query(StockRealtimeQuote).filter(StockRealtimeQuote.code == code).first()
+        
+        # 获取买卖盘数据
+        df_bid_ask = ak.stock_bid_ask_em(symbol=code)
+        if df_bid_ask.empty:
             print(f"[realtime_quote_by_code] 未找到股票代码: {code}")
+            db.close()
             return JSONResponse({"success": False, "message": f"未找到股票代码: {code}"}, status_code=404)
-        data_dict = dict(zip(df['item'], df['value']))
+        
+        # 合并数据
+        bid_ask_dict = dict(zip(df_bid_ask['item'], df_bid_ask['value']))
+        
         def fmt(val):
             try:
                 if val is None:
@@ -285,28 +294,55 @@ async def get_realtime_quote_by_code(code: str = Query(None, description="股票
                 return f"{float(val):.2f}"
             except Exception:
                 return None
+        
         # 增加均价字段
         avg_price = None
         try:
             # 优先用akshare返回的均价字段
-            avg_price = data_dict.get("均价") or data_dict.get("成交均价")
-            if avg_price is None and data_dict.get("金额") and data_dict.get("总手") and float(data_dict.get("总手")) != 0:
-                avg_price = float(data_dict.get("金额")) / float(data_dict.get("总手"))
+            avg_price = bid_ask_dict.get("均价") or bid_ask_dict.get("成交均价")
+            if avg_price is None and bid_ask_dict.get("金额") and bid_ask_dict.get("总手") and float(bid_ask_dict.get("总手")) != 0:
+                avg_price = float(bid_ask_dict.get("金额")) / float(bid_ask_dict.get("总手"))
         except Exception:
             avg_price = None
+        
+        # 优先从数据库获取市盈率数据，如果数据库没有则从akshare获取
+        pe_dynamic = None
+        if db_stock_data and db_stock_data.pe_dynamic is not None:
+            # 从数据库获取市盈率
+            pe_dynamic = fmt(db_stock_data.pe_dynamic)
+            print(f"[realtime_quote_by_code] 从数据库获取市盈率: {pe_dynamic}")
+        else:
+            # 数据库没有市盈率数据，从akshare获取作为备选
+            try:
+                df_spot = ak.stock_zh_a_spot_em()
+                stock_spot_data = df_spot[df_spot['代码'] == code]
+                if not stock_spot_data.empty:
+                    pe_dynamic = stock_spot_data.iloc[0]['市盈率-动态']
+                    if pd.isna(pe_dynamic):
+                        pe_dynamic = None
+                    else:
+                        pe_dynamic = fmt(pe_dynamic)
+                    print(f"[realtime_quote_by_code] 从akshare获取市盈率: {pe_dynamic}")
+            except Exception as e:
+                print(f"[realtime_quote_by_code] 从akshare获取市盈率失败: {e}")
+                pe_dynamic = None
+        
+        # 关闭数据库连接
+        db.close()
+        
         result = {
             "code": code,
-            "current_price": fmt(data_dict.get("最新")),
-            "change_amount": fmt(data_dict.get("涨跌")),
-            "change_percent": fmt(data_dict.get("涨幅")),
-            "open": fmt(data_dict.get("今开")),
-            "pre_close": fmt(data_dict.get("昨收")),
-            "high": fmt(data_dict.get("最高")),
-            "low": fmt(data_dict.get("最低")),
-            "volume": fmt(data_dict.get("总手")),
-            "turnover": fmt(data_dict.get("金额")),
-            "turnover_rate": fmt(data_dict.get("换手")),
-            "pe_dynamic": fmt(data_dict.get("市盈率-动态")),
+            "current_price": fmt(bid_ask_dict.get("最新")),
+            "change_amount": fmt(bid_ask_dict.get("涨跌")),
+            "change_percent": fmt(bid_ask_dict.get("涨幅")),
+            "open": fmt(bid_ask_dict.get("今开")),
+            "pre_close": fmt(bid_ask_dict.get("昨收")),
+            "high": fmt(bid_ask_dict.get("最高")),
+            "low": fmt(bid_ask_dict.get("最低")),
+            "volume": fmt(bid_ask_dict.get("总手")),
+            "turnover": fmt(bid_ask_dict.get("金额")),
+            "turnover_rate": fmt(bid_ask_dict.get("换手")),
+            "pe_dynamic": pe_dynamic,
             "average_price": fmt(avg_price),
         }
         print(f"[realtime_quote_by_code] 输出数据: {result}")

@@ -109,17 +109,17 @@ VITE_API_BASE_URL=https://your-domain.com/api/admin
 
 1. **构建前端**
    ```bash
-   cd admin-modern
+   cd admin
    npm run build
    ```
 
 2. **部署到服务器**
-   - 将 `dist` 目录的内容上传到服务器的 `run/admin-modern` 目录
+   - 将 `dist` 目录的内容上传到服务器的 `run/admin` 目录
    - 确保目录结构正确
 
 3. **启动服务**
    ```bash
-   # 在 run/admin-modern 目录下启动服务
+   # 在 run/admin 目录下启动服务
    python -m http.server 8001
    # 或者使用其他静态文件服务器
    ```

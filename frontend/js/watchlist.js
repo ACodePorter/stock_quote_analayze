@@ -319,9 +319,12 @@ const WatchlistPage = {
                 <td class="positive">${this.formatPrice(stock.high)}</td>
                 <td class="negative">${this.formatPrice(stock.low)}</td>
                 <td>${this.formatVolume(stock.volume)}</td>
-                <td>
-                    <button class="btn btn-secondary" style="margin-right:8px;" onclick="goToStock('${stock.code}', '${stock.name}')">详情</button>
-                    <button class="btn btn-danger remove-btn">删除</button>
+                <td style="min-width: 280px;">
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                        <button class="btn btn-secondary" onclick="goToStock('${stock.code}', '${stock.name}')">详情</button>
+                        <button class="btn btn-primary" onclick="goToStockHistory('${stock.code}')">历史</button>
+                        <button class="btn btn-danger remove-btn">删除</button>
+                    </div>
                 </td>
             </tr>
         `).join('');

@@ -162,7 +162,7 @@
         </div>
         
                  <!-- 历史采集日志详情 -->
-         <template v-if="props.logType === 'historical_collect' || props.logType === 'realtime_collect'">
+         <template v-if="(props.logType === 'historical_collect' || props.logType === 'realtime_collect') && selectedLog && isCollectLogEntry(selectedLog)">
           <div class="detail-item">
             <span class="detail-label">操作类型:</span>
             <span class="detail-value">{{ selectedLog.operation_type }}</span>
@@ -192,7 +192,7 @@
         </template>
         
         <!-- 操作日志详情 -->
-        <template v-else-if="props.logType === 'operation'">
+        <template v-else-if="props.logType === 'operation' && selectedLog && isOperationLogEntry(selectedLog)">
           <div class="detail-item">
             <span class="detail-label">日志类型:</span>
             <span class="detail-value">{{ selectedLog.log_type }}</span>
@@ -222,7 +222,7 @@
         </template>
         
         <!-- 默认日志详情 -->
-        <template v-else>
+        <template v-else-if="selectedLog && isLogEntry(selectedLog)">
           <div class="detail-item">
             <span class="detail-label">时间:</span>
             <span class="detail-value">{{ formatDateTime(selectedLog.timestamp) }}</span>
@@ -266,7 +266,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import dayjs from 'dayjs'
-import type { AnyLogEntry } from '@/types/logs.types'
+import type { AnyLogEntry, LogEntry, OperationLogEntry, HistoricalCollectLogEntry, RealtimeCollectLogEntry } from '@/types/logs.types'
 
 interface Props {
   logs: AnyLogEntry[]
@@ -281,6 +281,19 @@ const props = withDefaults(defineProps<Props>(), {
 // 详情对话框
 const detailsVisible = ref(false)
 const selectedLog = ref<AnyLogEntry | null>(null)
+
+// 类型守卫函数
+const isLogEntry = (log: AnyLogEntry): log is LogEntry => {
+  return 'timestamp' in log && 'level' in log && 'source' in log && 'message' in log
+}
+
+const isOperationLogEntry = (log: AnyLogEntry): log is OperationLogEntry => {
+  return 'log_type' in log && 'log_message' in log && 'log_time' in log
+}
+
+const isCollectLogEntry = (log: AnyLogEntry): log is HistoricalCollectLogEntry | RealtimeCollectLogEntry => {
+  return 'operation_type' in log && 'operation_desc' in log && 'created_at' in log
+}
 
 // 格式化日期时间
 const formatDateTime = (timestamp: string) => {

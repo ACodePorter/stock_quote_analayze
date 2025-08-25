@@ -111,7 +111,7 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
 import { storeToRefs } from 'pinia'
-import { Refresh, Download } from '@element-plus/icons-vue'
+
 import { useLogsStore } from '@/stores/logs'
 import LogsStats from '@/components/logs/LogsStats.vue'
 import LogsFilter from '@/components/logs/LogsFilter.vue'
@@ -139,15 +139,10 @@ const {
   updatePagination, 
   switchTab, 
   loadLogs,
-  refresh,
-  exportLogs,
   clearError 
 } = logsStore
 
-// 方法
-const refreshLogs = () => {
-  refresh()
-}
+
 
 type TabName = 'historical_collect' | 'realtime_collect' | 'operation'
 const onTabChange = (name: string | number) => {

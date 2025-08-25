@@ -60,14 +60,13 @@ class ProjectPackager:
             "frontend/**/*",
             "frontend/*.html",
             "frontend/*.txt",
-            "admin-modern/**/*",
-            "admin-modern/*.html",
-            "admin-modern/*.json",
-            "admin-modern/*.js",
-            "admin-modern/*.ts",
-            "admin-modern/*.vue",
-            "admin-modern/*.css",
-            "admin-modern/*.md",
+            "admin/**/*",
+            "admin/*.json",
+            "admin/*.js",
+            "admin/*.ts",
+            "admin/*.md",
+            "admin/*.sh",
+            "admin/*.bat",
             
             # 根目录重要文件
             "requirements.txt",
@@ -94,8 +93,8 @@ class ProjectPackager:
             "init_postgresql_db.py",
             "create_stock_news_table.py",
             "update_historical_quotes_name.py",
-            "database/**/*",
-            
+            # "database/**/*",  # database目录不打包
+
             # 部署相关
             "deploy.py",
             "package.py",
@@ -109,9 +108,8 @@ class ProjectPackager:
             "quick_dependency_check.py",
             "test_*.py",
             
-            # 文档
-            "docs/**/*",
-            "*.md",
+            # 文档（不打包docs目录）
+            # "*.md",  # md文件不打包
             
             # 配置文件
             ".gitattributes",
@@ -488,7 +486,13 @@ class ProjectPackager:
             "backend_api/**/*.py",
             "backend_core/**/*.py",
             "frontend/**/*",
-            "admin-modern/**/*",
+            "admin/**/*",
+            "admin/*.json",
+            "admin/*.js",
+            "admin/*.ts",
+            "admin/*.md",
+            "admin/*.sh",
+            "admin/*.bat",
             "requirements.txt",
             "requirements-prod.txt",
             "start_system.py",

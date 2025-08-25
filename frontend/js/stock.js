@@ -54,6 +54,7 @@ const StockPage = {
     currentChartType: 'kline',
     currentPeriod: '1d',
     analysisDataLoaded: false, // 添加标志跟踪智能分析数据是否已加载
+    isInWatchlist: false, // 跟踪股票是否已在自选股中
     //API_BASE_URL: 'http://192.168.31.237:5000',
 
     // 初始化
@@ -64,6 +65,7 @@ const StockPage = {
         this.bindEvents();
         this.initCharts();
         this.loadStockData();
+        this.checkWatchlistStatus(); // 检查自选股状态
         this.startDataUpdate();
     },
 
@@ -181,19 +183,121 @@ const StockPage = {
         }, 500); // 延迟500ms确保header组件加载完成
     },
 
-    // 切换自选股状态
-    toggleWatchlist() {
-        const toggleBtn = document.querySelector('.watchlist-toggle');
-        const isActive = toggleBtn.classList.contains('active');
+    // 检查自选股状态
+    async checkWatchlistStatus() {
+        try {
+            // 检查用户是否已登录
+            const userInfo = CommonUtils.auth.getUserInfo();
+            if (!userInfo || !userInfo.id) {
+                console.log('用户未登录，跳过自选股状态检查');
+                return;
+            }
+
+            // 调用后端API获取用户自选股列表
+            const res = await authFetch(`${API_BASE_URL}/api/watchlist`);
+            const result = await res.json();
+            
+            if (result.success && result.data) {
+                // 检查当前股票是否在自选股列表中
+                this.isInWatchlist = result.data.some(item => item.code === this.stockCode);
+                console.log(`股票 ${this.stockCode} 自选股状态:`, this.isInWatchlist);
+            } else {
+                this.isInWatchlist = false;
+            }
+        } catch (error) {
+            console.error('检查自选股状态失败:', error);
+            this.isInWatchlist = false;
+        }
         
-        if (isActive) {
-            toggleBtn.classList.remove('active');
-            toggleBtn.textContent = '⭐ 自选';
-            CommonUtils.showToast(`已从自选股中移除 ${this.stockName}`, 'info');
-        } else {
+        // 更新按钮显示
+        this.updateWatchlistButton();
+    },
+
+    // 更新自选股按钮状态
+    updateWatchlistButton() {
+        const toggleBtn = document.querySelector('.watchlist-toggle');
+        if (!toggleBtn) return;
+        
+        if (this.isInWatchlist) {
             toggleBtn.classList.add('active');
             toggleBtn.textContent = '⭐ 已自选';
-            CommonUtils.showToast(`已添加 ${this.stockName} 到自选股`, 'success');
+        } else {
+            toggleBtn.classList.remove('active');
+            toggleBtn.textContent = '⭐ 自选';
+        }
+    },
+
+    // 切换自选股状态
+    async toggleWatchlist() {
+        // 检查用户登录状态
+        const userInfo = CommonUtils.auth.getUserInfo();
+        if (!userInfo || !userInfo.id) {
+            CommonUtils.showToast('请先登录后再操作自选股', 'warning');
+            return;
+        }
+
+        if (this.isInWatchlist) {
+            // 从自选股中删除
+            await this.removeFromWatchlist();
+        } else {
+            // 添加到自选股
+            await this.addToWatchlist();
+        }
+    },
+
+    // 添加到自选股
+    async addToWatchlist() {
+        try {
+            const userInfo = CommonUtils.auth.getUserInfo();
+            const res = await authFetch(`${API_BASE_URL}/api/watchlist`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    user_id: userInfo.id,
+                    stock_code: this.stockCode,
+                    stock_name: this.stockName,
+                    group_name: 'default'
+                })
+            });
+            
+            const result = await res.json();
+            if (result.success) {
+                this.isInWatchlist = true;
+                this.updateWatchlistButton();
+                CommonUtils.showToast(`已添加 ${this.stockName} 到自选股`, 'success');
+            } else {
+                CommonUtils.showToast(result.message || '添加失败', 'error');
+            }
+        } catch (error) {
+            console.error('添加到自选股失败:', error);
+            CommonUtils.showToast('网络错误，添加失败', 'error');
+        }
+    },
+
+    // 从自选股删除
+    async removeFromWatchlist() {
+        try {
+            const userInfo = CommonUtils.auth.getUserInfo();
+            const res = await authFetch(`${API_BASE_URL}/api/watchlist/delete_by_code`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    user_id: userInfo.id,
+                    stock_code: this.stockCode
+                })
+            });
+            
+            const result = await res.json();
+            if (result.success) {
+                this.isInWatchlist = false;
+                this.updateWatchlistButton();
+                CommonUtils.showToast(`已从自选股中移除 ${this.stockName}`, 'info');
+            } else {
+                CommonUtils.showToast(result.message || '删除失败', 'error');
+            }
+        } catch (error) {
+            console.error('从自选股删除失败:', error);
+            CommonUtils.showToast('网络错误，删除失败', 'error');
         }
     },
 

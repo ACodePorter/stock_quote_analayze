@@ -136,7 +136,7 @@ scheduler.add_job(
     id='akshare_industry_board_realtime',
 )
 
-# A股公告数据采集任务，每60分钟采集一次
+# A股公告数据采集任务，每240分钟采集一次
 scheduler.add_job(
     collect_akshare_stock_notices,
     'interval',
@@ -144,13 +144,12 @@ scheduler.add_job(
     id='akshare_stock_notices',
 )
 
-# 自选股历史行情采集任务，每天下午3点8分执行一次
+# 自选股历史行情采集任务，每5分钟执行一次
 scheduler.add_job(
     run_watchlist_history_collection,
     'cron',
-    hour=9,
-    minute=17,
-    id='watchlist_history_daily',
+    minute='*/5',
+    id='watchlist_history_every_5_minutes',
 )
 
 if __name__ == "__main__":

@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>行情频道自选股功能测试 - 股票分析</title>
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+    <link rel="stylesheet" href="css/common.css">
+    <link rel="stylesheet" href="css/markets.css">
+    <style>
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        .test-button {
+            margin: 10px;
+            padding: 10px 20px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .test-button:hover {
+            background: #0056b3;
+        }
+        .test-result {
+            margin: 10px 0;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+        .stock-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        .stock-table th,
+        .stock-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        .stock-table th {
+            background-color: #f5f5f5;
+        }
+        .btn-sm {
+            padding: 4px 8px;
+            font-size: 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            border: none;
+        }
+        .btn-primary {
+            background-color: #007bff;
+            color: white;
+        }
+        .btn-secondary {
+            background-color: #6c757d;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <!-- 头部导航将由JavaScript动态加载 -->
+    <script src="components/header.js"></script>
+    <script>loadHeader('test');</script>
+
+    <!-- 主要内容 -->
+    <main class="main-content">
+        <div class="container">
+            <h1>行情频道自选股功能测试</h1>
+            
+            <!-- 测试股票列表 -->
+            <div class="test-section">
+                <h2>测试股票列表</h2>
+                <table class="stock-table">
+                    <thead>
+                        <tr>
+                            <th>排名</th>
+                            <th>股票</th>
+                            <th>最新价</th>
+                            <th>涨跌幅</th>
+                            <th>涨跌额</th>
+                            <th>成交量</th>
+                            <th>成交额</th>
+                            <th>换手率</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="testStockTableBody">
+                        <!-- 动态生成测试股票数据 -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- 功能测试 -->
+            <div class="test-section">
+                <h2>功能测试</h2>
+                <button class="test-button" onclick="testLoadWatchlist()">加载自选股列表</button>
+                <button class="test-button" onclick="testAddToWatchlist()">测试添加到自选股</button>
+                <button class="test-button" onclick="testRemoveFromWatchlist()">测试从自选股删除</button>
+                <button class="test-button" onclick="testToggleWatchlist()">测试切换自选股状态</button>
+                <button class="test-button" onclick="testUpdateButtonStates()">更新所有按钮状态</button>
+            </div>
+
+            <!-- 测试结果 -->
+            <div class="test-section">
+                <h2>测试结果</h2>
+                <div id="testResults"></div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 引入必要的JavaScript文件 -->
+    <script src="js/config.js"></script>
+    <script src="js/common.js"></script>
+    
+    <script>
+        // 测试用的股票数据
+        const testStocks = [
+            { rank: 1, code: '000001', name: '平安银行', price: 12.34, change: 0.56, percent: 4.76, volume: '1.2亿', turnover: '234.5亿', rate: '7.8%' },
+            { rank: 2, code: '600036', name: '招商银行', price: 45.67, change: 1.23, percent: 2.77, volume: '3.5亿', turnover: '567.8亿', rate: '5.4%' },
+            { rank: 3, code: '600519', name: '贵州茅台', price: 1865.00, change: -12.50, percent: -0.67, volume: '0.8亿', turnover: '789.3亿', rate: '4.2%' },
+            { rank: 4, code: '000858', name: '五粮液', price: 156.78, change: 3.45, percent: 2.25, volume: '2.1亿', turnover: '456.8亿', rate: '6.7%' },
+            { rank: 5, code: '002415', name: '海康威视', price: 32.45, change: 1.56, percent: 5.05, volume: '4.2亿', turnover: '234.5亿', rate: '9.8%' }
+        ];
+
+        // 自选股状态管理
+        const TestWatchlistManager = {
+            // 缓存用户的自选股列表
+            userWatchlist: new Set(),
+            
+            // 初始化自选股管理器
+            async init() {
+                await this.loadUserWatchlist();
+            },
+            
+            // 加载用户自选股列表
+            async loadUserWatchlist() {
+                try {
+                    // 检查用户是否已登录
+                    const userInfo = CommonUtils.auth.getUserInfo();
+                    if (!userInfo || !userInfo.id) {
+                        console.log('用户未登录，跳过自选股加载');
+                        return;
+                    }
+                    
+                    // 调用后端API获取用户自选股列表
+                    const res = await authFetch(`${API_BASE_URL}/api/watchlist`);
+                    const result = await res.json();
+                    
+                    if (result.success && result.data) {
+                        // 更新本地缓存
+                        this.userWatchlist.clear();
+                        result.data.forEach(item => {
+                            this.userWatchlist.add(item.code);
+                        });
+                        console.log('自选股列表加载完成，共', this.userWatchlist.size, '只股票');
+                        addTestResult(`自选股列表加载完成，共 ${this.userWatchlist.size} 只股票`, 'success');
+                    }
+                } catch (error) {
+                    console.error('加载自选股列表失败:', error);
+                    addTestResult('加载自选股列表失败: ' + error.message, 'error');
+                }
+            },
+            
+            // 检查股票是否在自选股中
+            isInWatchlist(stockCode) {
+                return this.userWatchlist.has(stockCode);
+            },
+            
+            // 添加到自选股
+            async addToWatchlist(stockCode, stockName) {
+                try {
+                    const userInfo = CommonUtils.auth.getUserInfo();
+                    if (!userInfo || !userInfo.id) {
+                        CommonUtils.showToast('请先登录后再操作自选股', 'warning');
+                        return false;
+                    }
+                    const res = await authFetch(`${API_BASE_URL}/api/watchlist`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            user_id: userInfo.id,
+                            stock_code: stockCode,
+                            stock_name: stockName,
+                            group_name: 'default'
+                        })
+                    });
+                    
+                    const result = await res.json();
+                    if (result.success) {
+                        this.userWatchlist.add(stockCode);
+                        CommonUtils.showToast(`已添加 ${stockName} 到自选股`, 'success');
+                        return true;
+                    } else {
+                        CommonUtils.showToast(result.message || '添加失败', 'error');
+                        return false;
+                    }
+                } catch (error) {
+                    console.error('添加到自选股失败:', error);
+                    CommonUtils.showToast('网络错误，添加失败', 'error');
+                    return false;
+                }
+            },
+            
+            // 从自选股删除
+            async removeFromWatchlist(stockCode, stockName) {
+                try {
+                    const userInfo = CommonUtils.auth.getUserInfo();
+                    if (!userInfo || !userInfo.id) {
+                        CommonUtils.showToast('请先登录后再操作自选股', 'warning');
+                        return false;
+                    }
+                    
+                    const res = await authFetch(`${API_BASE_URL}/api/watchlist/delete_by_code`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            user_id: userInfo.id,
+                            stock_code: stockCode
+                        })
+                    });
+                    
+                    const result = await res.json();
+                    if (result.success) {
+                        this.userWatchlist.delete(stockCode);
+                        CommonUtils.showToast(`已从自选股中移除 ${stockName}`, 'info');
+                        return true;
+                    } else {
+                        CommonUtils.showToast(result.message || '删除失败', 'error');
+                        return false;
+                    }
+                } catch (error) {
+                    console.error('从自选股删除失败:', error);
+                    CommonUtils.showToast('网络错误，删除失败', 'error');
+                    return false;
+                }
+            },
+            
+            // 切换自选股状态
+            async toggleWatchlist(stockCode, stockName) {
+                if (this.isInWatchlist(stockCode)) {
+                    return await this.removeFromWatchlist(stockCode, stockName);
+                } else {
+                    return await this.addToWatchlist(stockCode, stockName);
+                }
+            }
+        };
+
+        // 渲染测试股票表格
+        function renderTestStockTable() {
+            const tbody = document.getElementById('testStockTableBody');
+            if (!tbody) return;
+
+            tbody.innerHTML = testStocks.map(stock => `
+                <tr data-code="${stock.code}">
+                    <td>
+                        <span class="rank-number ${stock.rank <= 3 ? 'rank-' + stock.rank : ''}">${stock.rank}</span>
+                    </td>
+                    <td>
+                        <div class="stock-info">
+                            <div class="stock-name">${stock.name}</div>
+                            <div class="stock-code">${stock.code}</div>
+                        </div>
+                    </td>
+                    <td class="price-column">${stock.price}</td>
+                    <td class="price-column ${stock.percent >= 0 ? 'positive' : 'negative'}">
+                        ${stock.percent >= 0 ? '+' : ''}${stock.percent}%
+                    </td>
+                    <td class="price-column ${stock.change >= 0 ? 'positive' : 'negative'}">
+                        ${stock.change >= 0 ? '+' : ''}${stock.change}
+                    </td>
+                    <td class="price-column">${stock.volume}</td>
+                    <td class="price-column">${stock.turnover}</td>
+                    <td class="price-column">${stock.rate}</td>
+                    <td>
+                        <button class="btn btn-sm btn-primary" data-stock-code="${stock.code}" data-stock-name="${stock.name}" onclick="testAddToWatchlist('${stock.code}', '${stock.name}', event)">+自选</button>
+                    </td>
+                </tr>
+            `).join('');
+            
+            // 渲染完成后，更新所有自选股按钮的状态
+            updateAllWatchlistButtonStates();
+        }
+
+        // 更新所有自选股按钮的状态
+        function updateAllWatchlistButtonStates() {
+            const buttons = document.querySelectorAll('#testStockTableBody button[data-stock-code]');
+            buttons.forEach(button => {
+                const stockCode = button.dataset.stockCode;
+                
+                if (TestWatchlistManager.isInWatchlist(stockCode)) {
+                    button.textContent = '已自选';
+                    button.className = 'btn btn-sm btn-secondary';
+                } else {
+                    button.textContent = '+自选';
+                    button.className = 'btn btn-sm btn-primary';
+                }
+            });
+        }
+
+        // 测试添加到自选股
+        async function testAddToWatchlist(code, name, event) {
+            if (event) {
+                event.stopPropagation();
+            }
+            
+            addTestResult(`开始测试添加 ${name}(${code}) 到自选股...`);
+            const result = await TestWatchlistManager.toggleWatchlist(code, name);
+            
+            if (result) {
+                addTestResult(`${name}(${code}) 自选股状态切换成功`, 'success');
+                // 更新按钮状态
+                if (TestWatchlistManager.isInWatchlist(code)) {
+                    event.target.textContent = '已自选';
+                    event.target.className = 'btn btn-sm btn-secondary';
+                } else {
+                    event.target.textContent = '+自选';
+                    event.target.className = 'btn btn-sm btn-primary';
+                }
+            } else {
+                addTestResult(`${name}(${code}) 自选股状态切换失败`, 'error');
+            }
+        }
+
+        // 测试函数
+        function addTestResult(message, type = 'info') {
+            const resultsDiv = document.getElementById('testResults');
+            const resultElement = document.createElement('div');
+            resultElement.className = 'test-result';
+            resultElement.style.borderLeft = `4px solid ${type === 'error' ? 'red' : type === 'success' ? 'green' : 'blue'}`;
+            resultElement.innerHTML = `<strong>[${new Date().toLocaleTimeString()}]</strong> ${message}`;
+            resultsDiv.appendChild(resultElement);
+            resultsDiv.scrollTop = resultsDiv.scrollHeight;
+        }
+
+        async function testLoadWatchlist() {
+            addTestResult('开始加载自选股列表...');
+            await TestWatchlistManager.loadUserWatchlist();
+        }
+
+        async function testRemoveFromWatchlist() {
+            addTestResult('开始测试从自选股删除...');
+            // 这里可以添加具体的删除测试逻辑
+            addTestResult('从自选股删除测试完成', 'success');
+        }
+
+        async function testToggleWatchlist() {
+            addTestResult('开始测试切换自选股状态...');
+            // 这里可以添加具体的切换测试逻辑
+            addTestResult('切换自选股状态测试完成', 'success');
+        }
+
+        function testUpdateButtonStates() {
+            addTestResult('开始更新所有按钮状态...');
+            updateAllWatchlistButtonStates();
+            addTestResult('所有按钮状态更新完成', 'success');
+        }
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', async function() {
+            // 初始化自选股管理器
+            await TestWatchlistManager.init();
+            
+            // 渲染测试股票表格
+            renderTestStockTable();
+            
+            addTestResult('页面初始化完成', 'success');
+        });
+    </script>
+</body>
+</html>

@@ -7,7 +7,7 @@ export const API_CONFIG = {
   },
   // 生产环境
   production: {
-    baseURL: 'http://192.168.31.237:5000/api/admin',
+    baseURL: 'https://www.icemaplecity.com/api/admin',
     timeout: 30000
   },
   // 测试环境
