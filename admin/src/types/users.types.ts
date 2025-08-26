@@ -3,7 +3,7 @@ export interface User {
   username: string
   email: string
   role: 'admin' | 'user' | 'guest'
-  status: 'active' | 'inactive' | 'suspended'
+  status: 'active' | 'disabled' | 'suspended'
   created_at: string
   updated_at: string
   last_login?: string
@@ -19,7 +19,7 @@ export interface CreateUserRequest {
 export interface UpdateUserRequest {
   email?: string
   role?: 'admin' | 'user' | 'guest'
-  status?: 'active' | 'inactive' | 'suspended'
+  status?: 'active' | 'disabled' | 'suspended'
 }
 
 export interface UsersResponse {

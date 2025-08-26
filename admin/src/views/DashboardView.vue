@@ -7,7 +7,7 @@
     <!-- 统计卡片 -->
     <div class="stats-grid">
       <el-row :gutter="16">
-        <el-col :span="6">
+        <el-col :xs="12" :sm="12" :md="6" :lg="6" :xl="6">
           <el-card class="stat-card">
             <div class="stat-content">
               <div class="stat-icon users">
@@ -21,7 +21,7 @@
           </el-card>
         </el-col>
         
-        <el-col :span="6">
+        <el-col :xs="12" :sm="12" :md="6" :lg="6" :xl="6">
           <el-card class="stat-card">
             <div class="stat-content">
               <div class="stat-icon logs">
@@ -35,7 +35,7 @@
           </el-card>
         </el-col>
         
-        <el-col :span="6">
+        <el-col :xs="12" :sm="12" :md="6" :lg="6" :xl="6">
           <el-card class="stat-card">
             <div class="stat-content">
               <div class="stat-icon quotes">
@@ -49,7 +49,7 @@
           </el-card>
         </el-col>
         
-        <el-col :span="6">
+        <el-col :xs="12" :sm="12" :md="6" :lg="6" :xl="6">
           <el-card class="stat-card">
             <div class="stat-content">
               <div class="stat-icon system">
@@ -308,5 +308,89 @@ onMounted(() => {
 
 .recent-activity {
   margin-bottom: 1.5rem;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .dashboard-view {
+    gap: 1rem;
+    padding: 16px;
+  }
+  
+  .stats-grid {
+    margin-bottom: 1rem;
+  }
+  
+  .stat-card {
+    height: 5rem;
+    margin-bottom: 16px;
+  }
+  
+  .stat-icon {
+    width: 2.5rem;
+    height: 2.5rem;
+    margin-right: 0.75rem;
+  }
+  
+  .stat-value {
+    font-size: 1.25rem;
+  }
+  
+  .stat-label {
+    font-size: 0.75rem;
+  }
+  
+  .quick-actions {
+    margin-bottom: 1rem;
+  }
+  
+  .actions-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+  }
+  
+  .action-button {
+    height: 40px;
+    font-size: 14px;
+    padding-left: 0.75rem;
+  }
+  
+  .recent-activity {
+    margin-bottom: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .dashboard-view {
+    padding: 12px;
+  }
+  
+  .stat-card {
+    height: 4.5rem;
+  }
+  
+  .stat-icon {
+    width: 2rem;
+    height: 2rem;
+    margin-right: 0.5rem;
+  }
+  
+  .stat-value {
+    font-size: 1.125rem;
+  }
+  
+  .stat-label {
+    font-size: 0.7rem;
+  }
+  
+  .actions-grid {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+  
+  .action-button {
+    height: 36px;
+    font-size: 13px;
+  }
 }
 </style> 

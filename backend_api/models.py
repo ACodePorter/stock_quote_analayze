@@ -338,7 +338,9 @@ class IndexRealtimeQuotes(Base):
     turnover = Column(Float)
     pe = Column(Float)
     volume_ratio = Column(Float)
-    update_time = Column(DateTime, index=True)
+    update_time = Column(String, index=True)  # 改为String类型匹配数据库
+    collect_time = Column(String)  # 添加缺失的字段
+    index_spot_type = Column(Integer)  # 添加缺失的字段
 
 class IndustryBoardRealtimeQuotes(Base):
     __tablename__ = "industry_board_realtime_quotes"
@@ -354,7 +356,7 @@ class IndustryBoardRealtimeQuotes(Base):
     leading_stock_name = Column(String(100))
     leading_stock_code = Column(String(20))
     leading_stock_change_percent = Column(Float)
-    update_time = Column(DateTime)
+    update_time = Column(String)  # 改为String类型匹配数据库
 
 class HistoricalQuotes(Base):
     __tablename__ = 'historical_quotes'

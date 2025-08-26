@@ -11,9 +11,9 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from . import get_current_active_user, User
 
-from ..database import get_db
-from ..auth import get_current_admin
-from ..models import Watchlist, WatchlistGroup
+from database import get_db
+from auth import get_current_admin
+from models import Watchlist, WatchlistGroup
 
 router = APIRouter(prefix="/api/admin/dashboard", tags=["admin"])
 

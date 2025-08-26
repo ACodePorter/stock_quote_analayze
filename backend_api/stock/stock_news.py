@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Query, Request, Depends, HTTPException
 from fastapi.responses import JSONResponse, StreamingResponse, HTMLResponse
 import akshare as ak
-from ..database import get_db
+from database import get_db
 from sqlalchemy.orm import Session
 import traceback
 import datetime
@@ -10,7 +10,7 @@ import difflib
 import time
 import aiohttp
 import logging
-from ..models import StockNoticeReport, StockNews, StockResearchReport
+from models import StockNoticeReport, StockNews, StockResearchReport
 
 logger = logging.getLogger(__name__)
 

@@ -11,7 +11,7 @@
     <!-- 统计卡片 -->
     <div class="stats-section">
       <el-row :gutter="16">
-        <el-col :span="6">
+        <el-col :xs="12" :sm="12" :md="6" :lg="6" :xl="6">
           <el-card class="stat-card">
             <div class="stat-content">
               <div class="stat-icon total">
@@ -24,7 +24,7 @@
             </div>
           </el-card>
         </el-col>
-        <el-col :span="6">
+        <el-col :xs="12" :sm="12" :md="6" :lg="6" :xl="6">
           <el-card class="stat-card">
             <div class="stat-content">
               <div class="stat-icon active">
@@ -37,20 +37,20 @@
             </div>
           </el-card>
         </el-col>
-        <el-col :span="6">
+        <el-col :xs="12" :sm="12" :md="6" :lg="6" :xl="6">
           <el-card class="stat-card">
             <div class="stat-content">
               <div class="stat-icon inactive">
                 <el-icon><Close /></el-icon>
               </div>
               <div class="stat-info">
-                <div class="stat-value">{{ userStats.inactive }}</div>
+                <div class="stat-value">{{ userStats.disabled }}</div>
                 <div class="stat-label">禁用用户</div>
               </div>
             </div>
           </el-card>
         </el-col>
-        <el-col :span="6">
+        <el-col :xs="12" :sm="12" :md="6" :lg="6" :xl="6">
           <el-card class="stat-card">
             <div class="stat-content">
               <div class="stat-icon suspended">
@@ -69,7 +69,7 @@
     <!-- 搜索和筛选 -->
     <el-card class="search-section">
       <el-row :gutter="16" align="middle">
-        <el-col :span="8">
+        <el-col :xs="24" :sm="24" :md="8" :lg="8" :xl="8">
           <el-input
             v-model="searchKeyword"
             placeholder="搜索用户名或邮箱"
@@ -78,25 +78,27 @@
             @input="handleSearch"
           />
         </el-col>
-        <el-col :span="4">
+        <el-col :xs="12" :sm="12" :md="4" :lg="4" :xl="4">
           <el-select
             v-model="statusFilter"
             placeholder="状态筛选"
             clearable
             @change="handleStatusFilter"
+            style="width: 100%"
           >
             <el-option label="全部" value="" />
             <el-option label="活跃" value="active" />
-            <el-option label="禁用" value="inactive" />
+            <el-option label="禁用" value="disabled" />
             <el-option label="暂停" value="suspended" />
           </el-select>
         </el-col>
-        <el-col :span="4">
+        <el-col :xs="12" :sm="12" :md="4" :lg="4" :xl="4">
           <el-select
             v-model="roleFilter"
             placeholder="角色筛选"
             clearable
             @change="handleRoleFilter"
+            style="width: 100%"
           >
             <el-option label="全部" value="" />
             <el-option label="管理员" value="admin" />
@@ -104,9 +106,9 @@
             <el-option label="访客" value="guest" />
           </el-select>
         </el-col>
-        <el-col :span="8">
+        <el-col :xs="24" :sm="24" :md="8" :lg="8" :xl="8">
           <div class="actions">
-            <el-button @click="refreshUsers">
+            <el-button @click="refreshUsers" style="width: 100%">
               <el-icon><Refresh /></el-icon>
               刷新
             </el-button>
@@ -122,11 +124,13 @@
         :loading="loading"
         stripe
         style="width: 100%"
+        :max-height="tableHeight"
+        class="responsive-table"
       >
-        <el-table-column prop="id" label="ID" width="80" />
-        <el-table-column prop="username" label="用户名" width="150" />
-        <el-table-column prop="email" label="邮箱" width="200" />
-        <el-table-column label="角色" width="120">
+        <el-table-column prop="id" label="ID" width="80" min-width="60" />
+        <el-table-column prop="username" label="用户名" min-width="120" show-overflow-tooltip />
+        <el-table-column prop="email" label="邮箱" min-width="180" show-overflow-tooltip />
+        <el-table-column label="角色" min-width="100" show-overflow-tooltip>
           <template #default="{ row }">
             <el-tag
               :type="getRoleTagType(row.role)"
@@ -136,7 +140,7 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="状态" width="120">
+        <el-table-column label="状态" min-width="100" show-overflow-tooltip>
           <template #default="{ row }">
             <el-tag
               :type="getStatusTagType(row.status)"
@@ -146,17 +150,17 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="created_at" label="创建时间" width="160">
+        <el-table-column prop="created_at" label="创建时间" min-width="140" show-overflow-tooltip>
           <template #default="{ row }">
             {{ formatDate(row.created_at) }}
           </template>
         </el-table-column>
-        <el-table-column prop="last_login" label="最后登录" width="160">
+        <el-table-column prop="last_login" label="最后登录" min-width="140" show-overflow-tooltip>
           <template #default="{ row }">
             {{ row.last_login ? formatDate(row.last_login) : '从未登录' }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="200" fixed="right">
+        <el-table-column label="操作" min-width="160" fixed="right" show-overflow-tooltip>
           <template #default="{ row }">
             <el-button
               size="small"
@@ -300,7 +304,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, onUnmounted } from 'vue'
 import { ElMessageBox } from 'element-plus'
 import {
   Plus,
@@ -329,6 +333,7 @@ const searchKeyword = ref('')
 const statusFilter = ref('')
 const roleFilter = ref('')
 const currentEditUser = ref<UserType | null>(null)
+const tableHeight = ref(600) // 表格默认高度
 
 // Forms
 const createForm = ref<CreateUserRequest>({
@@ -577,12 +582,39 @@ const handleUserAction = async (action: string, user: UserType) => {
 onMounted(async () => {
   console.log('🚀 用户管理页面已挂载，开始加载数据...')
   
+  // 设置响应式表格高度
+  const updateTableHeight = () => {
+    const windowHeight = window.innerHeight
+    const headerHeight = 80 // 页面头部高度
+    const statsHeight = 120 // 统计卡片高度
+    const searchHeight = 100 // 搜索区域高度
+    const paginationHeight = 80 // 分页区域高度
+    const padding = 100 // 其他间距
+    
+    tableHeight.value = windowHeight - headerHeight - statsHeight - searchHeight - paginationHeight - padding
+  }
+  
+  // 初始设置
+  updateTableHeight()
+  
+  // 监听窗口大小变化
+  window.addEventListener('resize', updateTableHeight)
+  
   try {
-    await usersStore.fetchUsers()
-    console.log('✅ 用户数据加载完成')
+    // 同时获取用户列表和统计数据
+    await Promise.all([
+      usersStore.fetchUsers(),
+      usersStore.fetchUserStats()
+    ])
+    console.log('✅ 用户数据和统计数据加载完成')
   } catch (error) {
     console.error('❌ 用户数据加载失败:', error)
   }
+  
+  // 清理事件监听器
+  onUnmounted(() => {
+    window.removeEventListener('resize', updateTableHeight)
+  })
 })
 </script> 
 
@@ -598,6 +630,8 @@ onMounted(async () => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 24px;
+  flex-wrap: wrap;
+  gap: 16px;
 }
 
 .page-header h1 {
@@ -681,9 +715,98 @@ onMounted(async () => {
   margin-bottom: 24px;
 }
 
+.responsive-table {
+  overflow-x: auto;
+}
+
 .pagination-section {
   display: flex;
   justify-content: center;
   margin-top: 24px;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .users-view {
+    padding: 16px;
+  }
+  
+  .page-header {
+    flex-direction: column;
+    align-items: stretch;
+    text-align: center;
+  }
+  
+  .page-header h1 {
+    font-size: 20px;
+  }
+  
+  .stat-card {
+    height: 80px;
+  }
+  
+  .stat-icon {
+    width: 40px;
+    height: 40px;
+    font-size: 18px;
+    margin-right: 12px;
+  }
+  
+  .stat-value {
+    font-size: 20px;
+  }
+  
+  .stat-label {
+    font-size: 12px;
+  }
+  
+  .search-section .el-row {
+    margin: 0 !important;
+  }
+  
+  .search-section .el-col {
+    margin-bottom: 16px;
+  }
+  
+  .responsive-table {
+    font-size: 14px;
+  }
+  
+  .responsive-table .el-table__header-wrapper {
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .users-view {
+    padding: 12px;
+  }
+  
+  .page-header h1 {
+    font-size: 18px;
+  }
+  
+  .stat-card {
+    height: 70px;
+  }
+  
+  .stat-icon {
+    width: 36px;
+    height: 36px;
+    font-size: 16px;
+    margin-right: 8px;
+  }
+  
+  .stat-value {
+    font-size: 18px;
+  }
+  
+  .stat-label {
+    font-size: 11px;
+  }
+  
+  .responsive-table {
+    font-size: 13px;
+  }
 }
 </style> 

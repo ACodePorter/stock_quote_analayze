@@ -12,9 +12,9 @@ from sqlalchemy.orm import Session
 import hashlib
 import logging
 
-from .models import User, Admin, TokenData
-from .database import get_db, SessionLocal
-from .config import JWT_CONFIG
+from models import User, Admin, TokenData
+from database import get_db, SessionLocal
+from config import JWT_CONFIG
 
 # 配置日志
 logger = logging.getLogger(__name__)

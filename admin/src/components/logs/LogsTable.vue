@@ -7,12 +7,13 @@
         stripe
         border
         style="width: 100%"
+        class="responsive-table"
       >
-        <el-table-column prop="id" label="ID" width="80" />
+        <el-table-column prop="id" label="ID" width="80" min-width="60" show-overflow-tooltip />
         
         <!-- 历史采集日志字段 -->
         <template v-if="props.logType === 'historical_collect' || props.logType === 'realtime_collect'">
-          <el-table-column prop="operation_type" label="操作类型" width="150">
+          <el-table-column prop="operation_type" label="操作类型" min-width="120" show-overflow-tooltip>
             <template #default="{ row }">
               <el-tag :type="getOperationTypeTag(row.operation_type)" size="small">
                 {{ row.operation_type }}
@@ -36,7 +37,7 @@
             </template>
           </el-table-column>
           
-          <el-table-column prop="affected_rows" label="影响行数" width="120">
+          <el-table-column prop="affected_rows" label="影响行数" min-width="100" show-overflow-tooltip>
             <template #default="{ row }">
               <el-tag :type="row.affected_rows > 0 ? 'success' : 'info'" size="small">
                 {{ row.affected_rows }}
@@ -44,7 +45,7 @@
             </template>
           </el-table-column>
           
-          <el-table-column prop="status" label="状态" width="100">
+          <el-table-column prop="status" label="状态" min-width="80" show-overflow-tooltip>
             <template #default="{ row }">
               <el-tag :type="getStatusType(row.status)" size="small">
                 {{ getStatusText(row.status) }}
@@ -52,7 +53,7 @@
             </template>
           </el-table-column>
           
-          <el-table-column prop="created_at" label="创建时间" width="180">
+          <el-table-column prop="created_at" label="创建时间" min-width="140" show-overflow-tooltip>
             <template #default="{ row }">
               {{ formatDateTime(row.created_at) }}
             </template>
@@ -61,7 +62,7 @@
         
         <!-- 操作日志字段 -->
         <template v-else-if="props.logType === 'operation'">
-          <el-table-column prop="log_type" label="日志类型" width="150">
+          <el-table-column prop="log_type" label="日志类型" min-width="120" show-overflow-tooltip>
             <template #default="{ row }">
               <el-tag :type="getLogTypeTag(row.log_type)" size="small">
                 {{ row.log_type }}
@@ -85,7 +86,7 @@
             </template>
           </el-table-column>
           
-          <el-table-column prop="affected_count" label="影响数量" width="120">
+          <el-table-column prop="affected_count" label="影响数量" min-width="100" show-overflow-tooltip>
             <template #default="{ row }">
               <el-tag :type="row.affected_count > 0 ? 'success' : 'info'" size="small">
                 {{ row.affected_count }}
@@ -93,7 +94,7 @@
             </template>
           </el-table-column>
           
-          <el-table-column prop="log_status" label="状态" width="100">
+          <el-table-column prop="log_status" label="状态" min-width="80" show-overflow-tooltip>
             <template #default="{ row }">
               <el-tag :type="getStatusType(row.log_status)" size="small">
                 {{ getStatusText(row.log_status) }}

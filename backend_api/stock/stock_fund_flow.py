@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Request,Query
 from fastapi.responses import JSONResponse
 import akshare as ak
-from ..database import get_db
+from database import get_db
 from sqlalchemy.orm import Session
 from fastapi import Depends
 import traceback

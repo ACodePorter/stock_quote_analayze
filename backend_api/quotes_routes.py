@@ -6,13 +6,14 @@
 from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import desc, func
+from sqlalchemy import desc, func, case
 from datetime import datetime, timedelta
 import logging
+import math
 import pandas as pd
 
-from .database import get_db
-from .models import (
+from database import get_db
+from models import (
     StockRealtimeQuote,
     IndexRealtimeQuotes,
     IndustryBoardRealtimeQuotes
@@ -64,8 +65,14 @@ def safe_float(value) -> Optional[float]:
             return None
         # 移除pandas依赖，直接检查
         if isinstance(value, (int, float)):
+            # 检查是否为nan或inf
+            if isinstance(value, float) and (math.isnan(value) or math.isinf(value)):
+                return None
             return float(value)
         elif isinstance(value, str) and value.strip():
+            # 检查字符串是否为nan或inf
+            if value.lower() in ['nan', 'inf', '-inf', 'infinity', '-infinity']:
+                return None
             return float(value)
         else:
             return None
@@ -186,17 +193,119 @@ async def get_stock_quotes(
             elif market == "bj":
                 query = query.filter(StockRealtimeQuote.code.startswith('8'))
         
-        # 排序
+        # 排序 - 使用 case 语句确保 null 值排在最后
         if sort_by == "change_percent":
-            query = query.order_by(desc(StockRealtimeQuote.change_percent))
+            query = query.order_by(
+                case(
+                    (StockRealtimeQuote.change_percent.is_(None), 0),
+                    else_=1
+                ).desc(),
+                desc(StockRealtimeQuote.change_percent)
+            )
+        elif sort_by == "current_price":
+            query = query.order_by(
+                case(
+                    (StockRealtimeQuote.current_price.is_(None), 0),
+                    else_=1
+                ).desc(),
+                desc(StockRealtimeQuote.current_price)
+            )
+        elif sort_by == "high":
+            query = query.order_by(
+                case(
+                    (StockRealtimeQuote.high.is_(None), 0),
+                    else_=1
+                ).desc(),
+                desc(StockRealtimeQuote.high)
+            )
+        elif sort_by == "low":
+            query = query.order_by(
+                case(
+                    (StockRealtimeQuote.low.is_(None), 0),
+                    else_=1
+                ).desc(),
+                desc(StockRealtimeQuote.low)
+            )
+        elif sort_by == "open":
+            query = query.order_by(
+                case(
+                    (StockRealtimeQuote.open.is_(None), 0),
+                    else_=1
+                ).desc(),
+                desc(StockRealtimeQuote.open)
+            )
+        elif sort_by == "pre_close":
+            query = query.order_by(
+                case(
+                    (StockRealtimeQuote.pre_close.is_(None), 0),
+                    else_=1
+                ).desc(),
+                desc(StockRealtimeQuote.pre_close)
+            )
         elif sort_by == "volume":
-            query = query.order_by(desc(StockRealtimeQuote.volume))
+            query = query.order_by(
+                case(
+                    (StockRealtimeQuote.volume.is_(None), 0),
+                    else_=1
+                ).desc(),
+                desc(StockRealtimeQuote.volume)
+            )
         elif sort_by == "amount":
-            query = query.order_by(desc(StockRealtimeQuote.amount))
+            query = query.order_by(
+                case(
+                    (StockRealtimeQuote.amount.is_(None), 0),
+                    else_=1
+                ).desc(),
+                desc(StockRealtimeQuote.amount)
+            )
         elif sort_by == "turnover_rate":
-            query = query.order_by(desc(StockRealtimeQuote.turnover_rate))
+            query = query.order_by(
+                case(
+                    (StockRealtimeQuote.turnover_rate.is_(None), 0),
+                    else_=1
+                ).desc(),
+                desc(StockRealtimeQuote.turnover_rate)
+            )
+        elif sort_by == "pe_dynamic":
+            query = query.order_by(
+                case(
+                    (StockRealtimeQuote.pe_dynamic.is_(None), 0),
+                    else_=1
+                ).desc(),
+                desc(StockRealtimeQuote.pe_dynamic)
+            )
+        elif sort_by == "total_market_value":
+            query = query.order_by(
+                case(
+                    (StockRealtimeQuote.total_market_value.is_(None), 0),
+                    else_=1
+                ).desc(),
+                desc(StockRealtimeQuote.total_market_value)
+            )
+        elif sort_by == "pb_ratio":
+            query = query.order_by(
+                case(
+                    (StockRealtimeQuote.pb_ratio.is_(None), 0),
+                    else_=1
+                ).desc(),
+                desc(StockRealtimeQuote.pb_ratio)
+            )
+        elif sort_by == "circulating_market_value":
+            query = query.order_by(
+                case(
+                    (StockRealtimeQuote.circulating_market_value.is_(None), 0),
+                    else_=1
+                ).desc(),
+                desc(StockRealtimeQuote.circulating_market_value)
+            )
         else:
-            query = query.order_by(desc(StockRealtimeQuote.update_time))
+            query = query.order_by(
+                case(
+                    (StockRealtimeQuote.update_time.is_(None), 0),
+                    else_=1
+                ).desc(),
+                desc(StockRealtimeQuote.update_time)
+            )
         
         # 分页
         total = query.count()
@@ -246,20 +355,135 @@ async def get_index_quotes(
                 (IndexRealtimeQuotes.name.contains(keyword))
             )
         
-        # 排序
+        # 排序 - 使用 case 语句确保 null 值排在最后
         if sort_by == "pct_chg":
-            query = query.order_by(desc(IndexRealtimeQuotes.pct_chg))
+            query = query.order_by(
+                case(
+                    (IndexRealtimeQuotes.pct_chg.is_(None), 1),
+                    else_=0
+                ),
+                desc(IndexRealtimeQuotes.pct_chg)
+            )
+        elif sort_by == "price":
+            query = query.order_by(
+                case(
+                    (IndexRealtimeQuotes.price.is_(None), 1),
+                    else_=0
+                ),
+                desc(IndexRealtimeQuotes.price)
+            )
+        elif sort_by == "change":
+            query = query.order_by(
+                case(
+                    (IndexRealtimeQuotes.change.is_(None), 1),
+                    else_=0
+                ),
+                desc(IndexRealtimeQuotes.change)
+            )
+        elif sort_by == "high":
+            query = query.order_by(
+                case(
+                    (IndexRealtimeQuotes.high.is_(None), 1),
+                    else_=0
+                ),
+                desc(IndexRealtimeQuotes.high)
+            )
+        elif sort_by == "low":
+            query = query.order_by(
+                case(
+                    (IndexRealtimeQuotes.low.is_(None), 1),
+                    else_=0
+                ),
+                desc(IndexRealtimeQuotes.low)
+            )
+        elif sort_by == "open":
+            query = query.order_by(
+                case(
+                    (IndexRealtimeQuotes.open.is_(None), 1),
+                    else_=0
+                ),
+                desc(IndexRealtimeQuotes.open)
+            )
+        elif sort_by == "pre_close":
+            query = query.order_by(
+                case(
+                    (IndexRealtimeQuotes.pre_close.is_(None), 1),
+                    else_=0
+                ),
+                desc(IndexRealtimeQuotes.pre_close)
+            )
         elif sort_by == "volume":
-            query = query.order_by(desc(IndexRealtimeQuotes.volume))
+            query = query.order_by(
+                case(
+                    (IndexRealtimeQuotes.volume.is_(None), 1),
+                    else_=0
+                ),
+                desc(IndexRealtimeQuotes.volume)
+            )
         elif sort_by == "amount":
-            query = query.order_by(desc(IndexRealtimeQuotes.amount))
+            query = query.order_by(
+                case(
+                    (IndexRealtimeQuotes.amount.is_(None), 1),
+                    else_=0
+                ),
+                desc(IndexRealtimeQuotes.amount)
+            )
+        elif sort_by == "amplitude":
+            query = query.order_by(
+                case(
+                    (IndexRealtimeQuotes.amplitude.is_(None), 1),
+                    else_=0
+                ),
+                desc(IndexRealtimeQuotes.amplitude)
+            )
+        elif sort_by == "turnover":
+            query = query.order_by(
+                case(
+                    (IndexRealtimeQuotes.turnover.is_(None), 1),
+                    else_=0
+                ),
+                desc(IndexRealtimeQuotes.turnover)
+            )
+        elif sort_by == "pe":
+            query = query.order_by(
+                case(
+                    (IndexRealtimeQuotes.pe.is_(None), 1),
+                    else_=0
+                ),
+                desc(IndexRealtimeQuotes.pe)
+            )
+        elif sort_by == "volume_ratio":
+            query = query.order_by(
+                case(
+                    (IndexRealtimeQuotes.volume_ratio.is_(None), 1),
+                    else_=0
+                ),
+                desc(IndexRealtimeQuotes.volume_ratio)
+            )
         else:
-            query = query.order_by(desc(IndexRealtimeQuotes.update_time))
+            query = query.order_by(
+                case(
+                    (IndexRealtimeQuotes.update_time.is_(None), 1),
+                    else_=0
+                ),
+                desc(IndexRealtimeQuotes.update_time)
+            )
         
-        # 分页
-        total = query.count()
-        offset = (page - 1) * page_size
-        data = query.offset(offset).limit(page_size).all()
+        # 分页和排序
+        if sort_by == "volume":
+            # 对于volume字段，使用Python排序确保null值在最后
+            all_data = query.all()
+            # 按volume排序，null值排在最后
+            all_data.sort(key=lambda x: (x.volume is None, x.volume or 0), reverse=True)
+            total = len(all_data)
+            start = (page - 1) * page_size
+            end = start + page_size
+            data = all_data[start:end]
+        else:
+            # 其他字段使用SQL排序
+            total = query.count()
+            offset = (page - 1) * page_size
+            data = query.offset(offset).limit(page_size).all()
         
         # 格式化数据
         formatted_data = format_quotes_data(data, "indices")
@@ -301,15 +525,39 @@ async def get_industry_quotes(
         if keyword:
             query = query.filter(IndustryBoardRealtimeQuotes.name.contains(keyword))
         
-        # 排序
+        # 排序 - 使用 case 语句确保 null 值排在最后
         if sort_by == "change_percent":
-            query = query.order_by(desc(IndustryBoardRealtimeQuotes.change_percent))
+            query = query.order_by(
+                case(
+                    (IndustryBoardRealtimeQuotes.change_percent.is_(None), 0),
+                    else_=1
+                ).desc(),
+                desc(IndustryBoardRealtimeQuotes.change_percent)
+            )
         elif sort_by == "amount":
-            query = query.order_by(desc(IndustryBoardRealtimeQuotes.amount))
+            query = query.order_by(
+                case(
+                    (IndustryBoardRealtimeQuotes.amount.is_(None), 0),
+                    else_=1
+                ).desc(),
+                desc(IndustryBoardRealtimeQuotes.amount)
+            )
         elif sort_by == "turnover_rate":
-            query = query.order_by(desc(IndustryBoardRealtimeQuotes.turnover_rate))
+            query = query.order_by(
+                case(
+                    (IndustryBoardRealtimeQuotes.turnover_rate.is_(None), 0),
+                    else_=1
+                ).desc(),
+                desc(IndustryBoardRealtimeQuotes.turnover_rate)
+            )
         else:
-            query = query.order_by(desc(IndustryBoardRealtimeQuotes.update_time))
+            query = query.order_by(
+                case(
+                    (IndustryBoardRealtimeQuotes.update_time.is_(None), 0),
+                    else_=1
+                ).desc(),
+                desc(IndustryBoardRealtimeQuotes.update_time)
+            )
         
         # 分页
         total = query.count()

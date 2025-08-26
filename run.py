@@ -1,56 +1,33 @@
+#!/usr/bin/env python3
 """
-启动脚本
-用于运行FastAPI应用
+项目启动脚本
+在项目根目录运行此脚本来启动后端服务
 """
 
 import uvicorn
-import os
 import sys
-from pathlib import Path
-import traceback
-# 添加项目根目录到Python路径
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import os
 
-# 导入数据库初始化函数
-#from backend_api.database import init_db
-
-def main():
-    """主函数"""
-    print("=" * 50)
-    print("📈 股票分析系统后端服务")
-    print("=" * 50)
-    
-    # 检查依赖
-    print("🔍 检查依赖包...")
-    try:
-        import fastapi
-        import sqlalchemy
-        import akshare
-        import pandas
-        print("✅ 依赖包检查通过")
-    except ImportError as e:
-        print(f"❌ 缺少依赖包: {e}")
-        print("请运行: pip install -r requirements.txt")
-        return
-    
-    # 已取消数据库初始化操作
-    
-    
-    print("\n🚀 启动服务器...")
-    print("📱 API地址: http://localhost:5000")
-    print("📚 API文档: http://localhost:5000/docs")
-    print("=" * 50)
-    print("按 Ctrl+C 停止服务")
-    print("=" * 50)
-    
-    # 启动应用
-    uvicorn.run(
-        "backend_api.main:app",
-        host="0.0.0.0",
-        port=5000,
-        reload=True,  # 开发模式下启用热重载
-        reload_dirs=["backend_api"]  # 指定需要监视的目录
-    )
+# 添加backend_api目录到Python路径
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'backend_api'))
 
 if __name__ == "__main__":
-    main() 
+    print("🚀 启动股票分析系统后端服务...")
+    print(f"📁 当前工作目录: {os.getcwd()}")
+    print(f"🐍 Python路径: {sys.path[0]}")
+    
+    try:
+        # 启动FastAPI服务
+        uvicorn.run(
+            "main:app",  # 从backend_api目录导入main模块
+            host="0.0.0.0",
+            port=5000,
+            reload=True,
+            reload_dirs=["backend_api"],  # 只监听backend_api目录的变化
+            log_level="info"
+        )
+    except KeyboardInterrupt:
+        print("\n🛑 服务已停止")
+    except Exception as e:
+        print(f"❌ 启动服务失败: {e}")
+        sys.exit(1) 

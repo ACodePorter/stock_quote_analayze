@@ -12,11 +12,11 @@ import logging
 import akshare as ak
 import pandas as pd
 
-from .models import (
+from models import (
     User, QuoteSyncTask, QuoteSyncTaskCreate, QuoteSyncTaskInDB
 )
-from .database import get_db
-from .auth import get_current_admin_user
+from database import get_db
+from auth import get_current_admin_user
 
 router = APIRouter(prefix="/api/sync", tags=["sync"])
 

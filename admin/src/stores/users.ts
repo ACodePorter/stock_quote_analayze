@@ -13,6 +13,7 @@ export const useUsersStore = defineStore('users', () => {
   const currentPage = ref(1)
   const pageSize = ref(20)
   const searchKeyword = ref('')
+  const userStatsData = ref({ total: 0, active: 0, disabled: 0, suspended: 0 })
 
   // Getters
   const filteredUsers = computed(() => {
@@ -27,22 +28,43 @@ export const useUsersStore = defineStore('users', () => {
 
   const totalPages = computed(() => Math.ceil(total.value / pageSize.value))
 
+  // 修改userStats计算逻辑，优先使用API统计数据
   const userStats = computed(() => {
+    // 如果API统计数据可用，使用API数据
+    if (userStatsData.value.total > 0) {
+      return userStatsData.value
+    }
+    
+    // 否则使用本地计算的数据作为回退
     const stats = {
       total: users.value.length,
       active: 0,
-      inactive: 0,
+      disabled: 0,
       suspended: 0
     }
     
     users.value.forEach(user => {
       if (user.status === 'active') stats.active++
-      else if (user.status === 'inactive') stats.inactive++
+      else if (user.status === 'disabled') stats.disabled++
       else if (user.status === 'suspended') stats.suspended++
     })
     
     return stats
   })
+
+  // 添加获取用户统计数据的action
+  const fetchUserStats = async () => {
+    try {
+      console.log('📊 开始获取用户统计数据...')
+      const stats = await usersService.getUserStats()
+      console.log('✅ 用户统计数据获取成功:', stats)
+      userStatsData.value = stats
+    } catch (err: any) {
+      console.error('❌ 获取用户统计数据失败:', err)
+      // 如果统计API失败，清空统计数据，让前端使用本地计算
+      userStatsData.value = { total: 0, active: 0, disabled: 0, suspended: 0 }
+    }
+  }
 
   // Actions
   const fetchUsers = async () => {
@@ -108,8 +130,8 @@ export const useUsersStore = defineStore('users', () => {
     
     try {
       const newUser = await usersService.createUser(userData)
-      // 重新获取用户列表以确保数据一致性
-      await fetchUsers()
+      // 重新获取用户列表和统计数据以确保数据一致性
+      await Promise.all([fetchUsers(), fetchUserStats()])
       ElMessage.success('用户创建成功')
       return newUser
     } catch (err: any) {
@@ -127,8 +149,8 @@ export const useUsersStore = defineStore('users', () => {
     
     try {
       const updatedUser = await usersService.updateUser(userId, userData)
-      // 重新获取用户列表以确保数据一致性
-      await fetchUsers()
+      // 重新获取用户列表和统计数据以确保数据一致性
+      await Promise.all([fetchUsers(), fetchUserStats()])
       ElMessage.success('用户信息更新成功')
       return updatedUser
     } catch (err: any) {
@@ -143,8 +165,8 @@ export const useUsersStore = defineStore('users', () => {
   const updateUserStatus = async (userId: number, status: string) => {
     try {
       await usersService.updateUserStatus(userId, status)
-      // 重新获取用户列表以确保数据一致性
-      await fetchUsers()
+      // 重新获取用户列表和统计数据以确保数据一致性
+      await Promise.all([fetchUsers(), fetchUserStats()])
       ElMessage.success('用户状态更新成功')
     } catch (err: any) {
       error.value = err.message || '更新用户状态失败'
@@ -156,8 +178,8 @@ export const useUsersStore = defineStore('users', () => {
   const deleteUser = async (userId: number) => {
     try {
       await usersService.deleteUser(userId)
-      // 重新获取用户列表以确保数据一致性
-      await fetchUsers()
+      // 重新获取用户列表和统计数据以确保数据一致性
+      await Promise.all([fetchUsers(), fetchUserStats()])
       ElMessage.success('用户删除成功')
     } catch (err: any) {
       error.value = err.message || '删除用户失败'
@@ -198,6 +220,7 @@ export const useUsersStore = defineStore('users', () => {
     currentPage,
     pageSize,
     searchKeyword,
+    userStatsData,
     
     // Getters
     filteredUsers,
@@ -206,6 +229,7 @@ export const useUsersStore = defineStore('users', () => {
     
     // Actions
     fetchUsers,
+    fetchUserStats,
     createUser,
     updateUser,
     updateUserStatus,

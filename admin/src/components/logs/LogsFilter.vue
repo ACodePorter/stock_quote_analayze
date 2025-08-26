@@ -12,7 +12,7 @@
       
       <el-form :model="localFilters" label-width="80px">
         <el-row :gutter="16">
-          <el-col :span="6">
+          <el-col :xs="24" :sm="24" :md="6" :lg="6" :xl="6">
             <el-form-item label="日志级别">
               <el-select v-model="localFilters.level" placeholder="选择日志级别" class="w-full">
                 <el-option label="全部" value="all" />
@@ -24,7 +24,7 @@
             </el-form-item>
           </el-col>
           
-          <el-col :span="6">
+          <el-col :xs="24" :sm="24" :md="6" :lg="6" :xl="6">
             <el-form-item label="开始日期">
               <el-date-picker
                 v-model="localFilters.startDate"
@@ -37,7 +37,7 @@
             </el-form-item>
           </el-col>
           
-          <el-col :span="6">
+          <el-col :xs="24" :sm="24" :md="6" :lg="6" :xl="6">
             <el-form-item label="结束日期">
               <el-date-picker
                 v-model="localFilters.endDate"
@@ -50,7 +50,7 @@
             </el-form-item>
           </el-col>
           
-          <el-col :span="6">
+          <el-col :xs="24" :sm="24" :md="6" :lg="6" :xl="6">
             <el-form-item label="关键词">
               <el-input
                 v-model="localFilters.keyword"
@@ -136,5 +136,34 @@ const clearFilters = () => {
 
 .w-full {
   width: 100%;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .logs-filter {
+    @apply mb-4;
+  }
+  
+  .filter-header {
+    @apply flex-col items-start space-y-2;
+  }
+  
+  .filter-actions {
+    @apply flex-col space-y-2 mt-4;
+  }
+  
+  .filter-actions .el-button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .logs-filter {
+    @apply mb-3;
+  }
+  
+  .filter-header {
+    @apply text-center;
+  }
 }
 </style> 

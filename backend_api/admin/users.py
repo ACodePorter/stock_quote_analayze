@@ -8,11 +8,11 @@ from sqlalchemy.orm import Session
 from sqlalchemy import desc, or_
 from pydantic import BaseModel
 
-from ..models import UserCreate, UserUpdate, UserInDB
-from ..database import get_db
-from ..auth import get_password_hash
+from models import UserCreate, UserUpdate, UserInDB
+from database import get_db
+from auth import get_password_hash
 from . import get_current_active_user
-from ..models import User
+from models import User
 
 router = APIRouter(prefix="/api/admin/users", tags=["admin"])
 
@@ -120,7 +120,7 @@ async def update_user_status(
     db: Session = Depends(get_db)
 ):
     """更新用户状态"""
-    if status not in ["active", "disabled"]:
+    if status not in ["active", "disabled", "suspended"]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="无效的状态值"
@@ -165,13 +165,13 @@ async def get_user_stats(
     """获取用户统计信息"""
     total = db.query(User).count()
     active = db.query(User).filter(User.status == "active").count()
-    inactive = db.query(User).filter(User.status == "inactive").count()
+    disabled = db.query(User).filter(User.status == "disabled").count()
     suspended = db.query(User).filter(User.status == "suspended").count()
     
     return {
         "total": total,
         "active": active,
-        "inactive": inactive,
+        "disabled": disabled,
         "suspended": suspended
     }
 

@@ -9,12 +9,12 @@ from sqlalchemy.orm import Session
 from sqlalchemy import desc
 from datetime import datetime
 
-from .models import (
+from models import (
     UserCreate, UserUpdate, UserInDB, User,
     Token, TokenData
 )
-from .database import get_db
-from .auth import (
+from database import get_db
+from auth import (
     get_current_user,
     get_password_hash,
     verify_password,

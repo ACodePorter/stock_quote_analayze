@@ -5,8 +5,8 @@ from typing import Dict, List, Tuple, Optional
 import logging
 from sqlalchemy.orm import Session
 from sqlalchemy import text
-from ..database import get_db
-from ..models import HistoricalQuotes, StockRealtimeQuote
+from database import get_db
+from models import HistoricalQuotes, StockRealtimeQuote
 
 logger = logging.getLogger(__name__)
 

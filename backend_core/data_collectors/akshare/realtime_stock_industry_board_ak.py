@@ -32,6 +32,8 @@ class RealtimeStockIndustryBoardCollector:
                 "成交量": "volume",
                 "成交额": "amount",
                 "换手率": "turnover_rate",
+                "上涨家数": "up_count",
+                "下跌家数": "down_count",
                 "领涨股": "leading_stock_name",
                 "领涨股涨跌幅": "leading_stock_change_percent",
                 "领涨股代码": "leading_stock_code"

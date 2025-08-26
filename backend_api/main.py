@@ -8,9 +8,9 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse
 import uvicorn
 import logging
-from .auth_routes import RequestLoggingMiddleware
+from auth_routes import RequestLoggingMiddleware
 #from .database import init_db
-from .market_routes import router as market_router
+from market_routes import router as market_router
 
 # 配置日志
 logging.basicConfig(
@@ -23,24 +23,24 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# 修改为相对导入
-from .admin import router as admin_router
-from .admin.auth import router as admin_auth_router
-from .admin.dashboard import router as dashboard_router
-from .admin.quotes import router as admin_quotes_router
-from .admin.users import router as users_router
-from .admin.logs import router as logs_router
-from .admin.operation_logs import router as operation_logs_router
-from .watchlist_manage import router as watchlist_router
-from .user_manage import router as user_manage_router
-from .app_complete import router as system_router
-from .auth_routes import router as auth_router
-from .stock.stock_manage import router as stock_router
-from .stock.history_api import router as history_router
-from .stock.stock_fund_flow import router as stock_fund_flow_router
-from .stock.stock_news import router as stock_news_router
-from .stock.stock_analysis_routes import router as stock_analysis_router
-from .quotes_routes import router as quotes_router
+# 修改为绝对导入
+from admin import router as admin_router
+from admin.auth import router as admin_auth_router
+from admin.dashboard import router as dashboard_router
+from admin.quotes import router as admin_quotes_router
+from admin.users import router as users_router
+from admin.logs import router as logs_router
+from admin.operation_logs import router as operation_logs_router
+from watchlist_manage import router as watchlist_router
+from user_manage import router as user_manage_router
+from app_complete import router as system_router
+from auth_routes import router as auth_router
+from stock.stock_manage import router as stock_router
+from stock.history_api import router as history_router
+from stock.stock_fund_flow import router as stock_fund_flow_router
+from stock.stock_news import router as stock_news_router
+from stock.stock_analysis_routes import router as stock_analysis_router
+from quotes_routes import router as quotes_router
 
 # 创建FastAPI应用
 app = FastAPI(

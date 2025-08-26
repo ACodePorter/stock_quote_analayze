@@ -3,7 +3,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from typing import Optional
 import logging
-from ..database import get_db
+from database import get_db
 from .stock_analysis import StockAnalysisService
 
 logger = logging.getLogger(__name__)

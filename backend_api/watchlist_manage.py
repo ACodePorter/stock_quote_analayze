@@ -13,13 +13,13 @@ import akshare as ak
 from pydantic import BaseModel
 import sqlite3
 
-from .models import (
+from models import (
     Watchlist, WatchlistGroup,
     WatchlistCreate, WatchlistInDB, WatchlistGroupCreate,
     WatchlistGroupInDB, User, StockRealtimeQuote
 )
-from .database import get_db
-from .auth import get_current_user
+from database import get_db
+from auth import get_current_user
 
 router = APIRouter(prefix="/api/watchlist", tags=["watchlist"])
 

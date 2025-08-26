@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Request, Query
 from fastapi.responses import JSONResponse
 import akshare as ak
-from ..database import get_db
+from database import get_db
 from sqlalchemy.orm import Session
 from fastapi import Depends
 import traceback
@@ -11,7 +11,7 @@ from threading import Lock
 import datetime
 import pandas as pd
 import math
-from ..models import StockRealtimeQuote
+from models import StockRealtimeQuote
 
 # 简单内存缓存实现,缓存600秒。
 class DataFrameCache:
@@ -112,7 +112,7 @@ async def get_stocks_list(request: Request, db: Session = Depends(get_db)):
     print(f"[stock_list] 收到请求: query={query}, limit={limit}")
     try:
         # SQLAlchemy 查询
-        from ..models import StockBasicInfo
+        from models import StockBasicInfo
         q = db.query(StockBasicInfo)
         if query:
             q = q.filter(

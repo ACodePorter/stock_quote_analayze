@@ -1,7 +1,7 @@
 <template>
   <div class="logs-stats">
     <el-row :gutter="16">
-      <el-col :span="6">
+      <el-col :xs="12" :sm="12" :md="6" :lg="6" :xl="6">
         <el-card class="stat-card">
           <div class="stat-content">
             <div class="stat-icon total">
@@ -15,7 +15,7 @@
         </el-card>
       </el-col>
       
-      <el-col :span="6">
+      <el-col :xs="12" :sm="12" :md="6" :lg="6" :xl="6">
         <el-card class="stat-card">
           <div class="stat-content">
             <div class="stat-icon success">
@@ -29,7 +29,7 @@
         </el-card>
       </el-col>
       
-      <el-col :span="6">
+      <el-col :xs="12" :sm="12" :md="6" :lg="6" :xl="6">
         <el-card class="stat-card">
           <div class="stat-content">
             <div class="stat-icon error">
@@ -43,7 +43,7 @@
         </el-card>
       </el-col>
       
-      <el-col :span="6">
+      <el-col :xs="12" :sm="12" :md="6" :lg="6" :xl="6">
         <el-card class="stat-card">
           <div class="stat-content">
             <div class="stat-icon rate">
@@ -120,5 +120,46 @@ const formatSuccessRate = (rate: number | undefined) => {
 
 .stat-label {
   @apply text-sm text-gray-500 mt-1;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .logs-stats {
+    @apply mb-4;
+  }
+  
+  .stat-card {
+    @apply h-20 mb-4;
+  }
+  
+  .stat-icon {
+    @apply w-10 h-10 mr-3;
+  }
+  
+  .stat-value {
+    @apply text-xl;
+  }
+  
+  .stat-label {
+    @apply text-xs;
+  }
+}
+
+@media (max-width: 480px) {
+  .stat-card {
+    @apply h-16;
+  }
+  
+  .stat-icon {
+    @apply w-8 h-8 mr-2;
+  }
+  
+  .stat-value {
+    @apply text-lg;
+  }
+  
+  .stat-label {
+    @apply text-xs;
+  }
 }
 </style> 

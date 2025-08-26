@@ -66,7 +66,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
 import {
@@ -107,6 +107,17 @@ const user = computed(() => authStore.user)
 const currentPageTitle = computed(() => {
   const currentItem = menuItems.find(item => item.path === route.path)
   return currentItem?.name || '页面'
+})
+
+// 生命周期钩子
+onMounted(() => {
+  console.log('🏗️ AdminLayout已挂载，检查认证状态...')
+  if (!authStore.isAuthenticated) {
+    console.log('❌ 未认证，重定向到登录页面')
+    router.push('/login')
+  } else {
+    console.log('✅ 认证状态正常，用户:', authStore.user?.username)
+  }
 })
 
 // 方法
