@@ -45,7 +45,7 @@ export class UsersService {
   async getUserStats(): Promise<{
     total: number
     active: number
-    inactive: number
+    disabled: number
     suspended: number
   }> {
     return apiService.get('/users/stats')

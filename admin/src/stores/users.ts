@@ -13,7 +13,7 @@ export const useUsersStore = defineStore('users', () => {
   const currentPage = ref(1)
   const pageSize = ref(20)
   const searchKeyword = ref('')
-  const userStatsData = ref({ total: 0, active: 0, disabled: 0, suspended: 0 })
+  const userStatsData = ref<{ total: number; active: number; disabled: number; suspended: number } | null>(null)
 
   // Getters
   const filteredUsers = computed(() => {
@@ -31,7 +31,7 @@ export const useUsersStore = defineStore('users', () => {
   // 修改userStats计算逻辑，优先使用API统计数据
   const userStats = computed(() => {
     // 如果API统计数据可用，使用API数据
-    if (userStatsData.value.total > 0) {
+    if (userStatsData.value) {
       return userStatsData.value
     }
     
@@ -62,7 +62,7 @@ export const useUsersStore = defineStore('users', () => {
     } catch (err: any) {
       console.error('❌ 获取用户统计数据失败:', err)
       // 如果统计API失败，清空统计数据，让前端使用本地计算
-      userStatsData.value = { total: 0, active: 0, disabled: 0, suspended: 0 }
+      userStatsData.value = null
     }
   }
 

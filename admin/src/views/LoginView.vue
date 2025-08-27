@@ -1,118 +1,104 @@
 <template>
-  <div class="login-container">
-    <div class="login-card">
-      <div class="login-header">
-        <h1 class="text-3xl font-bold text-gray-900 mb-2">📊 管理后台</h1>
-        <p class="text-gray-600">股票行情数据分析系统</p>
+  <div class="min-h-screen bg-gray-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-md w-full space-y-8">
+      <div>
+        <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">
+          管理后台登录
+        </h2>
+        <p class="mt-2 text-center text-sm text-gray-600">
+          请输入您的登录凭据
+        </p>
       </div>
-      
-      <el-form
-        ref="loginFormRef"
-        :model="loginForm"
-        :rules="loginRules"
-        class="login-form"
-        @submit.prevent="handleLogin"
-      >
-        <el-form-item prop="username">
-          <el-input
-            v-model="loginForm.username"
-            placeholder="请输入管理员用户名"
-            size="large"
-            :prefix-icon="User"
-          />
-        </el-form-item>
-        
-        <el-form-item prop="password">
-          <el-input
-            v-model="loginForm.password"
-            type="password"
-            placeholder="请输入密码"
-            size="large"
-            :prefix-icon="Lock"
-            show-password
-          />
-        </el-form-item>
-        
-        <el-form-item>
-          <el-button
-            type="primary"
-            size="large"
-            class="w-full"
-            :loading="loading"
-            @click="handleLogin"
+      <form class="mt-8 space-y-6" @submit.prevent="handleLogin">
+        <div class="rounded-md shadow-sm -space-y-px">
+          <div>
+            <label for="username" class="sr-only">用户名</label>
+            <input
+              id="username"
+              v-model="form.username"
+              name="username"
+              type="text"
+              required
+              class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+              placeholder="用户名"
+            />
+          </div>
+          <div>
+            <label for="password" class="sr-only">密码</label>
+            <input
+              id="password"
+              v-model="form.password"
+              name="password"
+              type="password"
+              required
+              class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+              placeholder="密码"
+            />
+          </div>
+        </div>
+
+        <div>
+          <button
+            type="submit"
+            :disabled="loading"
+            class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
           >
-            登录
-          </el-button>
-        </el-form-item>
-      </el-form>
-      
-      <!--<div class="login-info">
-        <p class="text-sm text-gray-500">演示账号：admin / 123456</p>
-      </div> -->
-      
-      <el-alert
-        v-if="error"
-        :title="error"
-        type="error"
-        show-icon
-        closable
-        @close="clearError"
-      />
+            <span v-if="loading" class="absolute left-0 inset-y-0 flex items-center pl-3">
+              <svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+            </span>
+            {{ loading ? '登录中...' : '登录' }}
+          </button>
+        </div>
+
+        <div v-if="error" class="text-red-600 text-center text-sm">
+          {{ error }}
+        </div>
+      </form>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
-import { User, Lock } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
-import type { FormInstance, FormRules } from 'element-plus'
 
 const router = useRouter()
 const authStore = useAuthStore()
 
-// 表单引用
-const loginFormRef = ref<FormInstance>()
-
-// 表单数据
-const loginForm = reactive({
+const form = reactive({
   username: '',
   password: ''
 })
 
-// 表单验证规则
-const loginRules: FormRules = {
-  username: [
-    { required: true, message: '请输入用户名', trigger: 'blur' }
-  ],
-  password: [
-    { required: true, message: '请输入密码', trigger: 'blur' },
-    { min: 6, message: '密码长度不能少于6位', trigger: 'blur' }
-  ]
-}
+const loading = ref(false)
+const error = ref('')
 
-// 计算属性
-const loading = computed(() => authStore.loading)
-const error = computed(() => authStore.error)
-
-// 方法
 const handleLogin = async () => {
-  if (!loginFormRef.value) return
-  
+  if (!form.username || !form.password) {
+    error.value = '请输入用户名和密码'
+    return
+  }
+
+  loading.value = true
+  error.value = ''
+
   try {
-    await loginFormRef.value.validate()
-    await authStore.login(loginForm)
-    ElMessage.success('登录成功')
+    await authStore.login({
+      username: form.username,
+      password: form.password
+    })
+    
+    // 登录成功，跳转到dashboard
     router.push('/dashboard')
   } catch (err) {
-    console.error('Login failed:', err)
+    error.value = err instanceof Error ? err.message : '登录失败'
+  } finally {
+    loading.value = false
   }
-}
-
-const clearError = () => {
-  authStore.clearError()
 }
 </script>
 
