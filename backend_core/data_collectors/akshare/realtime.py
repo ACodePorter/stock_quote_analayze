@@ -47,7 +47,8 @@ class AkshareRealtimeQuoteCollector(AKShareCollector):
 
         cursor = session.execute(text('''
             CREATE TABLE IF NOT EXISTS stock_realtime_quote (
-                code TEXT PRIMARY KEY,
+                code TEXT,
+                trade_date TEXT,
                 name TEXT,
                 current_price REAL,
                 change_percent REAL,
@@ -63,6 +64,7 @@ class AkshareRealtimeQuoteCollector(AKShareCollector):
                 pb_ratio REAL,
                 circulating_market_value REAL,
                 update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY(code, trade_date),
                 FOREIGN KEY(code) REFERENCES stock_basic_info(code)
             )
         '''))
@@ -114,9 +116,12 @@ class AkshareRealtimeQuoteCollector(AKShareCollector):
             for _, row in df.iterrows():
                 code = row['代码']
                 name = row['名称']
+                # 获取当前交易日期
+                trade_date = datetime.now().strftime('%Y-%m-%d')
                 data = {
                     'code': code,
                     'name': name,
+                    'trade_date': trade_date,
                     'current_price': self._safe_value(row['最新价']),
                     'change_percent': self._safe_value(row['涨跌幅']),
                     'volume': self._safe_value(row['成交量']),
@@ -168,17 +173,17 @@ class AkshareRealtimeQuoteCollector(AKShareCollector):
                         session.execute(    
                             text('''
                                 INSERT INTO stock_realtime_quote
-                                (code, name, current_price, change_percent, volume, amount,
+                                (code, trade_date, name, current_price, change_percent, volume, amount,
                                 high, low, open, pre_close, turnover_rate, pe_dynamic,
                                 total_market_value, pb_ratio, circulating_market_value,
                                 update_time)
                                 VALUES (
-                                    :code, :name, :current_price, :change_percent, :volume, :amount,
+                                    :code, :trade_date, :name, :current_price, :change_percent, :volume, :amount,
                                     :high, :low, :open, :pre_close, :turnover_rate, :pe_dynamic,
                                     :total_market_value, :pb_ratio, :circulating_market_value,
                                     :update_time
                                 )
-                                ON CONFLICT (code) DO UPDATE SET
+                                ON CONFLICT (code, trade_date) DO UPDATE SET
                                     name = EXCLUDED.name,
                                     current_price = EXCLUDED.current_price,
                                     change_percent = EXCLUDED.change_percent,
@@ -195,7 +200,7 @@ class AkshareRealtimeQuoteCollector(AKShareCollector):
                                     circulating_market_value = EXCLUDED.circulating_market_value,
                                     update_time = EXCLUDED.update_time
                             '''), 
-                            {'code': code, 'name': name, 'current_price': data['current_price'], 'change_percent': data['change_percent'], 'volume': data['volume'], 'amount': data['amount'], 'high': data['high'], 'low': data['low'], 'open': data['open'], 'pre_close': data['pre_close'], 'turnover_rate': data['turnover_rate'], 'pe_dynamic': data['pe_dynamic'], 'total_market_value': data['total_market_value'], 'pb_ratio': data['pb_ratio'], 'circulating_market_value': data['circulating_market_value'], 'update_time': data['update_time']})
+                            {'code': code, 'trade_date': data['trade_date'], 'name': name, 'current_price': data['current_price'], 'change_percent': data['change_percent'], 'volume': data['volume'], 'amount': data['amount'], 'high': data['high'], 'low': data['low'], 'open': data['open'], 'pre_close': data['pre_close'], 'turnover_rate': data['turnover_rate'], 'pe_dynamic': data['pe_dynamic'], 'total_market_value': data['total_market_value'], 'pb_ratio': data['pb_ratio'], 'circulating_market_value': data['circulating_market_value'], 'update_time': data['update_time']})
                         break
                     except Exception as e:
                         if ("LockNotAvailable" in str(e)) or ("DeadlockDetected" in str(e)):

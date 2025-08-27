@@ -98,36 +98,41 @@ class HistoricalQuoteCollector(TushareCollector):
                     ).fetchone()
                     name = result[0] if result and result[0] else ''
                     market = row.get('market', '')
-                    # 计算换手率和振幅
-                    # 换手率 = 成交量 / 总股本 * 100
+                    # 计算振幅
                     # 振幅 = (最高价 - 最低价) / 昨收盘价 * 100
-                    # 注意：需要从 stock_basic_info 表获取总股本（total_share），如果没有则为 None
-                    total_share = None
-                    try:
-                        result_share = session.execute(
-                            text('SELECT total_share FROM stock_basic_info WHERE code = :code'),
-                            {'code': code}
-                        ).fetchone()
-                        if result_share and result_share[0]:
-                            total_share = float(result_share[0])
-                    except Exception as e:
-                        self.logger.warning(f"获取总股本失败: {e}")
-                        total_share = None
-
-                    volume = self._safe_value(row['vol'])
                     pre_close = self._safe_value(row['pre_close'])
                     high = self._safe_value(row['high'])
                     low = self._safe_value(row['low'])
 
-                    turnover_rate = None
-                    if total_share and volume is not None and total_share > 0:
-                        turnover_rate = volume / total_share * 100
-
                     amplitude = None
                     if pre_close and pre_close > 0 and high is not None and low is not None:
                         amplitude = (high - low) / pre_close * 100
+
+                    # 从实时行情表获取换手率数据
+                    turnover_rate = None
+                    try:
+                        # 查询实时行情表中的换手率
+                        result_turnover = session.execute(text('''
+                            SELECT turnover_rate 
+                            FROM stock_realtime_quote 
+                            WHERE code = :code AND trade_date = :trade_date
+                        '''), {
+                            'code': code, 
+                            'trade_date': datetime.datetime.strptime(date_str, "%Y%m%d").strftime("%Y-%m-%d")
+                        })
+                        
+                        row_turnover = result_turnover.fetchone()
+                        if row_turnover and row_turnover[0] is not None:
+                            turnover_rate = float(row_turnover[0])
+                            self.logger.debug(f"从实时行情表获取股票 {code} 换手率: {turnover_rate}")
+                        else:
+                            self.logger.debug(f"实时行情表中未找到股票 {code} 的换手率数据")
+                            
+                    except Exception as e:
+                        self.logger.warning(f"从实时行情表获取换手率失败: {e}")
+                        turnover_rate = None
                     # 打印前面取得的参数
-                    #self.logger.info(f"参数: code={code}, ts_code={ts_code}, name={name}, market={market}, total_share={total_share}, volume={volume}, pre_close={pre_close}, high={high}, low={low}, turnover_rate={turnover_rate}, amplitude={amplitude}")
+                    #self.logger.info(f"参数: code={code}, ts_code={ts_code}, name={name}, market={market}, pre_close={pre_close}, high={high}, low={low}, turnover_rate={turnover_rate}, amplitude={amplitude}")
 
                     data = {
                         'code': code,
@@ -141,7 +146,7 @@ class HistoricalQuoteCollector(TushareCollector):
                         'high': high,
                         'low': low,
                         'close': self._safe_value(row['close']),
-                        'volume': volume,
+                        'volume': self._safe_value(row['vol']),
                         # tushare返回的amount单位是千元，需折算为元
                         'amount': self._safe_value(row['amount']) * 1000 if self._safe_value(row['amount']) is not None else None,
                         'change_percent': self._safe_value(row['pct_chg']),

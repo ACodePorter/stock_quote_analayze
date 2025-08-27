@@ -3,6 +3,7 @@ import logging
 from apscheduler.schedulers.blocking import BlockingScheduler
 from datetime import datetime, timedelta
 from backend_core.data_collectors.akshare.realtime import AkshareRealtimeQuoteCollector
+from backend_core.data_collectors.akshare.historical_turnover_rate import HistoricalTurnoverRateCollector
 from backend_core.data_collectors.tushare.historical import HistoricalQuoteCollector
 from backend_core.data_collectors.tushare.realtime import RealtimeQuoteCollector
 from backend_core.config.config import DATA_COLLECTORS
@@ -18,6 +19,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(mess
 
 # 初始化采集器
 ak_collector = AkshareRealtimeQuoteCollector(DATA_COLLECTORS.get('akshare', {}))
+ak_turnover_collector = HistoricalTurnoverRateCollector(DATA_COLLECTORS.get('akshare', {}))
 tushare_hist_collector = HistoricalQuoteCollector(DATA_COLLECTORS.get('tushare', {}))
 tushare_realtime_collector = RealtimeQuoteCollector(DATA_COLLECTORS.get('tushare', {}))
 index_collector = RealtimeIndexSpotAkCollector()
@@ -89,6 +91,18 @@ def collect_akshare_stock_notices():
     except Exception as e:
         logging.error(f"[定时任务] A股公告数据采集异常: {e}")
 
+def collect_akshare_turnover_rate():
+    try:
+        logging.info("[定时任务] AKShare 历史换手率数据采集开始...")
+        # 采集最近30天缺失的换手率数据
+        success = ak_turnover_collector.collect_missing_turnover_rate(30)
+        if success:
+            logging.info("[定时任务] AKShare 历史换手率数据采集完成")
+        else:
+            logging.warning("[定时任务] AKShare 历史换手率数据采集部分失败")
+    except Exception as e:
+        logging.error(f"[定时任务] AKShare 历史换手率数据采集异常: {e}")
+
 def run_watchlist_history_collection():
     try:
         logging.info("[定时任务] 自选股历史行情采集开始...")
@@ -142,6 +156,16 @@ scheduler.add_job(
     'interval',
     minutes=240,
     id='akshare_stock_notices',
+)
+
+# 历史换手率数据采集任务，每30天采集一次
+scheduler.add_job(
+    collect_akshare_turnover_rate,
+    'cron',
+    day_of_week='mon-fri',
+    hour='11',
+    minute='13',
+    id='akshare_turnover_rate',
 )
 
 # 自选股历史行情采集任务，每5分钟执行一次

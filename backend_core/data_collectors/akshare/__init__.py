@@ -6,6 +6,7 @@ AKShare数据采集模块
 from .base import AKShareCollector
 from .realtime import AkshareRealtimeQuoteCollector
 from .historical import HistoricalQuoteCollector
+from .historical_turnover_rate import HistoricalTurnoverRateCollector
 from .index import IndexQuoteCollector
 from .realtime_index_spot_ak import RealtimeIndexSpotAkCollector
 
@@ -13,6 +14,7 @@ __all__ = [
     'AKShareCollector',
     'AkshareRealtimeQuoteCollector',
     'HistoricalQuoteCollector',
+    'HistoricalTurnoverRateCollector',
     'IndexQuoteCollector',
     'RealtimeIndexSpotAkCollector'
 ] 
