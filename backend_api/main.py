@@ -41,6 +41,7 @@ from stock.stock_fund_flow import router as stock_fund_flow_router
 from stock.stock_news import router as stock_news_router
 from stock.stock_analysis_routes import router as stock_analysis_router
 from quotes_routes import router as quotes_router
+from trading_notes_routes import router as trading_notes_router
 
 # 创建FastAPI应用
 app = FastAPI(
@@ -102,6 +103,7 @@ app.include_router(history_router)
 app.include_router(stock_fund_flow_router)
 app.include_router(stock_news_router)
 app.include_router(quotes_router)
+app.include_router(trading_notes_router)
 
 # 根路由重定向到管理后台
 @app.get("/")

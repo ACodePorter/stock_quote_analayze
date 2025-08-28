@@ -355,135 +355,46 @@ async def get_index_quotes(
                 (IndexRealtimeQuotes.name.contains(keyword))
             )
         
-        # 排序 - 使用 case 语句确保 null 值排在最后
-        if sort_by == "pct_chg":
-            query = query.order_by(
-                case(
-                    (IndexRealtimeQuotes.pct_chg.is_(None), 1),
-                    else_=0
-                ),
-                desc(IndexRealtimeQuotes.pct_chg)
-            )
-        elif sort_by == "price":
-            query = query.order_by(
-                case(
-                    (IndexRealtimeQuotes.price.is_(None), 1),
-                    else_=0
-                ),
-                desc(IndexRealtimeQuotes.price)
-            )
-        elif sort_by == "change":
-            query = query.order_by(
-                case(
-                    (IndexRealtimeQuotes.change.is_(None), 1),
-                    else_=0
-                ),
-                desc(IndexRealtimeQuotes.change)
-            )
-        elif sort_by == "high":
-            query = query.order_by(
-                case(
-                    (IndexRealtimeQuotes.high.is_(None), 1),
-                    else_=0
-                ),
-                desc(IndexRealtimeQuotes.high)
-            )
-        elif sort_by == "low":
-            query = query.order_by(
-                case(
-                    (IndexRealtimeQuotes.low.is_(None), 1),
-                    else_=0
-                ),
-                desc(IndexRealtimeQuotes.low)
-            )
-        elif sort_by == "open":
-            query = query.order_by(
-                case(
-                    (IndexRealtimeQuotes.open.is_(None), 1),
-                    else_=0
-                ),
-                desc(IndexRealtimeQuotes.open)
-            )
-        elif sort_by == "pre_close":
-            query = query.order_by(
-                case(
-                    (IndexRealtimeQuotes.pre_close.is_(None), 1),
-                    else_=0
-                ),
-                desc(IndexRealtimeQuotes.pre_close)
-            )
-        elif sort_by == "volume":
-            query = query.order_by(
-                case(
-                    (IndexRealtimeQuotes.volume.is_(None), 1),
-                    else_=0
-                ),
-                desc(IndexRealtimeQuotes.volume)
-            )
-        elif sort_by == "amount":
-            query = query.order_by(
-                case(
-                    (IndexRealtimeQuotes.amount.is_(None), 1),
-                    else_=0
-                ),
-                desc(IndexRealtimeQuotes.amount)
-            )
-        elif sort_by == "amplitude":
-            query = query.order_by(
-                case(
-                    (IndexRealtimeQuotes.amplitude.is_(None), 1),
-                    else_=0
-                ),
-                desc(IndexRealtimeQuotes.amplitude)
-            )
-        elif sort_by == "turnover":
-            query = query.order_by(
-                case(
-                    (IndexRealtimeQuotes.turnover.is_(None), 1),
-                    else_=0
-                ),
-                desc(IndexRealtimeQuotes.turnover)
-            )
-        elif sort_by == "pe":
-            query = query.order_by(
-                case(
-                    (IndexRealtimeQuotes.pe.is_(None), 1),
-                    else_=0
-                ),
-                desc(IndexRealtimeQuotes.pe)
-            )
-        elif sort_by == "volume_ratio":
-            query = query.order_by(
-                case(
-                    (IndexRealtimeQuotes.volume_ratio.is_(None), 1),
-                    else_=0
-                ),
-                desc(IndexRealtimeQuotes.volume_ratio)
-            )
-        else:
-            query = query.order_by(
-                case(
-                    (IndexRealtimeQuotes.update_time.is_(None), 1),
-                    else_=0
-                ),
-                desc(IndexRealtimeQuotes.update_time)
-            )
+        # 排序 - 移除SQL排序，统一使用Python排序确保所有空值都排在最后
         
-        # 分页和排序
-        if sort_by == "volume":
-            # 对于volume字段，使用Python排序确保null值在最后
-            all_data = query.all()
-            # 按volume排序，null值排在最后
+        # 分页和排序 - 统一使用Python排序确保所有空值都排在最后
+        all_data = query.all()
+        
+        # 根据排序字段进行Python排序，确保null值排在最后
+        if sort_by == "pct_chg":
+            all_data.sort(key=lambda x: (x.pct_chg is None, x.pct_chg or 0), reverse=True)
+        elif sort_by == "price":
+            all_data.sort(key=lambda x: (x.price is None, x.price or 0), reverse=True)
+        elif sort_by == "change":
+            all_data.sort(key=lambda x: (x.change is None, x.change or 0), reverse=True)
+        elif sort_by == "high":
+            all_data.sort(key=lambda x: (x.high is None, x.high or 0), reverse=True)
+        elif sort_by == "low":
+            all_data.sort(key=lambda x: (x.low is None, x.low or 0), reverse=True)
+        elif sort_by == "open":
+            all_data.sort(key=lambda x: (x.open is None, x.open or 0), reverse=True)
+        elif sort_by == "pre_close":
+            all_data.sort(key=lambda x: (x.pre_close is None, x.pre_close or 0), reverse=True)
+        elif sort_by == "volume":
             all_data.sort(key=lambda x: (x.volume is None, x.volume or 0), reverse=True)
+        elif sort_by == "amount":
+            all_data.sort(key=lambda x: (x.amount is None, x.amount or 0), reverse=True)
+        elif sort_by == "amplitude":
+            all_data.sort(key=lambda x: (x.amplitude is None, x.amplitude or 0), reverse=True)
+        elif sort_by == "turnover":
+            all_data.sort(key=lambda x: (x.turnover is None, x.turnover or 0), reverse=True)
+        elif sort_by == "pe":
+            all_data.sort(key=lambda x: (x.pe is None, x.pe or 0), reverse=True)
+        elif sort_by == "volume_ratio":
+            all_data.sort(key=lambda x: (x.volume_ratio is None, x.volume_ratio or 0), reverse=True)
+        else:
+            # 默认按更新时间排序
+            all_data.sort(key=lambda x: (x.update_time is None, x.update_time or datetime.min), reverse=True)
+        
             total = len(all_data)
             start = (page - 1) * page_size
             end = start + page_size
             data = all_data[start:end]
-        else:
-            # 其他字段使用SQL排序
-            total = query.count()
-            offset = (page - 1) * page_size
-            data = query.offset(offset).limit(page_size).all()
         
         # 格式化数据
         formatted_data = format_quotes_data(data, "indices")

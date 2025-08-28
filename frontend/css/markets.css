@@ -436,6 +436,18 @@
     color: var(--color-text-primary);
 }
 
+.leader-stock .stock-name.clickable {
+    cursor: pointer;
+    color: var(--color-primary);
+    text-decoration: underline;
+    transition: all 0.3s ease;
+}
+
+.leader-stock .stock-name.clickable:hover {
+    color: var(--color-primary-dark);
+    text-decoration: none;
+}
+
 .leader-stock .stock-change {
     font-weight: 600;
     font-family: "Courier New", monospace;

@@ -1,0 +1,366 @@
+/* 股票历史页面专用样式 */
+
+/* 表格样式增强 */
+.history-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 1rem;
+    border: 2px solid #d1d5db;
+    background: #ffffff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.history-table th, 
+.history-table td {
+    border: 1px solid #9ca3af;
+    padding: 10px 6px;
+    text-align: center;
+    vertical-align: middle;
+}
+
+.history-table th {
+    background: #f3f4f6;
+    color: #374151;
+    font-weight: 600;
+    border: 2px solid #6b7280;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.history-table td {
+    background: #ffffff;
+    color: #374151;
+}
+
+.history-table tr:hover {
+    background-color: #f9fafb;
+}
+
+.history-table tr:nth-child(even) {
+    background-color: #fafafa;
+}
+
+.history-table tr:nth-child(even):hover {
+    background-color: #f0f9ff;
+}
+
+/* 涨跌颜色样式 */
+.row-up { 
+    color: #e60000 !important; 
+    font-weight: bold; 
+    background: #fff6f6; 
+}
+
+.row-down { 
+    color: #009933 !important; 
+    font-weight: bold; 
+    background: #f6fff6; 
+}
+
+.cell-up { 
+    color: #e60000 !important; 
+    font-weight: bold; 
+}
+
+.cell-down { 
+    color: #009933 !important; 
+    font-weight: bold; 
+}
+
+/* 工具栏样式 */
+.toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    background: #f8fafc;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+}
+
+.toolbar label {
+    font-size: 0.95rem;
+    color: #374151;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.toolbar input[type="date"] {
+    padding: 6px 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    background: #ffffff;
+}
+
+.toolbar input[type="checkbox"] {
+    margin-right: 5px;
+    transform: scale(1.1);
+}
+
+.toolbar button {
+    padding: 8px 20px;
+    border-radius: 6px;
+    border: none;
+    background: var(--color-primary);
+    color: #ffffff;
+    font-size: 0.95rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.toolbar button:hover {
+    background: #1765ad;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* 分页样式 */
+.pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    margin-top: 1.5rem;
+    padding: 1rem;
+}
+
+.pagination button {
+    padding: 6px 16px;
+    border-radius: 6px;
+    border: 1px solid #d1d5db;
+    background: #ffffff;
+    color: #374151;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.pagination button:hover {
+    background: var(--color-primary);
+    color: #ffffff;
+    border-color: var(--color-primary);
+}
+
+#pageInfo {
+    padding: 6px 12px;
+    background: #f3f4f6;
+    border-radius: 4px;
+    color: #6b7280;
+    font-size: 0.9rem;
+}
+
+/* 响应式设计 */
+@media (max-width: 900px) {
+    .history-table {
+        font-size: 0.85rem;
+    }
+    
+    .history-table th, 
+    .history-table td {
+        padding: 6px 4px;
+    }
+    
+    .toolbar {
+        flex-direction: column;
+        gap: 10px;
+    }
+}
+
+@media (max-width: 480px) {
+    .history-table {
+        font-size: 0.8rem;
+    }
+    
+    .history-table th, 
+    .history-table td {
+        padding: 4px 2px;
+    }
+    
+    .toolbar {
+        padding: 0.5rem;
+    }
+    
+    .toolbar button {
+        width: 100%;
+        padding: 10px;
+    }
+}
+
+/* 备注弹窗样式 */
+.notes-modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.5);
+}
+
+.notes-content {
+    background-color: #fff;
+    margin: 5% auto;
+    padding: 0;
+    border-radius: 8px;
+    width: 90%;
+    max-width: 500px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+}
+
+.notes-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.notes-header h3 {
+    margin: 0;
+    color: #1f2937;
+    font-size: 1.1rem;
+}
+
+.close-notes {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: #6b7280;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: background-color 0.2s;
+}
+
+.close-notes:hover {
+    background-color: #f3f4f6;
+}
+
+.notes-form {
+    padding: 1.5rem;
+}
+
+.form-group {
+    margin-bottom: 1rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: #374151;
+    font-weight: 500;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    transition: border-color 0.2s;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.form-group textarea {
+    resize: vertical;
+    min-height: 80px;
+}
+
+.form-actions {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: flex-end;
+    margin-top: 1.5rem;
+}
+
+.form-actions button {
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+#saveNoteBtn {
+    background-color: var(--color-primary);
+    color: white;
+}
+
+#saveNoteBtn:hover {
+    background-color: #1765ad;
+}
+
+#deleteNoteBtn {
+    background-color: #dc2626;
+    color: white;
+}
+
+#deleteNoteBtn:hover {
+    background-color: #b91c1c;
+}
+
+#cancelNoteBtn {
+    background-color: #6b7280;
+    color: white;
+}
+
+#cancelNoteBtn:hover {
+    background-color: #4b5563;
+}
+
+/* 备注列样式 */
+.notes-cell {
+    cursor: pointer;
+    color: var(--color-primary);
+    text-decoration: underline;
+}
+
+.notes-cell:hover {
+    color: #1765ad;
+}
+
+.notes-cell.has-notes {
+    background-color: #fef3c7;
+    font-weight: 500;
+}
+
+/* 卡片样式 */
+.history-card {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    padding: 2rem 1.5rem 1.5rem 1.5rem;
+    margin: 40px auto 0 auto;
+}
+
+.history-title {
+    text-align: center;
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 1.5rem;
+    color: #1f2937;
+}

@@ -7,133 +7,7 @@
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <link rel="stylesheet" href="css/common.css">
     <link rel="stylesheet" href="css/stock.css">
-    <style>
-        body {
-            background: #f5f5f5;
-        }
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 0 20px;
-        }
-        
-        .history-card {
-            background: #fff;
-            border-radius: 12px;
-            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
-            padding: 2rem 1.5rem 1.5rem 1.5rem;
-            margin: 40px auto 0 auto;
-        }
-        .history-title {
-            text-align: center;
-            font-size: 1.5rem;
-            font-weight: 700;
-            margin-bottom: 1.5rem;
-            color: #1f2937;
-        }
-        .toolbar {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            justify-content: center;
-            align-items: center;
-            margin-bottom: 1rem;
-        }
-        .toolbar label {
-            font-size: 1rem;
-            color: #333;
-        }
-        .toolbar input[type="date"] {
-            padding: 4px 8px;
-            border: 1px solid #e2e8f0;
-            border-radius: 6px;
-            font-size: 1rem;
-        }
-        .toolbar button {
-            padding: 6px 18px;
-            border-radius: 6px;
-            border: none;
-            background: var(--color-primary);
-            color: #fff;
-            font-size: 1rem;
-            font-weight: 500;
-            cursor: pointer;
-            margin-left: 5px;
-            transition: background 0.2s;
-        }
-        .toolbar button:hover {
-            background: #1765ad;
-        }
-        .history-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 1rem;
-        }
-        .history-table th, .history-table td {
-            border: 1px solid #e8e8e8;
-            padding: 8px 4px;
-            text-align: center;
-        }
-        .history-table th {
-            background: #f5f5f5;
-            color: #333;
-            font-weight: 600;
-        }
-        .pagination {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 10px;
-            margin-top: 10px;
-        }
-        .pagination button {
-            padding: 4px 14px;
-            border-radius: 6px;
-            border: 1px solid #e2e8e8;
-            background: #fff;
-            color: #333;
-            font-size: 1rem;
-            cursor: pointer;
-            transition: background 0.2s, color 0.2s;
-        }
-        .pagination button:hover {
-            background: var(--color-primary);
-            color: #fff;
-        }
-        .row-up { color: #e60000 !important; font-weight: bold; background: #fff6f6; }
-        .row-down { color: #009933 !important; font-weight: bold; background: #f6fff6; }
-        .cell-up { color: #e60000 !important; font-weight: bold; }
-        .cell-down { color: #009933 !important; font-weight: bold; }
-        
-        @media (max-width: 900px) {
-            .container {
-                max-width: 98vw;
-                padding: 0 5px;
-            }
-            .history-card {
-                padding: 1rem 0.5rem 1rem 0.5rem;
-            }
-            .toolbar label, .toolbar input, .toolbar button {
-                font-size: 0.95rem;
-            }
-            .history-title {
-                font-size: 1.2rem;
-            }
-        }
-        @media (max-width: 480px) {
-            .history-card {
-                margin: 10px auto 0 auto;
-                padding: 0.5rem 0.2rem 0.5rem 0.2rem;
-            }
-            .toolbar {
-                flex-direction: column;
-                gap: 6px;
-            }
-            .history-title {
-                font-size: 1rem;
-            }
-        }
-    </style>
+    <link rel="stylesheet" href="css/stock_history.css">
 </head>
 <body>
     <!-- 头部导航将由JavaScript动态加载 -->
@@ -147,13 +21,14 @@
             <div class="toolbar">
                 <label>开始日期: <input type="date" id="startDate"></label>
                 <label>结束日期: <input type="date" id="endDate"></label>
+                <label><input type="checkbox" id="includeNotes" checked> 包含备注</label>
                 <button id="searchBtn">查询</button>
                 <button id="exportBtn">导出</button>
             </div>
             <table class="history-table" id="historyTable">
                 <thead>
                     <tr>
-                        <th>股票代码</th><th>股票名称</th><th>日期</th><th>开盘</th><th>收盘</th><th>最高</th><th>最低</th><th>成交量</th><th>成交额</th><th>涨跌幅</th><th>涨跌额</th><th>换手率</th>
+                        <th>股票代码</th><th>股票名称</th><th>日期</th><th>开盘</th><th>收盘</th><th>最高</th><th>最低</th><th>成交量</th><th>成交额</th><th>涨跌幅</th><th>涨跌额</th><th>换手率</th><th>累计升跌%</th><th>5天升跌%</th><th>备注</th>
                     </tr>
                 </thead>
                 <tbody></tbody>
@@ -176,6 +51,58 @@
                 <button class="close-search">×</button>
             </div>
             <div class="search-results"></div>
+        </div>
+    </div>
+
+    <!-- 备注编辑弹窗 -->
+    <div class="notes-modal" id="notesModal">
+        <div class="notes-content">
+            <div class="notes-header">
+                <h3>编辑交易备注</h3>
+                <button class="close-notes">×</button>
+            </div>
+            <div class="notes-form">
+                <div class="form-group">
+                    <label>股票代码:</label>
+                    <input type="text" id="noteStockCode" readonly>
+                </div>
+                <div class="form-group">
+                    <label>交易日期:</label>
+                    <input type="date" id="noteTradeDate" readonly>
+                </div>
+                <div class="form-group">
+                    <label>交易备注:</label>
+                    <textarea id="noteContent" placeholder="请输入交易备注..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label>策略类型:</label>
+                    <select id="noteStrategyType">
+                        <option value="">请选择</option>
+                        <option value="买入信号">买入信号</option>
+                        <option value="卖出信号">卖出信号</option>
+                        <option value="观察">观察</option>
+                        <option value="持有">持有</option>
+                        <option value="加仓">加仓</option>
+                        <option value="减仓">减仓</option>
+                        <option value="止损">止损</option>
+                        <option value="止盈">止盈</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>风险等级:</label>
+                    <select id="noteRiskLevel">
+                        <option value="">请选择</option>
+                        <option value="低">低</option>
+                        <option value="中">中</option>
+                        <option value="高">高</option>
+                    </select>
+                </div>
+                <div class="form-actions">
+                    <button id="saveNoteBtn">保存</button>
+                    <button id="deleteNoteBtn">删除</button>
+                    <button id="cancelNoteBtn">取消</button>
+                </div>
+            </div>
         </div>
     </div>
 

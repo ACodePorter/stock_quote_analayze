@@ -311,6 +311,21 @@ onMounted(() => {
 }
 
 /* 响应式设计 */
+@media (max-width: 1024px) {
+  .dashboard-view {
+    gap: 1.25rem;
+    padding: 20px;
+  }
+  
+  .stats-grid {
+    margin-bottom: 1.25rem;
+  }
+  
+  .actions-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
 @media (max-width: 768px) {
   .dashboard-view {
     gap: 1rem;
@@ -360,9 +375,54 @@ onMounted(() => {
   }
 }
 
+@media (max-width: 640px) {
+  .dashboard-view {
+    gap: 0.875rem;
+    padding: 14px;
+  }
+  
+  .stats-grid {
+    margin-bottom: 0.875rem;
+  }
+  
+  .stat-card {
+    height: 4.75rem;
+  }
+  
+  .stat-icon {
+    width: 2.25rem;
+    height: 2.25rem;
+    margin-right: 0.625rem;
+  }
+  
+  .stat-value {
+    font-size: 1.125rem;
+  }
+  
+  .stat-label {
+    font-size: 0.7rem;
+  }
+  
+  .actions-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.625rem;
+  }
+  
+  .action-button {
+    height: 38px;
+    font-size: 13px;
+    padding-left: 0.625rem;
+  }
+}
+
 @media (max-width: 480px) {
   .dashboard-view {
+    gap: 0.75rem;
     padding: 12px;
+  }
+  
+  .stats-grid {
+    margin-bottom: 0.75rem;
   }
   
   .stat-card {
@@ -376,11 +436,11 @@ onMounted(() => {
   }
   
   .stat-value {
-    font-size: 1.125rem;
+    font-size: 1rem;
   }
   
   .stat-label {
-    font-size: 0.7rem;
+    font-size: 0.65rem;
   }
   
   .actions-grid {
@@ -390,7 +450,56 @@ onMounted(() => {
   
   .action-button {
     height: 36px;
-    font-size: 13px;
+    font-size: 12px;
+    padding-left: 0.5rem;
+  }
+  
+  .quick-actions .el-card {
+    margin-bottom: 0.75rem;
+  }
+  
+  .recent-activity .el-card {
+    margin-bottom: 0.75rem;
+  }
+}
+
+@media (max-width: 360px) {
+  .dashboard-view {
+    gap: 0.625rem;
+    padding: 10px;
+  }
+  
+  .stats-grid {
+    margin-bottom: 0.625rem;
+  }
+  
+  .stat-card {
+    height: 4rem;
+  }
+  
+  .stat-icon {
+    width: 1.75rem;
+    height: 1.75rem;
+    margin-right: 0.375rem;
+  }
+  
+  .stat-value {
+    font-size: 0.875rem;
+  }
+  
+  .stat-label {
+    font-size: 0.6rem;
+  }
+  
+  .actions-grid {
+    grid-template-columns: 1fr;
+    gap: 0.375rem;
+  }
+  
+  .action-button {
+    height: 32px;
+    font-size: 11px;
+    padding-left: 0.375rem;
   }
 }
 </style> 

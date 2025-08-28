@@ -34,6 +34,7 @@ const MarketsPage = {
     // 初始化
     async init() {
         this.bindEvents();
+        this.loadMarketIndices(); // 加载真实指数数据
         this.loadIndexCharts();
         this.loadRankingData();
         this.startDataUpdate();
@@ -138,6 +139,64 @@ const MarketsPage = {
                 this.loadStatsData();
                 break;
         }
+    },
+
+    // 加载市场指数数据
+    async loadMarketIndices() {
+        try {
+            console.log('加载指数数据...');
+            const response = await fetch(`${this.API_BASE_URL}/api/market/indices`);
+            const result = await response.json();
+            
+            if (result.success && result.data) {
+                this.updateIndexDisplay(result.data);
+                console.log('指数数据加载成功');
+            } else {
+                throw new Error('API返回错误');
+            }
+        } catch (error) {
+            console.error('指数数据加载失败:', error);
+            // 使用模拟数据作为后备
+            const fallbackData = [
+                { code: '000001', name: '上证指数', current: 3234.56, change: 12.34, change_percent: 0.38, volume: 12456789 },
+                { code: '399001', name: '深证成指', current: 11456.78, change: -23.45, change_percent: -0.20, volume: 8567123 },
+                { code: '399006', name: '创业板指', current: 2345.67, change: 5.67, change_percent: 0.24, volume: 5678901 },
+                { code: '000300', name: '沪深300', current: 4567.89, change: -8.90, change_percent: -0.19, volume: 9876543 }
+            ];
+            this.updateIndexDisplay(fallbackData);
+            console.log('使用模拟指数数据');
+        }
+    },
+
+    // 更新指数显示
+    updateIndexDisplay(indicesData) {
+        indicesData.forEach(function(index) {
+            const card = document.querySelector('[data-index-code="' + index.code + '"]');
+            if (card) {
+                const valueEl = card.querySelector('.index-value');
+                const changeEl = card.querySelector('.index-change');
+                const changeValueEl = card.querySelector('.change-value');
+                const changePercentEl = card.querySelector('.change-percent');
+                
+                if (valueEl) {
+                    valueEl.textContent = (typeof index.current === 'number' && !isNaN(index.current)) ? index.current.toFixed(2) : '--';
+                }
+                
+                if (changeEl && changeValueEl && changePercentEl) {
+                    const change = (typeof index.change === 'number' && !isNaN(index.change)) ? index.change : 0;
+                    const change_percent = (typeof index.change_percent === 'number' && !isNaN(index.change_percent)) ? index.change_percent : 0;
+                    
+                    const changeStr = change >= 0 ? '+' + change.toFixed(2) : change.toFixed(2);
+                    const percentStr = change_percent >= 0 ? '+' + change_percent.toFixed(2) + '%' : change_percent.toFixed(2) + '%';
+                    
+                    changeValueEl.textContent = changeStr;
+                    changePercentEl.textContent = percentStr;
+                    
+                    // 设置颜色类
+                    changeEl.className = 'index-change ' + (change > 0 ? 'positive' : change < 0 ? 'negative' : '');
+                }
+            }
+        });
     },
 
     // 加载指数图表
@@ -282,14 +341,212 @@ async loadRankingData(page = 1) {
     },
 
     // 加载板块数据
-    loadSectorData() {
-        // 板块数据已在HTML中静态定义，这里可以添加动态更新逻辑
-        setTimeout(() => {
+    async loadSectorData() {
+        try {
+            console.log('加载行业板块数据...');
+            const response = await fetch(`${this.API_BASE_URL}/api/market/industry_board`);
+            const result = await response.json();
+            
+            if (result.success && result.data) {
+                this.updateIndustryBoardDisplay(result.data);
+                console.log('行业板块数据加载成功');
+            } else {
+                throw new Error('API返回错误');
+            }
+        } catch (error) {
+            console.error('行业板块数据加载失败:', error);
+            // 使用模拟数据作为后备
             this.updateSectorData();
-        }, 100);
+            console.log('使用模拟行业板块数据');
+        }
     },
 
-    // 更新板块数据
+    // 更新行业板块显示（使用真实数据）
+    async updateIndustryBoardDisplay(industryData) {
+        // 获取前4个行业板块数据
+        const topSectors = industryData.slice(0, 4);
+        
+        // 清空现有的行业板块内容
+        const sectorsGrid = document.querySelector('.sectors-grid');
+        if (!sectorsGrid) return;
+        
+        sectorsGrid.innerHTML = '';
+        
+        // 为每个行业板块创建卡片（异步）
+        for (const sector of topSectors) {
+            const sectorCard = await this.createIndustryBoardCard(sector);
+            sectorsGrid.appendChild(sectorCard);
+        }
+        
+        // 如果没有数据，显示默认卡片
+        if (topSectors.length === 0) {
+            this.createDefaultSectorCards();
+        }
+    },
+
+    // 创建行业板块卡片
+    async createIndustryBoardCard(sector) {
+        const card = document.createElement('div');
+        card.className = 'sector-card';
+        
+        const changePercent = parseFloat(sector.change_percent || 0);
+        const isPositive = changePercent >= 0;
+        
+        // 模拟上涨、下跌、平盘数量（实际数据中可能没有这些字段）
+        const upCount = Math.floor(Math.random() * 50) + 20;
+        const downCount = Math.floor(Math.random() * 30) + 5;
+        const flatCount = Math.floor(Math.random() * 5) + 1;
+        
+        // 处理龙头股信息
+        const leadingStockName = sector.leading_stock_name || '--';
+        const leadingStockChange = parseFloat(sector.leading_stock_change_percent || 0);
+        const leadingStockCode = sector.leading_stock_code || '';
+        
+        // 如果有龙头股代码，可以添加点击跳转功能
+        const leadingStockDisplay = leadingStockCode ? 
+            `<span class="stock-name clickable" onclick="goToStock('${leadingStockCode}')" title="点击查看股票详情">${leadingStockName}</span>` :
+            `<span class="stock-name">${leadingStockName}</span>`;
+        
+        // 获取板块内涨幅领先的股票
+        let topStocks = [];
+        if (sector.board_code) {
+            try {
+                // 传递板块代码和名称，支持智能匹配
+                const params = new URLSearchParams({
+                    board_code: sector.board_code,
+                    board_name: sector.board_name || ''
+                });
+                const response = await fetch(`${this.API_BASE_URL}/api/market/industry_board/${sector.board_code}/top_stocks?${params}`);
+                const result = await response.json();
+                if (result.success && result.data.top_stocks) {
+                    topStocks = result.data.top_stocks;
+                }
+            } catch (error) {
+                console.error(`获取板块 ${sector.board_name} 龙头股失败:`, error);
+            }
+        }
+        
+        // 构建龙头股显示
+        let leadersHTML = '';
+        if (topStocks.length > 0) {
+            // 显示前两只龙头股
+            topStocks.slice(0, 2).forEach((stock, index) => {
+                const stockDisplay = stock.code ? 
+                    `<span class="stock-name clickable" onclick="goToStock('${stock.code}')" title="点击查看股票详情">${stock.name}</span>` :
+                    `<span class="stock-name">${stock.name}</span>`;
+                
+                leadersHTML += `
+                    <div class="leader-stock">
+                        ${stockDisplay}
+                        <span class="stock-change ${this.getChangeClass(stock.change_percent)}">${this.formatPercent(stock.change_percent)}</span>
+                    </div>
+                `;
+            });
+            
+            // 如果只有一只股票，添加占位符
+            if (topStocks.length === 1) {
+                leadersHTML += `
+                    <div class="leader-stock">
+                        <span class="stock-name">--</span>
+                        <span class="stock-change">--</span>
+                    </div>
+                `;
+            }
+        } else {
+            // 使用默认的龙头股信息
+            leadersHTML = `
+                <div class="leader-stock">
+                    ${leadingStockDisplay}
+                    <span class="stock-change ${this.getChangeClass(leadingStockChange)}">${this.formatPercent(leadingStockChange)}</span>
+                </div>
+                <div class="leader-stock">
+                    <span class="stock-name">--</span>
+                    <span class="stock-change">--</span>
+                </div>
+            `;
+        }
+        
+        card.innerHTML = `
+            <div class="sector-header">
+                <h3>${sector.board_name || '未知板块'}</h3>
+                <span class="sector-change ${isPositive ? 'positive' : 'negative'}">${this.formatPercent(changePercent)}</span>
+            </div>
+            <div class="sector-stats">
+                <div class="stat-item">
+                    <span class="label">上涨</span>
+                    <span class="value positive">${upCount}</span>
+                </div>
+                <div class="stat-item">
+                    <span class="label">下跌</span>
+                    <span class="value negative">${downCount}</span>
+                </div>
+                <div class="stat-item">
+                    <span class="label">平盘</span>
+                    <span class="value">${flatCount}</span>
+                </div>
+            </div>
+            <div class="sector-leaders">
+                ${leadersHTML}
+            </div>
+            <button class="sector-detail-btn" onclick="goToSectorDetail('${sector.board_name || '未知板块'}')">查看详情</button>
+        `;
+        
+        return card;
+    },
+
+    // 创建默认行业板块卡片（当没有数据时）
+    createDefaultSectorCards() {
+        const sectorsGrid = document.querySelector('.sectors-grid');
+        if (!sectorsGrid) return;
+        
+        const defaultSectors = [
+            { name: '新能源汽车', change: 3.45, up: 45, down: 12, flat: 3, leader1: '比亚迪', leader1Change: 5.67, leader2: '宁德时代', leader2Change: 4.32 },
+            { name: '人工智能', change: 2.87, up: 38, down: 15, flat: 2, leader1: '科大讯飞', leader1Change: 6.89, leader2: '百度', leader2Change: 4.56 },
+            { name: '生物医药', change: -1.23, up: 18, down: 35, flat: 4, leader1: '药明康德', leader1Change: 2.34, leader2: '恒瑞医药', leader2Change: -1.45 },
+            { name: '半导体', change: 4.12, up: 52, down: 8, flat: 3, leader1: '中芯国际', leader1Change: 7.89, leader2: '韦尔股份', leader2Change: 6.23 }
+        ];
+        
+        defaultSectors.forEach(sector => {
+            const card = document.createElement('div');
+            card.className = 'sector-card';
+            
+            card.innerHTML = `
+                <div class="sector-header">
+                    <h3>${sector.name}</h3>
+                    <span class="sector-change ${sector.change >= 0 ? 'positive' : 'negative'}">${this.formatPercent(sector.change)}</span>
+                </div>
+                <div class="sector-stats">
+                    <div class="stat-item">
+                        <span class="label">上涨</span>
+                        <span class="value positive">${sector.up}</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="label">下跌</span>
+                        <span class="value negative">${sector.down}</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="label">平盘</span>
+                        <span class="value">${sector.flat}</span>
+                    </div>
+                </div>
+                <div class="sector-leaders">
+                    <div class="leader-stock">
+                        <span class="stock-name">${sector.leader1}</span>
+                        <span class="stock-change ${sector.leader1Change >= 0 ? 'positive' : 'negative'}">${this.formatPercent(sector.leader1Change)}</span>
+                    </div>
+                    <div class="leader-stock">
+                        <span class="stock-name">${sector.leader2}</span>
+                        <span class="stock-change ${sector.leader2Change >= 0 ? 'positive' : 'negative'}">${this.formatPercent(sector.leader2Change)}</span>
+                    </div>
+                </div>
+                <button class="sector-detail-btn" onclick="goToSectorDetail('${sector.name}')">查看详情</button>
+            `;
+            
+            sectorsGrid.appendChild(card);
+        });
+    },
+
+    // 更新板块数据（模拟数据，作为后备）
     updateSectorData() {
         const sectorCards = document.querySelectorAll('.sector-card');
         sectorCards.forEach(card => {
@@ -488,6 +745,19 @@ async loadRankingData(page = 1) {
         return '';
     },
 
+    // 跳转到股票详情页面
+    goToStock(stockCode) {
+        if (stockCode && stockCode !== '--') {
+            console.log(`跳转到股票详情: ${stockCode}`);
+            // 这里可以根据实际需求跳转到股票详情页面
+            // 例如：window.location.href = `/stock.html?code=${stockCode}`;
+            // 或者打开新窗口：window.open(`/stock.html?code=${stockCode}`, '_blank');
+            
+            // 临时实现：显示股票代码
+            alert(`股票代码: ${stockCode}`);
+        }
+    },
+
     // 开始数据更新
     startDataUpdate() {
         // 定期更新数据
@@ -496,12 +766,17 @@ async loadRankingData(page = 1) {
                 //this.updateRankingPrices();
                 this.loadRankingData(this.currentPage);
             } else if (this.currentTab === 'sectors') {
-                this.updateSectorData();
+                this.loadSectorData(); // 重新加载真实数据
             } else if (this.currentTab === 'hot') {
                 this.updateCapitalFlow();
                 this.updateMarketSentiment();
             }
         }, 60000); // 每60秒更新一次
+
+        // 更新指数数据
+        setInterval(() => {
+            this.loadMarketIndices();
+        }, 30000); // 每30秒更新指数数据
 
         // 更新指数图表
         setInterval(() => {

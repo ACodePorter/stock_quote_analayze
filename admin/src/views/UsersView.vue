@@ -1,12 +1,6 @@
 <template>
   <div class="users-view">
-    <div class="page-header">
-      <h1>用户管理</h1>
-      <el-button type="primary" @click="showCreateDialog = true">
-        <el-icon><Plus /></el-icon>
-        新增用户
-      </el-button>
-    </div>
+    <!-- 隐藏页面标题，新增用户按钮调整到搜索区域 -->
 
     <!-- 统计卡片 -->
     <div class="stats-section">
@@ -108,9 +102,13 @@
         </el-col>
         <el-col :xs="24" :sm="24" :md="8" :lg="8" :xl="8">
           <div class="actions">
-            <el-button @click="refreshUsers" style="width: 100%">
+            <el-button @click="refreshUsers" style="width: 100%; margin-bottom: 8px;">
               <el-icon><Refresh /></el-icon>
               刷新
+            </el-button>
+            <el-button type="primary" @click="showCreateDialog = true" style="width: 100%;">
+              <el-icon><Plus /></el-icon>
+              新增用户
             </el-button>
           </div>
         </el-col>
@@ -625,21 +623,7 @@ onMounted(async () => {
   min-height: 100vh;
 }
 
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 24px;
-  flex-wrap: wrap;
-  gap: 16px;
-}
-
-.page-header h1 {
-  font-size: 24px;
-  font-weight: 600;
-  color: #333;
-  margin: 0;
-}
+/* 移除页面头部样式，因为标题已隐藏 */
 
 .stats-section {
   margin-bottom: 24px;
@@ -709,6 +693,18 @@ onMounted(async () => {
 
 .actions {
   text-align: right;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.actions .el-button {
+  transition: all 0.3s ease;
+}
+
+.actions .el-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .table-section {
@@ -731,15 +727,7 @@ onMounted(async () => {
     padding: 16px;
   }
   
-  .page-header {
-    flex-direction: column;
-    align-items: stretch;
-    text-align: center;
-  }
-  
-  .page-header h1 {
-    font-size: 20px;
-  }
+  /* 移除页面头部响应式样式 */
   
   .stat-card {
     height: 80px;
@@ -768,6 +756,16 @@ onMounted(async () => {
     margin-bottom: 16px;
   }
   
+  .actions {
+    flex-direction: row;
+    gap: 8px;
+  }
+  
+  .actions .el-button {
+    flex: 1;
+    min-width: 0;
+  }
+  
   .responsive-table {
     font-size: 14px;
   }
@@ -782,9 +780,7 @@ onMounted(async () => {
     padding: 12px;
   }
   
-  .page-header h1 {
-    font-size: 18px;
-  }
+  /* 移除页面头部响应式样式 */
   
   .stat-card {
     height: 70px;
@@ -803,6 +799,15 @@ onMounted(async () => {
   
   .stat-label {
     font-size: 11px;
+  }
+  
+  .actions {
+    flex-direction: column;
+    gap: 6px;
+  }
+  
+  .actions .el-button {
+    width: 100%;
   }
   
   .responsive-table {

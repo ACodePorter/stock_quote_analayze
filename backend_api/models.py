@@ -5,7 +5,7 @@
 from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel, EmailStr
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, Float, Date, Text
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, Float, Date, Text, UniqueConstraint
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 
@@ -378,3 +378,23 @@ class HistoricalQuotes(Base):
     turnover_rate = Column(Float)
     collected_source = Column(String)
     collected_date = Column(DateTime, default=datetime.now) 
+    # 新增字段
+    cumulative_change_percent = Column(Float)  # 累计升跌%
+    five_day_change_percent = Column(Float)    # 5天升跌%
+    remarks = Column(String)                   # 备注
+
+class TradingNotes(Base):
+    __tablename__ = 'trading_notes'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    stock_code = Column(String(20), nullable=False)
+    trade_date = Column(Date, nullable=False)
+    notes = Column(Text)
+    strategy_type = Column(String(50))  # 策略类型：如"买入信号"、"卖出信号"、"观察"等
+    risk_level = Column(String(20))     # 风险等级：如"低"、"中"、"高"
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+    created_by = Column(String(50))     # 创建用户
+    
+    __table_args__ = (
+        UniqueConstraint('stock_code', 'trade_date', name='uq_stock_code_trade_date'),
+    ) 
