@@ -72,8 +72,8 @@ class HistoricalQuoteWithNotes(BaseModel):
         from_attributes = True
 
 @router.post("/", response_model=TradingNoteResponse)
-def create_trading_note(note: TradingNoteCreate, db: Session = Depends(get_db)):
-    """创建交易备注"""
+def create_or_update_trading_note(note: TradingNoteCreate, db: Session = Depends(get_db)):
+    """创建或更新交易备注（upsert操作）"""
     try:
         # 检查是否已存在
         existing_note = db.query(TradingNotes).filter(
@@ -82,27 +82,39 @@ def create_trading_note(note: TradingNoteCreate, db: Session = Depends(get_db)):
         ).first()
         
         if existing_note:
-            raise HTTPException(status_code=400, detail="该日期的交易备注已存在")
-        
-        # 创建新备注
-        db_note = TradingNotes(
-            stock_code=note.stock_code,
-            trade_date=note.trade_date,
-            notes=note.notes,
-            strategy_type=note.strategy_type,
-            risk_level=note.risk_level,
-            created_by=note.created_by or "system"
-        )
-        
-        db.add(db_note)
-        db.commit()
-        db.refresh(db_note)
-        
-        return db_note
+            # 如果存在，更新现有记录
+            if note.notes is not None:
+                existing_note.notes = note.notes
+            if note.strategy_type is not None:
+                existing_note.strategy_type = note.strategy_type
+            if note.risk_level is not None:
+                existing_note.risk_level = note.risk_level
+            
+            existing_note.updated_at = datetime.now()
+            db.commit()
+            db.refresh(existing_note)
+            
+            return existing_note
+        else:
+            # 如果不存在，创建新记录
+            db_note = TradingNotes(
+                stock_code=note.stock_code,
+                trade_date=note.trade_date,
+                notes=note.notes,
+                strategy_type=note.strategy_type,
+                risk_level=note.risk_level,
+                created_by=note.created_by or "system"
+            )
+            
+            db.add(db_note)
+            db.commit()
+            db.refresh(db_note)
+            
+            return db_note
         
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"创建交易备注失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"创建或更新交易备注失败: {str(e)}")
 
 @router.get("/{stock_code}", response_model=List[TradingNoteResponse])
 def get_trading_notes(
@@ -315,6 +327,122 @@ def calculate_derived_fields(
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"计算派生字段失败: {str(e)}")
+
+@router.post("/upsert")
+def upsert_trading_note(note: TradingNoteCreate, db: Session = Depends(get_db)):
+    """创建或更新交易备注（upsert操作）"""
+    try:
+        # 检查是否已存在
+        existing_note = db.query(TradingNotes).filter(
+            TradingNotes.stock_code == note.stock_code,
+            TradingNotes.trade_date == note.trade_date
+        ).first()
+        
+        if existing_note:
+            # 如果存在，更新现有记录
+            if note.notes is not None:
+                existing_note.notes = note.notes
+            if note.strategy_type is not None:
+                existing_note.strategy_type = note.strategy_type
+            if note.risk_level is not None:
+                existing_note.risk_level = note.risk_level
+            
+            existing_note.updated_at = datetime.now()
+            db.commit()
+            db.refresh(existing_note)
+            
+            return {
+                "message": "交易备注更新成功",
+                "operation": "update",
+                "note": existing_note
+            }
+        else:
+            # 如果不存在，创建新记录
+            db_note = TradingNotes(
+                stock_code=note.stock_code,
+                trade_date=note.trade_date,
+                notes=note.notes,
+                strategy_type=note.strategy_type,
+                risk_level=note.risk_level,
+                created_by=note.created_by or "system"
+            )
+            
+            db.add(db_note)
+            db.commit()
+            db.refresh(db_note)
+            
+            return {
+                "message": "交易备注创建成功",
+                "operation": "create",
+                "note": db_note
+            }
+        
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"创建或更新交易备注失败: {str(e)}")
+
+@router.post("/{stock_code}/calculate_five_day_change")
+def calculate_stock_five_day_change(
+    stock_code: str,
+    db: Session = Depends(get_db)
+):
+    """计算指定股票的5天升跌%"""
+    try:
+        success = calculate_five_day_change_percent(stock_code, db)
+        if success:
+            return {"message": f"股票 {stock_code} 的5天升跌%计算完成"}
+        else:
+            raise HTTPException(status_code=400, detail="数据不足，无法计算")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"计算失败: {str(e)}")
+
+@router.post("/calculate_all_five_day_change")
+def calculate_all_five_day_change(db: Session = Depends(get_db)):
+    """计算所有股票的5天升跌%"""
+    try:
+        # 获取所有股票代码
+        stock_codes = db.query(HistoricalQuotes.code).distinct().all()
+        stock_codes = [code[0] for code in stock_codes]
+        
+        success_count = 0
+        for stock_code in stock_codes:
+            if calculate_five_day_change_percent(stock_code, db):
+                success_count += 1
+        
+        return {
+            "message": f"批量计算完成，成功: {success_count}/{len(stock_codes)}"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"计算失败: {str(e)}")
+
+def calculate_five_day_change_percent(stock_code: str, db: Session) -> bool:
+    """计算指定股票的5天升跌%"""
+    try:
+        # 获取股票的历史数据，按日期排序
+        quotes = db.query(HistoricalQuotes).filter(
+            HistoricalQuotes.code == stock_code
+        ).order_by(HistoricalQuotes.date).all()
+        
+        if len(quotes) < 6:
+            # 数据不足5天，无法计算
+            return False
+        
+        # 从第6天开始计算5天升跌%
+        for i in range(5, len(quotes)):
+            current_quote = quotes[i]
+            prev_quote = quotes[i-5]  # 5天前的数据
+            
+            if current_quote.close and prev_quote.close and prev_quote.close > 0:
+                five_day_change = ((current_quote.close - prev_quote.close) / prev_quote.close) * 100
+                current_quote.five_day_change_percent = round(five_day_change, 2)
+        
+        db.commit()
+        return True
+        
+    except Exception as e:
+        db.rollback()
+        print(f"计算股票 {stock_code} 的5天升跌%失败: {e}")
+        return False
 
 @router.get("/strategy_types")
 def get_strategy_types():

@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>5天升跌值计算器</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .section {
+            margin-bottom: 40px;
+            padding: 25px;
+            border: 1px solid #e1e5e9;
+            border-radius: 10px;
+            background: #f8f9fa;
+        }
+
+        .section h2 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #34495e;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%);
+        }
+
+        .result-box {
+            background: white;
+            border: 2px solid #e1e5e9;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+            min-height: 100px;
+        }
+
+        .result-box.success {
+            border-color: #28a745;
+            background: #d4edda;
+        }
+
+        .result-box.error {
+            border-color: #dc3545;
+            background: #f8d7da;
+        }
+
+        .result-box.info {
+            border-color: #17a2b8;
+            background: #d1ecf1;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #e9ecef;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4facfe 0%, #00f2fe 100%);
+            transition: width 0.3s ease;
+            border-radius: 10px;
+        }
+
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .status-card {
+            background: white;
+            border: 1px solid #e1e5e9;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .status-card h3 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+        }
+
+        .status-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #3498db;
+            margin-bottom: 10px;
+        }
+
+        .status-label {
+            color: #7f8c8d;
+            font-size: 0.9em;
+        }
+
+        .log-container {
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 20px;
+            border-radius: 10px;
+            font-family: 'Courier New', monospace;
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 20px;
+        }
+
+        .log-entry {
+            margin-bottom: 5px;
+            padding: 5px 0;
+            border-bottom: 1px solid #34495e;
+        }
+
+        .log-entry.info { color: #3498db; }
+        .log-entry.success { color: #2ecc71; }
+        .log-entry.warning { color: #f39c12; }
+        .log-entry.error { color: #e74c3c; }
+
+        .tabs {
+            display: flex;
+            border-bottom: 2px solid #e1e5e9;
+            margin-bottom: 20px;
+        }
+
+        .tab {
+            padding: 15px 30px;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s ease;
+            background: #f8f9fa;
+        }
+
+        .tab.active {
+            background: white;
+            border-bottom-color: #3498db;
+            color: #3498db;
+            font-weight: bold;
+        }
+
+        .tab:hover {
+            background: #e9ecef;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid;
+        }
+
+        .alert-info {
+            background: #d1ecf1;
+            border-color: #17a2b8;
+            color: #0c5460;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            border-color: #28a745;
+            color: #155724;
+        }
+
+        .alert-warning {
+            background: #fff3cd;
+            border-color: #ffc107;
+            color: #856404;
+        }
+
+        .alert-danger {
+            background: #f8d7da;
+            border-color: #dc3545;
+            color: #721c24;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                margin: 10px;
+                border-radius: 10px;
+            }
+            
+            .header {
+                padding: 20px;
+            }
+            
+            .header h1 {
+                font-size: 2em;
+            }
+            
+            .content {
+                padding: 20px;
+            }
+            
+            .tabs {
+                flex-direction: column;
+            }
+            
+            .tab {
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 5天升跌值计算器</h1>
+            <p>自动计算股票历史数据的5天升跌百分比，为投资决策提供技术指标支持</p>
+        </div>
+
+        <div class="content">
+            <!-- 提示信息 -->
+            <div class="alert alert-info">
+                <strong>💡 使用说明：</strong> 本工具可以计算单只股票或批量计算所有股票的5天升跌值。5天升跌% = (当前收盘价 - 5天前收盘价) / 5天前收盘价 × 100
+            </div>
+
+            <!-- 标签页 -->
+            <div class="tabs">
+                <div class="tab active" onclick="switchTab('calculator')">计算器</div>
+                <div class="tab" onclick="switchTab('status')">状态监控</div>
+                <div class="tab" onclick="switchTab('logs')">操作日志</div>
+            </div>
+
+            <!-- 计算器标签页 -->
+            <div id="calculator" class="tab-content active">
+                <div class="section">
+                    <h2>🚀 单只股票计算</h2>
+                    <div class="form-group">
+                        <label for="singleStockCode">股票代码：</label>
+                        <input type="text" id="singleStockCode" placeholder="例如：000001" value="000001">
+                    </div>
+                    <button class="btn btn-primary" onclick="calculateSingleStock()">计算单只股票</button>
+                    <div id="singleResult" class="result-box"></div>
+                </div>
+
+                <div class="section">
+                    <h2>🔄 批量计算</h2>
+                    <p>批量计算所有股票的5天升跌值，可能需要较长时间</p>
+                    <button class="btn btn-success" onclick="calculateAllStocks()">开始批量计算</button>
+                    <button class="btn btn-warning" onclick="stopBatchCalculation()">停止计算</button>
+                    
+                    <div class="progress-bar">
+                        <div id="progressFill" class="progress-fill" style="width: 0%"></div>
+                    </div>
+                    
+                    <div id="batchResult" class="result-box"></div>
+                </div>
+
+                <div class="section">
+                    <h2>📅 日期范围计算</h2>
+                    <div class="form-group">
+                        <label for="rangeStockCode">股票代码：</label>
+                        <input type="text" id="rangeStockCode" placeholder="例如：000001" value="000001">
+                    </div>
+                    <div class="form-group">
+                        <label for="startDate">开始日期：</label>
+                        <input type="date" id="startDate">
+                    </div>
+                    <div class="form-group">
+                        <label for="endDate">结束日期：</label>
+                        <input type="date" id="endDate">
+                    </div>
+                    <button class="btn btn-primary" onclick="calculateByDateRange()">计算日期范围</button>
+                    <div id="rangeResult" class="result-box"></div>
+                </div>
+            </div>
+
+            <!-- 状态监控标签页 -->
+            <div id="status" class="tab-content">
+                <div class="section">
+                    <h2>📈 计算状态概览</h2>
+                    <button class="btn btn-primary" onclick="refreshStatus()">刷新状态</button>
+                    
+                    <div class="status-grid">
+                        <div class="status-card">
+                            <h3>总股票数</h3>
+                            <div id="totalStocks" class="status-value">-</div>
+                            <div class="status-label">只</div>
+                        </div>
+                        <div class="status-card">
+                            <h3>总记录数</h3>
+                            <div id="totalRecords" class="status-value">-</div>
+                            <div class="status-label">条</div>
+                        </div>
+                        <div class="status-card">
+                            <h3>已计算记录</h3>
+                            <div id="calculatedRecords" class="status-value">-</div>
+                            <div class="status-label">条</div>
+                        </div>
+                        <div class="status-card">
+                            <h3>计算完成率</h3>
+                            <div id="calculationRate" class="status-value">-</div>
+                            <div class="status-label">%</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h2>🔍 单只股票状态查询</h2>
+                    <div class="form-group">
+                        <label for="queryStockCode">股票代码：</label>
+                        <input type="text" id="queryStockCode" placeholder="例如：000001" value="000001">
+                    </div>
+                    <button class="btn btn-primary" onclick="queryStockStatus()">查询状态</button>
+                    <div id="stockStatusResult" class="result-box"></div>
+                </div>
+            </div>
+
+            <!-- 操作日志标签页 -->
+            <div id="logs" class="tab-content">
+                <div class="section">
+                    <h2>📝 操作日志</h2>
+                    <button class="btn btn-warning" onclick="clearLogs()">清空日志</button>
+                    <button class="btn btn-primary" onclick="exportLogs()">导出日志</button>
+                    
+                    <div id="logContainer" class="log-container">
+                        <div class="log-entry info">系统启动，5天升跌值计算器已就绪</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 全局变量
+        let isCalculating = false;
+        let calculationProgress = 0;
+        let logs = [];
+
+        // API基础URL
+        const API_BASE_URL = 'http://localhost:8000';
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            // 设置默认日期
+            const today = new Date();
+            const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, today.getDate());
+            
+            document.getElementById('startDate').value = lastMonth.toISOString().split('T')[0];
+            document.getElementById('endDate').value = today.toISOString().split('T')[0];
+            
+            // 添加日志
+            addLog('页面初始化完成', 'info');
+        });
+
+        // 切换标签页
+        function switchTab(tabName) {
+            // 隐藏所有标签页内容
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            // 移除所有标签页的active状态
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // 显示选中的标签页
+            document.getElementById(tabName).classList.add('active');
+            
+            // 设置选中标签页的active状态
+            event.target.classList.add('active');
+            
+            addLog(`切换到${tabName}标签页`, 'info');
+        }
+
+        // 计算单只股票
+        async function calculateSingleStock() {
+            const stockCode = document.getElementById('singleStockCode').value.trim();
+            if (!stockCode) {
+                showResult('singleResult', '请输入股票代码', 'error');
+                return;
+            }
+
+            addLog(`开始计算股票 ${stockCode} 的5天升跌%`, 'info');
+            showResult('singleResult', '计算中...', 'info');
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/trading_notes/${stockCode}/calculate_five_day_change`, {
+                    method: 'POST'
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    showResult('singleResult', `✅ ${result.message}`, 'success');
+                    addLog(`股票 ${stockCode} 计算完成: ${result.message}`, 'success');
+                } else {
+                    showResult('singleResult', `❌ 计算失败: ${result.detail}`, 'error');
+                    addLog(`股票 ${stockCode} 计算失败: ${result.detail}`, 'error');
+                }
+            } catch (error) {
+                const errorMsg = `网络错误: ${error.message}`;
+                showResult('singleResult', `❌ ${errorMsg}`, 'error');
+                addLog(errorMsg, 'error');
+            }
+        }
+
+        // 批量计算所有股票
+        async function calculateAllStocks() {
+            if (isCalculating) {
+                addLog('批量计算已在进行中', 'warning');
+                return;
+            }
+
+            addLog('开始批量计算所有股票的5天升跌%', 'info');
+            isCalculating = true;
+            calculationProgress = 0;
+            updateProgress(0);
+            showResult('batchResult', '批量计算中...', 'info');
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/trading_notes/calculate_all_five_day_change`, {
+                    method: 'POST'
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    showResult('batchResult', `✅ ${result.message}`, 'success');
+                    addLog(`批量计算完成: ${result.message}`, 'success');
+                    updateProgress(100);
+                } else {
+                    showResult('batchResult', `❌ 批量计算失败: ${result.detail}`, 'error');
+                    addLog(`批量计算失败: ${result.detail}`, 'error');
+                }
+            } catch (error) {
+                const errorMsg = `网络错误: ${error.message}`;
+                showResult('batchResult', `❌ ${errorMsg}`, 'error');
+                addLog(errorMsg, 'error');
+            } finally {
+                isCalculating = false;
+            }
+        }
+
+        // 停止批量计算
+        function stopBatchCalculation() {
+            if (isCalculating) {
+                isCalculating = false;
+                addLog('用户停止批量计算', 'warning');
+                showResult('batchResult', '计算已停止', 'warning');
+            }
+        }
+
+        // 按日期范围计算
+        async function calculateByDateRange() {
+            const stockCode = document.getElementById('rangeStockCode').value.trim();
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+
+            if (!stockCode || !startDate || !endDate) {
+                showResult('rangeResult', '请填写完整的股票代码和日期范围', 'error');
+                return;
+            }
+
+            addLog(`开始计算股票 ${stockCode} 在 ${startDate} 到 ${endDate} 期间的5天升跌%`, 'info');
+            showResult('rangeResult', '计算中...', 'info');
+
+            // 这里需要实现日期范围计算的API
+            showResult('rangeResult', '⚠️ 日期范围计算功能正在开发中', 'warning');
+            addLog('日期范围计算功能正在开发中', 'warning');
+        }
+
+        // 刷新状态
+        async function refreshStatus() {
+            addLog('刷新计算状态', 'info');
+            
+            // 这里需要实现获取统计信息的API
+            // 暂时显示模拟数据
+            document.getElementById('totalStocks').textContent = '计算中...';
+            document.getElementById('totalRecords').textContent = '计算中...';
+            document.getElementById('calculatedRecords').textContent = '计算中...';
+            document.getElementById('calculationRate').textContent = '计算中...';
+            
+            addLog('状态刷新完成', 'success');
+        }
+
+        // 查询单只股票状态
+        async function queryStockStatus() {
+            const stockCode = document.getElementById('queryStockCode').value.trim();
+            if (!stockCode) {
+                showResult('stockStatusResult', '请输入股票代码', 'error');
+                return;
+            }
+
+            addLog(`查询股票 ${stockCode} 的计算状态`, 'info');
+            showResult('stockStatusResult', '查询中...', 'info');
+
+            // 这里需要实现查询股票状态的API
+            showResult('stockStatusResult', '⚠️ 股票状态查询功能正在开发中', 'warning');
+            addLog('股票状态查询功能正在开发中', 'warning');
+        }
+
+        // 显示结果
+        function showResult(elementId, message, type) {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.className = `result-box ${type}`;
+        }
+
+        // 更新进度条
+        function updateProgress(percentage) {
+            calculationProgress = percentage;
+            document.getElementById('progressFill').style.width = percentage + '%';
+        }
+
+        // 添加日志
+        function addLog(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${message}`;
+            
+            logs.push({ message: logEntry, type: type, timestamp: new Date() });
+            
+            const logContainer = document.getElementById('logContainer');
+            const logElement = document.createElement('div');
+            logElement.className = `log-entry ${type}`;
+            logElement.textContent = logEntry;
+            
+            logContainer.appendChild(logElement);
+            logContainer.scrollTop = logContainer.scrollHeight;
+            
+            // 限制日志数量
+            if (logs.length > 100) {
+                logs.shift();
+                if (logContainer.firstChild) {
+                    logContainer.removeChild(logContainer.firstChild);
+                }
+            }
+        }
+
+        // 清空日志
+        function clearLogs() {
+            logs = [];
+            document.getElementById('logContainer').innerHTML = '';
+            addLog('日志已清空', 'info');
+        }
+
+        // 导出日志
+        function exportLogs() {
+            if (logs.length === 0) {
+                addLog('没有日志可导出', 'warning');
+                return;
+            }
+
+            const logText = logs.map(log => log.message).join('\n');
+            const blob = new Blob([logText], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `five_day_change_logs_${new Date().toISOString().split('T')[0]}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            addLog('日志导出完成', 'success');
+        }
+
+        // 模拟进度更新（实际应用中应该通过WebSocket或轮询获取）
+        function simulateProgress() {
+            if (isCalculating && calculationProgress < 100) {
+                calculationProgress += Math.random() * 10;
+                if (calculationProgress > 100) calculationProgress = 100;
+                updateProgress(calculationProgress);
+                
+                if (calculationProgress < 100) {
+                    setTimeout(simulateProgress, 1000);
+                }
+            }
+        }
+
+        // 启动进度模拟
+        setInterval(() => {
+            if (isCalculating) {
+                simulateProgress();
+            }
+        }, 2000);
+    </script>
+</body>
+</html>

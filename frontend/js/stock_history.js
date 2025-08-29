@@ -31,6 +31,11 @@ class StockHistoryPage {
             this.exportHistory();
         });
         
+        // 计算5天升跌按钮
+        document.getElementById('calculateFiveDayBtn').addEventListener('click', () => {
+            this.calculateFiveDayChange();
+        });
+        
         // 分页按钮
         document.getElementById('firstPage').addEventListener('click', () => {
             this.goToPage(1);
@@ -131,7 +136,7 @@ class StockHistoryPage {
                 <td>${item.name}</td>
                 <td>${item.date}</td>
                 <td>${this.formatNumber(item.open)}</td>
-                <td>${this.formatNumber(item.close)}</td>
+                <td class="${item.change_percent > 0 ? 'cell-up' : item.change_percent < 0 ? 'cell-down' : ''}">${this.formatNumber(item.close)}</td>
                 <td>${this.formatNumber(item.high)}</td>
                 <td>${this.formatNumber(item.low)}</td>
                 <td>${this.formatVolume(item.volume)}</td>
@@ -141,7 +146,7 @@ class StockHistoryPage {
                 <td>${this.formatPercent(item.turnover_rate)}</td>
                 <td class="${item.cumulative_change_percent > 0 ? 'cell-up' : item.cumulative_change_percent < 0 ? 'cell-down' : ''}">${this.formatPercent(item.cumulative_change_percent)}</td>
                 <td class="${item.five_day_change_percent > 0 ? 'cell-up' : item.five_day_change_percent < 0 ? 'cell-down' : ''}">${this.formatPercent(item.five_day_change_percent)}</td>
-                <td class="notes-cell ${item.remarks ? 'has-notes' : ''}" onclick="stockHistoryPage.editNote('${item.code}', '${item.date}', '${item.remarks || ''}')">${item.remarks || '点击添加'}</td>
+                <td class="notes-cell ${(item.user_notes || item.remarks) ? 'has-notes' : ''}" onclick="stockHistoryPage.editNote('${item.code}', '${item.date}', '${item.user_notes || item.remarks || ''}', '${item.strategy_type || ''}', '${item.risk_level || ''}')">${item.user_notes || item.remarks || '点击添加'}</td>
             `;
             
             tbody.appendChild(row);
@@ -229,10 +234,97 @@ class StockHistoryPage {
         }
     }
     
-    editNote(stockCode, tradeDate, currentNotes) {
+    async calculateFiveDayChange() {
+        const startDate = document.getElementById('startDate').value;
+        const endDate = document.getElementById('endDate').value;
+
+        if (!this.currentStockCode) {
+            alert('请先选择股票');
+            return;
+        }
+
+        if (!startDate || !endDate) {
+            alert('请选择开始日期和结束日期');
+            return;
+        }
+
+        // 禁用按钮，显示计算中状态
+        const calculateBtn = document.getElementById('calculateFiveDayBtn');
+        const originalText = calculateBtn.textContent;
+        calculateBtn.disabled = true;
+        calculateBtn.textContent = '计算中...';
+
+        try {
+            // 为了确保最后5条记录也能计算5天升跌%，将结束日期延长5个工作日
+            const extendedEndDate = this.addBusinessDays(endDate, 5);
+            
+            const response = await fetch(`${API_BASE_URL}/api/stock/history/calculate_five_day_change`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    stock_code: this.currentStockCode,
+                    start_date: startDate,
+                    end_date: extendedEndDate
+                })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || '计算失败');
+            }
+
+            const result = await response.json();
+            alert(`计算完成！\n${result.message}\n更新记录数: ${result.updated_count}\n注意：结束日期已自动延长5个工作日以确保完整计算`);
+
+            // 重新查询数据以显示最新结果
+            this.searchHistory();
+
+        } catch (error) {
+            console.error('计算5天升跌失败:', error);
+            alert('计算失败: ' + error.message);
+        } finally {
+            // 恢复按钮状态
+            calculateBtn.disabled = false;
+            calculateBtn.textContent = originalText;
+        }
+    }
+
+    // 添加工作日计算函数
+    addBusinessDays(dateStr, days) {
+        const date = new Date(dateStr);
+        let addedDays = 0;
+        let currentDate = new Date(date);
+        
+        while (addedDays < days) {
+            currentDate.setDate(currentDate.getDate() + 1);
+            
+            // 跳过周末（周六=6，周日=0）
+            if (currentDate.getDay() !== 0 && currentDate.getDay() !== 6) {
+                addedDays++;
+            }
+        }
+        
+        return currentDate.toISOString().split('T')[0];
+    }
+    
+    editNote(stockCode, tradeDate, currentNotes, strategyType, riskLevel) {
         document.getElementById('noteStockCode').value = stockCode;
         document.getElementById('noteTradeDate').value = tradeDate;
         document.getElementById('noteContent').value = currentNotes;
+        
+        // 设置策略类型下拉选项
+        const strategySelect = document.getElementById('noteStrategyType');
+        if (strategySelect) {
+            strategySelect.value = strategyType || '';
+        }
+        
+        // 设置风险等级下拉选项
+        const riskSelect = document.getElementById('noteRiskLevel');
+        if (riskSelect) {
+            riskSelect.value = riskLevel || '';
+        }
         
         // 显示弹窗
         document.getElementById('notesModal').style.display = 'block';
@@ -279,7 +371,8 @@ class StockHistoryPage {
         }
         
         try {
-            const response = await fetch(`${API_BASE_URL}/api/trading_notes/`, {
+            // 使用upsert接口，自动处理创建或更新
+            const response = await fetch(`${API_BASE_URL}/api/trading_notes/upsert`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -295,7 +388,8 @@ class StockHistoryPage {
             });
             
             if (response.ok) {
-                alert('备注保存成功');
+                const result = await response.json();
+                alert(result.message);
                 document.getElementById('notesModal').style.display = 'none';
                 this.searchHistory(); // 刷新数据
             } else {
@@ -315,10 +409,30 @@ class StockHistoryPage {
         if (!confirm('确定要删除这条备注吗？')) return;
         
         try {
-            // 这里需要先查询备注ID，然后删除
-            // 简化处理，直接提示用户手动删除
-            alert('删除功能需要备注ID，请通过管理界面删除');
-            document.getElementById('notesModal').style.display = 'none';
+            // 先查询备注ID
+            const checkResponse = await fetch(`${API_BASE_URL}/api/trading_notes/${stockCode}?trade_date=${tradeDate}`);
+            
+            if (checkResponse.ok) {
+                const existingNotes = await checkResponse.json();
+                if (existingNotes && existingNotes.length > 0) {
+                    // 删除备注
+                    const deleteResponse = await fetch(`${API_BASE_URL}/api/trading_notes/${existingNotes[0].id}`, {
+                        method: 'DELETE'
+                    });
+                    
+                    if (deleteResponse.ok) {
+                        alert('备注删除成功');
+                        document.getElementById('notesModal').style.display = 'none';
+                        this.searchHistory(); // 刷新数据
+                    } else {
+                        throw new Error('删除失败');
+                    }
+                } else {
+                    alert('没有找到要删除的备注');
+                }
+            } else {
+                throw new Error('查询备注失败');
+            }
             
         } catch (error) {
             console.error('删除备注失败:', error);

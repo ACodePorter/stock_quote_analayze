@@ -1,5 +1,35 @@
 /* 股票历史页面专用样式 */
 
+/* 计算5天升跌按钮样式 */
+.calculate-btn {
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    margin-left: 10px;
+}
+
+.calculate-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(79, 172, 254, 0.4);
+}
+
+.calculate-btn:active {
+    transform: translateY(0);
+}
+
+.calculate-btn:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
 /* 表格样式增强 */
 .history-table {
     width: 100%;
@@ -64,6 +94,17 @@
 }
 
 .cell-down { 
+    color: #009933 !important; 
+    font-weight: bold; 
+}
+
+/* 收盘价格涨跌样式 */
+.close-up { 
+    color: #e60000 !important; 
+    font-weight: bold; 
+}
+
+.close-down { 
     color: #009933 !important; 
     font-weight: bold; 
 }
