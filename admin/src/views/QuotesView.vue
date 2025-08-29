@@ -554,12 +554,12 @@ const handleStockSearch = () => {
   fetchStockData()
 }
 
-const handleStockMarketFilter = (value: string) => {
+const handleStockMarketFilter = (_value: string) => {
   stockCurrentPage.value = 1
   fetchStockData()
 }
 
-const handleStockSortChange = (value: string) => {
+const handleStockSortChange = (_value: string) => {
   stockCurrentPage.value = 1
   fetchStockData()
 }
@@ -586,7 +586,7 @@ const handleIndexSearch = () => {
   fetchIndexData()
 }
 
-const handleIndexSortChange = (value: string) => {
+const handleIndexSortChange = (_value: string) => {
   indexCurrentPage.value = 1
   fetchIndexData()
 }
@@ -613,7 +613,7 @@ const handleIndustrySearch = () => {
   fetchIndustryData()
 }
 
-const handleIndustrySortChange = (value: string) => {
+const handleIndustrySortChange = (_value: string) => {
   industryCurrentPage.value = 1
   fetchIndustryData()
 }
