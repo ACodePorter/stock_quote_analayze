@@ -391,10 +391,10 @@ async def get_index_quotes(
             # 默认按更新时间排序
             all_data.sort(key=lambda x: (x.update_time is None, x.update_time or datetime.min), reverse=True)
         
-            total = len(all_data)
-            start = (page - 1) * page_size
-            end = start + page_size
-            data = all_data[start:end]
+        total = len(all_data)
+        start = (page - 1) * page_size
+        end = start + page_size
+        data = all_data[start:end]
         
         # 格式化数据
         formatted_data = format_quotes_data(data, "indices")
