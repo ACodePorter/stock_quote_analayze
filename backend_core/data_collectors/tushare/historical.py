@@ -7,6 +7,7 @@ from .base import TushareCollector
 import datetime
 from backend_core.database.db import SessionLocal
 from sqlalchemy import text
+from .five_day_change_calculator import FiveDayChangeCalculator
 
 class HistoricalQuoteCollector(TushareCollector):
     
@@ -242,6 +243,50 @@ class HistoricalQuoteCollector(TushareCollector):
             })
             session.commit()
             self.logger.info(f"全部历史行情数据采集并入库完成，成功: {success_count}，失败: {fail_count}")
+            
+            # 数据采集完成后，自动计算5日涨跌幅
+            if success_count > 0:
+                try:
+                    self.logger.info("开始自动计算5日涨跌幅...")
+                    target_date = datetime.datetime.strptime(date_str, "%Y%m%d").strftime("%Y-%m-%d")
+                    calculator = FiveDayChangeCalculator(session)
+                    calc_result = calculator.calculate_for_date(target_date)
+                    
+                    self.logger.info(f"5日涨跌幅计算完成: 总计 {calc_result['total']}, 成功 {calc_result['success']}, 失败 {calc_result['failed']}")
+                    
+                    # 记录5日涨跌幅计算日志
+                    session.execute(text('''
+                        INSERT INTO historical_collect_operation_logs 
+                        (operation_type, operation_desc, affected_rows, status, error_message)
+                        VALUES (:operation_type, :operation_desc, :affected_rows, :status, :error_message)
+                    '''), {
+                        'operation_type': 'five_day_change_calculation',
+                        'operation_desc': f'计算日期: {target_date}\n总计股票: {calc_result["total"]}\n成功计算: {calc_result["success"]}\n失败计算: {calc_result["failed"]}',
+                        'affected_rows': calc_result['success'],
+                        'status': 'success' if calc_result['failed'] == 0 else 'partial_success',
+                        'error_message': '\n'.join(calc_result['details']) if calc_result['failed'] > 0 else None
+                    })
+                    session.commit()
+                    
+                except Exception as calc_error:
+                    self.logger.error(f"自动计算5日涨跌幅失败: {calc_error}")
+                    # 记录计算失败日志
+                    try:
+                        session.execute(text('''
+                            INSERT INTO historical_collect_operation_logs 
+                            (operation_type, operation_desc, affected_rows, status, error_message)
+                            VALUES (:operation_type, :operation_desc, :affected_rows, :status, :error_message)
+                        '''), {
+                            'operation_type': 'five_day_change_calculation',
+                            'operation_desc': f'计算日期: {datetime.datetime.strptime(date_str, "%Y%m%d").strftime("%Y-%m-%d")}',
+                            'affected_rows': 0,
+                            'status': 'error',
+                            'error_message': str(calc_error)
+                        })
+                        session.commit()
+                    except Exception as log_error:
+                        self.logger.error(f"记录5日涨跌幅计算失败日志时出错: {log_error}")
+            
             return True
         except Exception as e:
             error_msg = str(e)
