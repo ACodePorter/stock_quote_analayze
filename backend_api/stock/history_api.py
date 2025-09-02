@@ -60,7 +60,7 @@ def get_stock_history(
             SELECT 
                 h.code, h.name, h.date, h.open, h.close, h.high, h.low, 
                 h.volume, h.amount, h.change_percent, h.change, h.turnover_rate,
-                h.cumulative_change_percent, h.five_day_change_percent, h.remarks,
+                h.cumulative_change_percent, h.five_day_change_percent, h.ten_day_change_percent, h.sixty_day_change_percent, h.remarks,
                 COALESCE(tn.notes, '') as user_notes,
                 COALESCE(tn.strategy_type, '') as strategy_type,
                 COALESCE(tn.risk_level, '') as risk_level,
@@ -77,7 +77,7 @@ def get_stock_history(
             SELECT 
                 code, name, date, open, close, high, low, 
                 volume, amount, change_percent, change, turnover_rate,
-                cumulative_change_percent, five_day_change_percent, remarks
+                cumulative_change_percent, five_day_change_percent, ten_day_change_percent, sixty_day_change_percent, remarks
             FROM historical_quotes 
             WHERE code = :code
         """
@@ -116,18 +116,20 @@ def get_stock_history(
             "turnover_rate": row[11],
             "cumulative_change_percent": row[12],
             "five_day_change_percent": row[13],
-            "remarks": row[14]
+            "ten_day_change_percent": row[14],
+            "sixty_day_change_percent": row[15],
+            "remarks": row[16]
         }
         
         # 如果包含备注，添加备注相关字段
-        if include_notes and len(row) > 15:
+        if include_notes and len(row) > 17:
             item.update({
-                "user_notes": row[15],
-                "strategy_type": row[16],
-                "risk_level": row[17],
-                "notes_creator": row[18],
-                "notes_created_at": row[19],
-                "notes_updated_at": row[20]
+                "user_notes": row[17],
+                "strategy_type": row[18],
+                "risk_level": row[19],
+                "notes_creator": row[20],
+                "notes_created_at": row[21],
+                "notes_updated_at": row[22]
             })
         
         items.append(item)
@@ -287,6 +289,33 @@ def export_stock_history(
         print(f"[export_stock_history] {error_msg}")
         raise HTTPException(status_code=500, detail=error_msg)
 
+def _get_date_before_business_days(date_str: str, business_days: int) -> str:
+    """
+    计算指定日期前N个工作日的日期
+    
+    Args:
+        date_str: 日期字符串 (YYYY-MM-DD)
+        business_days: 工作日数量
+        
+    Returns:
+        str: 前N个工作日的日期
+    """
+    from datetime import datetime, timedelta
+    
+    current_date = datetime.strptime(date_str, '%Y-%m-%d')
+    days_back = 0
+    business_days_count = 0
+    
+    while business_days_count < business_days:
+        days_back += 1
+        check_date = current_date - timedelta(days=days_back)
+        
+        # 跳过周末（周六=5，周日=6）
+        if check_date.weekday() < 5:  # 0-4 表示周一到周五
+            business_days_count += 1
+    
+    return check_date.strftime('%Y-%m-%d')
+
 @router.post("/calculate_five_day_change")
 def calculate_five_day_change(
     request: CalculateFiveDayChangeRequest,
@@ -305,7 +334,7 @@ def calculate_five_day_change(
         
         # 为了确保最后5条记录也能计算5天升跌%，需要延长查询范围
         # 查询指定日期范围内的所有历史数据，按日期排序
-        # 注意：这里不需要额外的日期范围扩展，因为我们需要的是前5天的数据
+        # 注意：需要扩展查询范围，确保有足够的前5天数据来计算5天升跌%
         query = """
             SELECT date, close
             FROM historical_quotes 
@@ -315,9 +344,22 @@ def calculate_five_day_change(
             ORDER BY date ASC
         """
         
-        result = db.execute(text(query), {
+        # 为了确保最后5条记录也能计算5天升跌%，需要查询更早的数据
+        # 计算开始日期前5个工作日的数据
+        extended_start_date = _get_date_before_business_days(start_date_fmt, 5)
+        
+        extended_query = """
+            SELECT date, close
+            FROM historical_quotes 
+            WHERE code = :stock_code 
+            AND date >= :extended_start_date 
+            AND date <= :end_date
+            ORDER BY date ASC
+        """
+        
+        result = db.execute(text(extended_query), {
             "stock_code": request.stock_code,
-            "start_date": start_date_fmt,
+            "extended_start_date": extended_start_date,
             "end_date": end_date_fmt
         })
         
@@ -332,24 +374,26 @@ def calculate_five_day_change(
             current_quote = quotes[i]
             prev_quote = quotes[i-5]  # 5天前的数据
             
-            if current_quote.close and prev_quote.close and prev_quote.close > 0:
-                five_day_change = ((current_quote.close - prev_quote.close) / prev_quote.close) * 100
-                five_day_change = round(five_day_change, 2)
-                
-                # 更新数据库，不管之前是否有值都更新
-                update_query = """
-                    UPDATE historical_quotes 
-                    SET five_day_change_percent = :five_day_change
-                    WHERE code = :stock_code AND date = :date
-                """
-                
-                db.execute(text(update_query), {
-                    "five_day_change": five_day_change,
-                    "stock_code": request.stock_code,
-                    "date": current_quote.date
-                })
-                
-                updated_count += 1
+            # 只更新用户指定日期范围内的记录
+            if current_quote.date >= start_date_fmt and current_quote.date <= end_date_fmt:
+                if current_quote.close and prev_quote.close and prev_quote.close > 0:
+                    five_day_change = ((current_quote.close - prev_quote.close) / prev_quote.close) * 100
+                    five_day_change = round(five_day_change, 2)
+                    
+                    # 更新数据库，不管之前是否有值都更新
+                    update_query = """
+                        UPDATE historical_quotes 
+                        SET five_day_change_percent = :five_day_change
+                        WHERE code = :stock_code AND date = :date
+                    """
+                    
+                    db.execute(text(update_query), {
+                        "five_day_change": five_day_change,
+                        "stock_code": request.stock_code,
+                        "date": current_quote.date
+                    })
+                    
+                    updated_count += 1
         
         # 提交事务
         db.commit()
@@ -372,4 +416,184 @@ def calculate_five_day_change(
         db.rollback()
         error_msg = f"计算5天升跌%失败: {str(e)}"
         print(f"[calculate_five_day_change] {error_msg}")
+        raise HTTPException(status_code=500, detail=error_msg)
+
+@router.post("/calculate_ten_day_change")
+def calculate_ten_day_change(
+    request: CalculateFiveDayChangeRequest,
+    db: Session = Depends(get_db)
+):
+    """计算指定日期范围内股票的10天涨跌%"""
+    try:
+        # 格式化日期
+        start_date_fmt = format_date_yyyymmdd(request.start_date)
+        end_date_fmt = format_date_yyyymmdd(request.end_date)
+        
+        if not start_date_fmt or not end_date_fmt:
+            raise HTTPException(status_code=400, detail="日期格式无效")
+        
+        print(f"[calculate_ten_day_change] 开始计算股票 {request.stock_code} 在 {start_date_fmt} 到 {end_date_fmt} 期间的10天涨跌%")
+        
+        # 为了确保最后10条记录也能计算10天涨跌%，需要查询更早的数据
+        # 计算开始日期前10个工作日的数据
+        extended_start_date = _get_date_before_business_days(start_date_fmt, 10)
+        
+        extended_query = """
+            SELECT date, close
+            FROM historical_quotes 
+            WHERE code = :stock_code 
+            AND date >= :extended_start_date 
+            AND date <= :end_date
+            ORDER BY date ASC
+        """
+        
+        result = db.execute(text(extended_query), {
+            "stock_code": request.stock_code,
+            "extended_start_date": extended_start_date,
+            "end_date": end_date_fmt
+        })
+        
+        quotes = result.fetchall()
+        
+        if len(quotes) < 11:
+            raise HTTPException(status_code=400, detail="数据不足11天，无法计算10天涨跌%")
+        
+        # 计算10天涨跌%
+        updated_count = 0
+        for i in range(10, len(quotes)):
+            current_quote = quotes[i]
+            prev_quote = quotes[i-10]  # 10天前的数据
+            
+            # 只更新用户指定日期范围内的记录
+            if current_quote.date >= start_date_fmt and current_quote.date <= end_date_fmt:
+                if current_quote.close and prev_quote.close and prev_quote.close > 0:
+                    ten_day_change = ((current_quote.close - prev_quote.close) / prev_quote.close) * 100
+                    ten_day_change = round(ten_day_change, 2)
+                    
+                    # 更新数据库，不管之前是否有值都更新
+                    update_query = """
+                        UPDATE historical_quotes 
+                        SET ten_day_change_percent = :ten_day_change
+                        WHERE code = :stock_code AND date = :date
+                    """
+                    
+                    db.execute(text(update_query), {
+                        "ten_day_change": ten_day_change,
+                        "stock_code": request.stock_code,
+                        "date": current_quote.date
+                    })
+                    
+                    updated_count += 1
+        
+        # 提交事务
+        db.commit()
+        
+        message = f"股票 {request.stock_code} 在 {start_date_fmt} 到 {end_date_fmt} 期间的10天涨跌%计算完成"
+        print(f"[calculate_ten_day_change] {message}, 更新了 {updated_count} 条记录")
+        
+        return {
+            "message": message,
+            "stock_code": request.stock_code,
+            "start_date": start_date_fmt,
+            "end_date": end_date_fmt,
+            "updated_count": updated_count,
+            "total_records": len(quotes)
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        error_msg = f"计算10天涨跌%失败: {str(e)}"
+        print(f"[calculate_ten_day_change] {error_msg}")
+        raise HTTPException(status_code=500, detail=error_msg)
+
+@router.post("/calculate_sixty_day_change")
+def calculate_sixty_day_change(
+    request: CalculateFiveDayChangeRequest,
+    db: Session = Depends(get_db)
+):
+    """计算指定日期范围内股票的60天涨跌%"""
+    try:
+        # 格式化日期
+        start_date_fmt = format_date_yyyymmdd(request.start_date)
+        end_date_fmt = format_date_yyyymmdd(request.end_date)
+        
+        if not start_date_fmt or not end_date_fmt:
+            raise HTTPException(status_code=400, detail="日期格式无效")
+        
+        print(f"[calculate_sixty_day_change] 开始计算股票 {request.stock_code} 在 {start_date_fmt} 到 {end_date_fmt} 期间的60天涨跌%")
+        
+        # 为了确保最后60条记录也能计算60天涨跌%，需要查询更早的数据
+        # 计算开始日期前60个工作日的数据
+        extended_start_date = _get_date_before_business_days(start_date_fmt, 60)
+        
+        extended_query = """
+            SELECT date, close
+            FROM historical_quotes 
+            WHERE code = :stock_code 
+            AND date >= :extended_start_date 
+            AND date <= :end_date
+            ORDER BY date ASC
+        """
+        
+        result = db.execute(text(extended_query), {
+            "stock_code": request.stock_code,
+            "extended_start_date": extended_start_date,
+            "end_date": end_date_fmt
+        })
+        
+        quotes = result.fetchall()
+        
+        if len(quotes) < 61:
+            raise HTTPException(status_code=400, detail="数据不足61天，无法计算60天涨跌%")
+        
+        # 计算60天涨跌%
+        updated_count = 0
+        for i in range(60, len(quotes)):
+            current_quote = quotes[i]
+            prev_quote = quotes[i-60]  # 60天前的数据
+            
+            # 只更新用户指定日期范围内的记录
+            if current_quote.date >= start_date_fmt and current_quote.date <= end_date_fmt:
+                if current_quote.close and prev_quote.close and prev_quote.close > 0:
+                    sixty_day_change = ((current_quote.close - prev_quote.close) / prev_quote.close) * 100
+                    sixty_day_change = round(sixty_day_change, 2)
+                    
+                    # 更新数据库，不管之前是否有值都更新
+                    update_query = """
+                        UPDATE historical_quotes 
+                        SET sixty_day_change_percent = :sixty_day_change
+                        WHERE code = :stock_code AND date = :date
+                    """
+                    
+                    db.execute(text(update_query), {
+                        "sixty_day_change": sixty_day_change,
+                        "stock_code": request.stock_code,
+                        "date": current_quote.date
+                    })
+                    
+                    updated_count += 1
+        
+        # 提交事务
+        db.commit()
+        
+        message = f"股票 {request.stock_code} 在 {start_date_fmt} 到 {end_date_fmt} 期间的60天涨跌%计算完成"
+        print(f"[calculate_sixty_day_change] {message}, 更新了 {updated_count} 条记录")
+        
+        return {
+            "message": message,
+            "stock_code": request.stock_code,
+            "start_date": start_date_fmt,
+            "end_date": end_date_fmt,
+            "updated_count": updated_count,
+            "total_records": len(quotes)
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        error_msg = f"计算60天涨跌%失败: {str(e)}"
+        print(f"[calculate_sixty_day_change] {error_msg}")
         raise HTTPException(status_code=500, detail=error_msg)
