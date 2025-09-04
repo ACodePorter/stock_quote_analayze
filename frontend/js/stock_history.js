@@ -152,7 +152,6 @@ class StockHistoryPage {
                 <td class="${item.change_percent > 0 ? 'cell-up' : item.change_percent < 0 ? 'cell-down' : ''}">${this.formatPercent(item.change_percent)}</td>
                 <td class="${item.change > 0 ? 'cell-up' : item.change < 0 ? 'cell-down' : ''}">${this.formatNumber(item.change)}</td>
                 <td>${this.formatPercent(item.turnover_rate)}</td>
-                <td class="${item.cumulative_change_percent > 0 ? 'cell-up' : item.cumulative_change_percent < 0 ? 'cell-down' : ''}">${this.formatPercent(item.cumulative_change_percent)}</td>
                 <td class="${item.five_day_change_percent > 0 ? 'cell-up' : item.five_day_change_percent < 0 ? 'cell-down' : ''}">${this.formatPercent(item.five_day_change_percent)}</td>
                 <td class="${item.ten_day_change_percent > 0 ? 'cell-up' : item.ten_day_change_percent < 0 ? 'cell-down' : ''}">${this.formatPercent(item.ten_day_change_percent)}</td>
                 <td class="${item.sixty_day_change_percent > 0 ? 'cell-up' : item.sixty_day_change_percent < 0 ? 'cell-down' : ''}">${this.formatPercent(item.sixty_day_change_percent)}</td>
