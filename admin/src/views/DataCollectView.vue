@@ -224,6 +224,7 @@ import {
   Refresh
 } from '@element-plus/icons-vue'
 import axios from 'axios'
+import { API_BASE } from '@/config/api'
 
 // 类型定义
 interface Task {
@@ -280,9 +281,6 @@ const tasks = ref<Task[]>([])
 const currentTask = ref<CurrentTask | null>(null)
 const loading = ref(false)
 const pollingInterval = ref<NodeJS.Timeout | null>(null)
-
-// API基础URL
-const API_BASE = '/api'
 
 // 方法
 const startCollection = async () => {
