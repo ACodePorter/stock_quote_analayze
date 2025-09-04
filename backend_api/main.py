@@ -39,7 +39,7 @@ from stock.stock_manage import router as stock_router
 from stock.history_api import router as history_router
 from stock.stock_fund_flow import router as stock_fund_flow_router
 from stock.stock_news import router as stock_news_router
-from stock.stock_analysis_routes import router as stock_analysis_router
+from stock.data_collection_api import router as data_collection_router
 from quotes_routes import router as quotes_router
 from trading_notes_routes import router as trading_notes_router
 
@@ -97,7 +97,7 @@ app.include_router(watchlist_router)
 app.include_router(user_manage_router)
 app.include_router(system_router)  # 添加系统路由
 app.include_router(market_router)  # 添加行情路由
-app.include_router(stock_analysis_router)  # 添加智能分析路由
+app.include_router(data_collection_router)  # 添加数据采集路由
 app.include_router(stock_router)
 app.include_router(history_router)
 app.include_router(stock_fund_flow_router)

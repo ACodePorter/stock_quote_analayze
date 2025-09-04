@@ -3,7 +3,7 @@
 """
 
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 from pydantic import BaseModel, EmailStr
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, Float, Date, Text, UniqueConstraint
 from sqlalchemy.ext.declarative import declarative_base
@@ -397,6 +397,38 @@ class TradingNotes(Base):
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
     created_by = Column(String(50))     # 创建用户
     
-    __table_args__ = (
-        UniqueConstraint('stock_code', 'trade_date', name='uq_stock_code_trade_date'),
-    ) 
+# 数据采集相关模型
+class DataCollectionRequest(BaseModel):
+    """数据采集请求模型"""
+    start_date: str
+    end_date: str
+    stock_codes: Optional[List[str]] = None
+    test_mode: bool = False
+    full_collection_mode: bool = False  # 新增：全量采集模式
+
+class DataCollectionResponse(BaseModel):
+    """数据采集响应模型"""
+    task_id: str
+    status: str
+    message: str
+    start_date: str
+    end_date: str
+    stock_codes: Optional[List[str]] = None
+    test_mode: bool = False
+    full_collection_mode: bool = False  # 新增：全量采集模式
+
+class DataCollectionStatus(BaseModel):
+    """数据采集状态模型"""
+    task_id: str
+    status: str  # running, completed, failed, cancelled
+    progress: int  # 0-100
+    total_stocks: int
+    processed_stocks: int
+    success_count: int
+    failed_count: int
+    collected_count: int
+    skipped_count: int
+    start_time: datetime
+    end_time: Optional[datetime] = None
+    error_message: Optional[str] = None
+    failed_details: List[str] = [] 

@@ -105,16 +105,17 @@ class ExtendedChangeCalculator:
     def _calculate_single_stock_extended_change(self, stock_code: str, target_date: str) -> bool:
         """
         计算单只股票在指定日期的扩展涨跌幅（5日、10日、60日）
+        修改：支持部分计算，不要求所有数据都满足61天条件
         
         Args:
             stock_code: 股票代码
             target_date: 目标日期 (YYYY-MM-DD)
             
         Returns:
-            bool: 计算是否成功
+            bool: 计算是否成功（至少有一个涨跌幅计算成功）
         """
         try:
-            # 获取该股票在目标日期及之前的历史数据（至少需要61天数据）
+            # 获取该股票在目标日期及之前的历史数据
             result = self.session.execute(text("""
                 SELECT date, close 
                 FROM historical_quotes 
@@ -128,8 +129,8 @@ class ExtendedChangeCalculator:
             
             quotes = result.fetchall()
             
-            if len(quotes) < 61:
-                logger.debug(f"股票 {stock_code} 在 {target_date} 的历史数据不足61天，无法计算60日涨跌幅")
+            if len(quotes) < 2:  # 至少需要2天数据才能计算涨跌幅
+                logger.debug(f"股票 {stock_code} 在 {target_date} 的历史数据不足2天，无法计算任何涨跌幅")
                 return False
             
             # 找到目标日期在数据中的位置
@@ -152,6 +153,7 @@ class ExtendedChangeCalculator:
                 return False
             
             change_results = {}
+            calculation_success = False  # 标记是否有任何计算成功
             
             # 计算5日涨跌幅
             if target_index >= 5:
@@ -159,10 +161,14 @@ class ExtendedChangeCalculator:
                 if prev_5_quote[1] and prev_5_quote[1] > 0:
                     five_day_change = ((current_close - prev_5_quote[1]) / prev_5_quote[1]) * 100
                     change_results['five_day_change_percent'] = round(five_day_change, 2)
+                    calculation_success = True
+                    logger.debug(f"股票 {stock_code} 5日涨跌幅计算成功: {five_day_change:.2f}%")
                 else:
                     change_results['five_day_change_percent'] = None
+                    logger.debug(f"股票 {stock_code} 5日前收盘价无效，无法计算5日涨跌幅")
             else:
                 change_results['five_day_change_percent'] = None
+                logger.debug(f"股票 {stock_code} 历史数据不足5天，无法计算5日涨跌幅")
             
             # 计算10日涨跌幅
             if target_index >= 10:
@@ -170,10 +176,14 @@ class ExtendedChangeCalculator:
                 if prev_10_quote[1] and prev_10_quote[1] > 0:
                     ten_day_change = ((current_close - prev_10_quote[1]) / prev_10_quote[1]) * 100
                     change_results['ten_day_change_percent'] = round(ten_day_change, 2)
+                    calculation_success = True
+                    logger.debug(f"股票 {stock_code} 10日涨跌幅计算成功: {ten_day_change:.2f}%")
                 else:
                     change_results['ten_day_change_percent'] = None
+                    logger.debug(f"股票 {stock_code} 10日前收盘价无效，无法计算10日涨跌幅")
             else:
                 change_results['ten_day_change_percent'] = None
+                logger.debug(f"股票 {stock_code} 历史数据不足10天，无法计算10日涨跌幅")
             
             # 计算60日涨跌幅
             if target_index >= 60:
@@ -181,10 +191,14 @@ class ExtendedChangeCalculator:
                 if prev_60_quote[1] and prev_60_quote[1] > 0:
                     sixty_day_change = ((current_close - prev_60_quote[1]) / prev_60_quote[1]) * 100
                     change_results['sixty_day_change_percent'] = round(sixty_day_change, 2)
+                    calculation_success = True
+                    logger.debug(f"股票 {stock_code} 60日涨跌幅计算成功: {sixty_day_change:.2f}%")
                 else:
                     change_results['sixty_day_change_percent'] = None
+                    logger.debug(f"股票 {stock_code} 60日前收盘价无效，无法计算60日涨跌幅")
             else:
                 change_results['sixty_day_change_percent'] = None
+                logger.debug(f"股票 {stock_code} 历史数据不足60天，无法计算60日涨跌幅")
             
             # 更新数据库
             update_sql = """
@@ -203,8 +217,21 @@ class ExtendedChangeCalculator:
                 "target_date": target_date
             })
             
-            logger.debug(f"股票 {stock_code} 在 {target_date} 的扩展涨跌幅计算完成: 5日={change_results['five_day_change_percent']}%, 10日={change_results['ten_day_change_percent']}%, 60日={change_results['sixty_day_change_percent']}%")
-            return True
+            # 记录计算成功的涨跌幅
+            calculated_periods = []
+            if change_results['five_day_change_percent'] is not None:
+                calculated_periods.append("5日")
+            if change_results['ten_day_change_percent'] is not None:
+                calculated_periods.append("10日")
+            if change_results['sixty_day_change_percent'] is not None:
+                calculated_periods.append("60日")
+            
+            if calculated_periods:
+                logger.debug(f"股票 {stock_code} 在 {target_date} 的扩展涨跌幅计算完成: {', '.join(calculated_periods)}")
+                return True
+            else:
+                logger.debug(f"股票 {stock_code} 在 {target_date} 的扩展涨跌幅计算失败: 所有周期都无法计算")
+                return False
             
         except Exception as e:
             logger.error(f"计算股票 {stock_code} 在 {target_date} 的扩展涨跌幅失败: {e}")

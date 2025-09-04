@@ -209,12 +209,64 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { DataAnalysis, Warning, Loading, Refresh } from '@element-plus/icons-vue'
+import { 
+  ElMessage, 
+  ElMessageBox,
+  ElRadioGroup,
+  ElRadio,
+  ElCheckbox,
+  ElProgress
+} from 'element-plus'
+import { 
+  DataAnalysis, 
+  Warning, 
+  Loading, 
+  Refresh
+} from '@element-plus/icons-vue'
 import axios from 'axios'
 
+// 类型定义
+interface Task {
+  task_id: string
+  status: string
+  progress: number
+  total_stocks: number
+  processed_stocks: number
+  success_count: number
+  failed_count: number
+  collected_count: number
+  skipped_count: number
+  start_time: string
+  end_time?: string
+  error_message?: string
+  failed_details: string[]
+}
+
+interface CurrentTask {
+  task_id: string
+  status: string
+  start_time: string
+}
+
+interface FormData {
+  start_date: string
+  end_date: string
+  collection_type: 'single' | 'multiple' | 'all'
+  single_stock_code: string
+  stock_codes_text: string
+  test_mode: boolean
+}
+
+interface RequestData {
+  start_date: string
+  end_date: string
+  test_mode: boolean
+  stock_codes?: string[]
+  full_collection_mode?: boolean
+}
+
 // 表单数据
-const form = ref({
+const form = ref<FormData>({
   start_date: '',
   end_date: '',
   collection_type: 'single',
@@ -224,10 +276,10 @@ const form = ref({
 })
 
 // 状态数据
-const tasks = ref([])
-const currentTask = ref(null)
+const tasks = ref<Task[]>([])
+const currentTask = ref<CurrentTask | null>(null)
 const loading = ref(false)
-const pollingInterval = ref(null)
+const pollingInterval = ref<NodeJS.Timeout | null>(null)
 
 // API基础URL
 const API_BASE = '/api'
@@ -250,7 +302,7 @@ const startCollection = async () => {
     }
     
     // 准备请求数据
-    const requestData = {
+    const requestData: RequestData = {
       start_date: form.value.start_date,
       end_date: form.value.end_date,
       test_mode: form.value.test_mode
@@ -275,6 +327,9 @@ const startCollection = async () => {
       }
       
       requestData.stock_codes = stockCodes
+    } else if (form.value.collection_type === 'all') {
+      // 全量采集模式
+      requestData.full_collection_mode = true
     }
 
     console.log('发送请求:', requestData)
@@ -286,7 +341,7 @@ const startCollection = async () => {
       loadCurrentTask()
     }
     
-  } catch (error) {
+  } catch (error: any) {
     console.error('启动采集任务失败:', error)
     let errorMsg = '启动采集任务失败'
     
@@ -338,7 +393,7 @@ const cancelTask = async (taskId: string) => {
     loadTasks()
     loadCurrentTask()
     
-  } catch (error) {
+  } catch (error: any) {
     if (error !== 'cancel') {
       console.error('取消任务失败:', error)
       ElMessage.error(error.response?.data?.detail || '取消任务失败')
@@ -357,8 +412,8 @@ const resetForm = () => {
   }
 }
 
-const getStatusText = (status: string) => {
-  const statusMap = {
+const getStatusText = (status: string): string => {
+  const statusMap: Record<string, string> = {
     'running': '运行中',
     'completed': '已完成',
     'failed': '失败',
@@ -367,8 +422,8 @@ const getStatusText = (status: string) => {
   return statusMap[status] || status
 }
 
-const getStatusType = (status: string) => {
-  const typeMap = {
+const getStatusType = (status: string): 'primary' | 'success' | 'warning' | 'info' | 'danger' => {
+  const typeMap: Record<string, 'primary' | 'success' | 'warning' | 'info' | 'danger'> = {
     'running': 'primary',
     'completed': 'success',
     'failed': 'danger',
@@ -377,7 +432,7 @@ const getStatusType = (status: string) => {
   return typeMap[status] || 'info'
 }
 
-const formatTime = (timeStr: string) => {
+const formatTime = (timeStr: string): string => {
   if (!timeStr) return ''
   const date = new Date(timeStr)
   return date.toLocaleString('zh-CN')
