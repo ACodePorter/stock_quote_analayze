@@ -5,7 +5,7 @@ export const API_CONFIG = {
     baseURL: 'http://localhost:5000',
     timeout: 30000
   },
-  // 生产环境 - 通过8001端口访问API服务
+  // 生产环境 - 移除 /api 前缀，因为后端路由已统一包含
   production: {
     baseURL: 'https://www.icemaplecity.com',
     timeout: 30000

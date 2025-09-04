@@ -14,7 +14,7 @@ from models import StockNoticeReport, StockNews, StockResearchReport
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/stock", tags=["stock_news"])
+router = APIRouter(prefix="/api/stock/news", tags=["stock_news"])
 
 def clean_nan(obj):
     """清理NaN和inf值"""

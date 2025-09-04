@@ -331,7 +331,7 @@ const startCollection = async () => {
     }
 
     console.log('发送请求:', requestData)
-    const response = await axios.post(`${API_BASE}/data-collection/historical`, requestData)
+            const response = await axios.post(`${API_BASE}/api/data-collection/historical`, requestData)
     
     if (response.data.status === 'started') {
       ElMessage.success('采集任务已启动')
@@ -362,7 +362,7 @@ const startCollection = async () => {
 
 const loadTasks = async () => {
   try {
-    const response = await axios.get(`${API_BASE}/data-collection/tasks`)
+          const response = await axios.get(`${API_BASE}/api/data-collection/tasks`)
     tasks.value = response.data
   } catch (error) {
     console.error('加载任务列表失败:', error)
@@ -371,7 +371,7 @@ const loadTasks = async () => {
 
 const loadCurrentTask = async () => {
   try {
-    const response = await axios.get(`${API_BASE}/data-collection/current-task`)
+          const response = await axios.get(`${API_BASE}/api/data-collection/current-task`)
     currentTask.value = response.data.current_task
   } catch (error) {
     console.error('加载当前任务信息失败:', error)
@@ -386,7 +386,7 @@ const cancelTask = async (taskId: string) => {
       type: 'warning'
     })
 
-    await axios.delete(`${API_BASE}/data-collection/tasks/${taskId}`)
+          await axios.delete(`${API_BASE}/api/data-collection/tasks/${taskId}`)
     ElMessage.success('任务已取消')
     loadTasks()
     loadCurrentTask()

@@ -21,7 +21,7 @@ from backend_api.database import get_db
 from backend_api.models import DataCollectionRequest, DataCollectionResponse, DataCollectionStatus
 from sqlalchemy import text
 
-router = APIRouter(prefix="/data-collection", tags=["数据采集"])
+router = APIRouter(prefix="/api/data-collection", tags=["数据采集"])
 
 # 全局变量存储采集任务状态
 collection_tasks = {}
