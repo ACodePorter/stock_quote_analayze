@@ -294,7 +294,7 @@ class AkshareDataCollector:
                 
                 if self.collect_single_stock_data(stock['code'], stock['name'], start_date, end_date):
                     success_count += 1
-                time.sleep(10)  # 每次采集后休眠10秒
+                time.sleep(20)  # 每次采集后休眠20秒
                 
                 # 每处理10只股票输出一次进度
                 if i % 10 == 0:

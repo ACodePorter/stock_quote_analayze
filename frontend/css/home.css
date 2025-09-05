@@ -5,6 +5,7 @@
     padding: 20px 0;
     background: #f5f5f5;
     min-height: calc(100vh - 60px);
+    padding-bottom: 60px; /* 为ICP备案留出空间 */
 }
 
 /* 市场概览样式 */

@@ -9,6 +9,8 @@ body {
     background: linear-gradient(135deg, #001529 0%, #002140 50%, #001529 100%);
     overflow-x: hidden;
     position: relative;
+    display: flex;
+    flex-direction: column;
 }
 
 /* 背景图案 */
@@ -26,7 +28,7 @@ body::before {
 }
 
 .login-container {
-    min-height: 100vh;
+    flex: 1;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -644,5 +646,39 @@ body::before {
     
     .shape {
         display: none;
+    }
+}
+
+/* 登录页面ICP备案样式 */
+.icp-footer {
+    background: rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(10px);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 15px 0;
+    text-align: center;
+    margin-top: auto;
+    z-index: 10;
+    position: relative;
+}
+
+.icp-footer a {
+    color: rgba(255, 255, 255, 0.7);
+    text-decoration: none;
+    font-size: 12px;
+    transition: color 0.3s ease;
+}
+
+.icp-footer a:hover {
+    color: #1890ff;
+}
+
+/* 响应式ICP备案 */
+@media (max-width: 768px) {
+    .icp-footer {
+        padding: 10px 0;
+    }
+    
+    .icp-footer a {
+        font-size: 11px;
     }
 } 
