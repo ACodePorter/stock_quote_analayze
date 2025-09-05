@@ -61,6 +61,15 @@
       <div class="admin-content">
         <router-view />
       </div>
+      
+      <!-- ICP备案信息 -->
+      <footer class="icp-footer">
+        <div class="icp-container">
+          <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">
+            京ICP备18061239号-1
+          </a>
+        </div>
+      </footer>
     </main>
   </div>
 </template>
@@ -252,11 +261,15 @@ const handleLogout = async () => {
   @apply ml-64 min-h-screen;
   padding-left: 1rem; /* 增加左边距 */
   transition: margin-left 0.3s ease, padding-left 0.3s ease;
+  display: flex;
+  flex-direction: column;
 }
 
 .admin-content {
   @apply p-6;
   transition: padding 0.3s ease;
+  flex: 1;
+  padding-bottom: 60px; /* 为ICP备案留出空间 */
 }
 
 /* 响应式设计 */
@@ -499,5 +512,46 @@ const handleLogout = async () => {
 
 .user-avatar {
   @apply bg-gray-300;
+}
+
+/* ICP备案信息样式 */
+.icp-footer {
+  background: #f8f9fa;
+  border-top: 1px solid #e5e7eb;
+  padding: 15px 0;
+  text-align: center;
+  margin-top: auto;
+}
+
+.icp-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+.icp-footer a {
+  color: #6b7280;
+  text-decoration: none;
+  font-size: 12px;
+  transition: color 0.3s ease;
+}
+
+.icp-footer a:hover {
+  color: #3b82f6;
+}
+
+/* 响应式ICP备案 */
+@media (max-width: 768px) {
+  .icp-footer {
+    padding: 10px 0;
+  }
+  
+  .icp-container {
+    padding: 0 15px;
+  }
+  
+  .icp-footer a {
+    font-size: 11px;
+  }
 }
 </style> 

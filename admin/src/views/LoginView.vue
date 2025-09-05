@@ -1,6 +1,6 @@
 <template>
-  <div class="min-h-screen bg-gray-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-    <div class="max-w-md w-full space-y-8">
+  <div class="min-h-screen bg-gray-100 flex flex-col items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-md w-full space-y-8 flex-1 flex flex-col justify-center">
       <div>
         <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">
           管理后台登录
@@ -58,6 +58,15 @@
         </div>
       </form>
     </div>
+    
+    <!-- ICP备案信息 -->
+    <footer class="icp-footer">
+      <div class="icp-container">
+        <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">
+          京ICP备18061239号-1
+        </a>
+      </div>
+    </footer>
   </div>
 </template>
 
@@ -150,5 +159,47 @@ const handleLogin = async () => {
 .login-info {
   margin-top: 1.5rem;
   text-align: center;
+}
+
+/* ICP备案信息样式 */
+.icp-footer {
+  background: rgba(0, 0, 0, 0.05);
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+  padding: 15px 0;
+  text-align: center;
+  margin-top: auto;
+  width: 100%;
+}
+
+.icp-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+.icp-footer a {
+  color: #6b7280;
+  text-decoration: none;
+  font-size: 12px;
+  transition: color 0.3s ease;
+}
+
+.icp-footer a:hover {
+  color: #3b82f6;
+}
+
+/* 响应式ICP备案 */
+@media (max-width: 768px) {
+  .icp-footer {
+    padding: 10px 0;
+  }
+  
+  .icp-container {
+    padding: 0 15px;
+  }
+  
+  .icp-footer a {
+    font-size: 11px;
+  }
 }
 </style> 
