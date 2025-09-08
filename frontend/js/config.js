@@ -30,7 +30,7 @@ const Config = {
             case 'development':
             default:
                 // 开发环境使用具体的IP和端口
-                return 'http://192.168.31.237:5000';
+                return 'http://localhost:5000';
         }
     },
     

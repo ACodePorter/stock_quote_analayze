@@ -287,7 +287,7 @@ function updateGainersDisplay(gainers) {
 async function loadNews() {
     try {
         console.log('加载新闻数据...');
-        const response = await authFetch(`${API_BASE_URL}/api/news?limit=3`);
+        const response = await authFetch(`${API_BASE_URL}/api/news/homepage?limit=3`);
         const result = await response.json();
         
         if (result.success && result.data) {
@@ -327,7 +327,13 @@ function updateNewsDisplay(news) {
     if (newsContainer) {
         let newsHTML = '';
         news.forEach(function(item) {
-            const publishTime = new Date(item.publish_time).toLocaleTimeString();
+            // 格式化时间显示（只显示时分秒）
+            const publishTime = new Date(item.publish_time).toLocaleTimeString('zh-CN', {
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+            
             newsHTML += '<div class="news-item">' +
                 '<div class="news-time">' + publishTime + '</div>' +
                 '<div class="news-content">' +
