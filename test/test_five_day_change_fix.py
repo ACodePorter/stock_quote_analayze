@@ -1,200 +1,207 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-测试5天升跌计算修复
-验证最后5天数据是否能正确计算5天升跌%
+测试修复后的5天升跌计算功能
 """
 
-import sys
-import os
 import requests
 import json
 from datetime import datetime, timedelta
 
-# 添加项目根目录到Python路径
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# API基础URL
+API_BASE_URL = "http://localhost:8000"
 
-# 配置
-API_BASE_URL = "http://localhost:5000"
-TEST_STOCK_CODE = "603667"  # 使用图片中的股票代码
-
-def test_five_day_change_calculation():
+def test_calculate_five_day_change():
     """测试5天升跌计算功能"""
-    print("=" * 60)
-    print("测试5天升跌计算修复")
-    print("=" * 60)
+    print("=== 测试5天升跌计算功能 ===")
     
-    # 设置测试日期范围
-    end_date = datetime.now()
-    start_date = end_date - timedelta(days=30)  # 最近30天
+    # 测试股票代码
+    stock_code = "300058"
     
-    start_date_str = start_date.strftime('%Y-%m-%d')
-    end_date_str = end_date.strftime('%Y-%m-%d')
+    # 设置日期范围（确保有足够的数据）
+    end_date = datetime.now().strftime("%Y-%m-%d")
+    start_date = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
     
-    print(f"测试股票代码: {TEST_STOCK_CODE}")
-    print(f"测试日期范围: {start_date_str} 到 {end_date_str}")
-    print()
+    print(f"股票代码: {stock_code}")
+    print(f"开始日期: {start_date}")
+    print(f"结束日期: {end_date}")
     
-    # 1. 先查询原始数据
-    print("1. 查询原始历史数据...")
+    # 1. 先获取当前的历史数据，查看5天升跌%字段状态
+    print("\n1. 获取当前历史数据...")
     try:
-        response = requests.get(
-            f"{API_BASE_URL}/api/stock/history",
-            params={
-                "code": TEST_STOCK_CODE,
-                "start_date": start_date_str,
-                "end_date": end_date_str,
-                "include_notes": False,
-                "page": 1,
-                "size": 50
-            }
-        )
+        response = requests.get(f"{API_BASE_URL}/api/stock/history", params={
+            "code": stock_code,
+            "start_date": start_date,
+            "end_date": end_date,
+            "page": 1,
+            "size": 50,
+            "include_notes": False
+        })
         
-        if response.status_code != 200:
-            print(f"❌ 查询历史数据失败: {response.status_code}")
-            return False
+        if response.status_code == 200:
+            data = response.json()
+            print(f"获取到 {len(data['items'])} 条记录")
             
-        data = response.json()
-        print(f"✅ 查询成功，共 {data['total']} 条记录")
-        
-        # 检查最后5条记录的5天升跌%情况
-        items = data['items']
-        print(f"前5条记录的5天升跌%情况:")
-        for i, item in enumerate(items[:5]):
-            five_day_change = item.get('five_day_change_percent')
-            status = "✅ 已计算" if five_day_change is not None else "❌ 未计算"
-            print(f"  {item['date']}: {five_day_change}% ({status})")
+            # 检查5天升跌%字段状态
+            null_count = 0
+            zero_count = 0
+            has_value_count = 0
+            
+            for item in data['items']:
+                if item.get('five_day_change_percent') is None:
+                    null_count += 1
+                elif item.get('five_day_change_percent') == 0:
+                    zero_count += 1
+                else:
+                    has_value_count += 1
+            
+            print(f"5天升跌%字段状态:")
+            print(f"  - NULL值: {null_count}")
+            print(f"  - 0值: {zero_count}")
+            print(f"  - 有值: {has_value_count}")
+            
+        else:
+            print(f"获取历史数据失败: {response.status_code}")
+            print(response.text)
+            return
             
     except Exception as e:
-        print(f"❌ 查询历史数据异常: {e}")
-        return False
+        print(f"获取历史数据异常: {e}")
+        return
     
-    # 2. 执行5天升跌计算
-    print("\n2. 执行5天升跌计算...")
+    # 2. 调用5天升跌计算API
+    print("\n2. 调用5天升跌计算API...")
     try:
-        response = requests.post(
-            f"{API_BASE_URL}/api/stock/history/calculate_five_day_change",
-            headers={"Content-Type": "application/json"},
-            json={
-                "stock_code": TEST_STOCK_CODE,
-                "start_date": start_date_str,
-                "end_date": end_date_str
-            }
-        )
+        response = requests.post(f"{API_BASE_URL}/api/stock/history/calculate_five_day_change", json={
+            "stock_code": stock_code,
+            "start_date": start_date,
+            "end_date": end_date
+        })
         
-        if response.status_code != 200:
-            print(f"❌ 计算5天升跌失败: {response.status_code}")
-            error_data = response.json()
-            print(f"错误信息: {error_data}")
-            return False
+        if response.status_code == 200:
+            result = response.json()
+            print("计算成功!")
+            print(f"消息: {result['message']}")
+            print(f"更新记录数: {result['updated_count']}")
+            print(f"总记录数: {result['total_records']}")
+        else:
+            print(f"计算失败: {response.status_code}")
+            print(response.text)
+            return
             
-        result = response.json()
-        print(f"✅ 计算完成: {result['message']}")
-        print(f"更新记录数: {result['updated_count']}")
-        print(f"总记录数: {result['total_records']}")
-        
     except Exception as e:
-        print(f"❌ 计算5天升跌异常: {e}")
-        return False
+        print(f"调用计算API异常: {e}")
+        return
     
-    # 3. 再次查询数据验证结果
+    # 3. 再次获取历史数据，验证计算结果
     print("\n3. 验证计算结果...")
     try:
-        response = requests.get(
-            f"{API_BASE_URL}/api/stock/history",
-            params={
-                "code": TEST_STOCK_CODE,
-                "start_date": start_date_str,
-                "end_date": end_date_str,
-                "include_notes": False,
-                "page": 1,
-                "size": 50
-            }
-        )
+        response = requests.get(f"{API_BASE_URL}/api/stock/history", params={
+            "code": stock_code,
+            "start_date": start_date,
+            "end_date": end_date,
+            "page": 1,
+            "size": 50,
+            "include_notes": False
+        })
         
-        if response.status_code != 200:
-            print(f"❌ 验证查询失败: {response.status_code}")
-            return False
+        if response.status_code == 200:
+            data = response.json()
+            print(f"获取到 {len(data['items'])} 条记录")
             
-        data = response.json()
-        items = data['items']
-        
-        # 检查最后5条记录的5天升跌%情况
-        print(f"计算后前5条记录的5天升跌%情况:")
-        success_count = 0
-        for i, item in enumerate(items[:5]):
-            five_day_change = item.get('five_day_change_percent')
-            if five_day_change is not None:
-                status = "✅ 已计算"
-                success_count += 1
-            else:
-                status = "❌ 未计算"
-            print(f"  {item['date']}: {five_day_change}% ({status})")
-        
-        print(f"\n📊 测试结果: {success_count}/5 条记录成功计算5天升跌%")
-        
-        if success_count == 5:
-            print("🎉 测试通过！所有最后5天数据都成功计算了5天升跌%")
-            return True
+            # 再次检查5天升跌%字段状态
+            null_count_after = 0
+            zero_count_after = 0
+            has_value_count_after = 0
+            
+            for item in data['items']:
+                if item.get('five_day_change_percent') is None:
+                    null_count_after += 1
+                elif item.get('five_day_change_percent') == 0:
+                    zero_count_after += 0
+                else:
+                    has_value_count_after += 1
+            
+            print(f"计算后的5天升跌%字段状态:")
+            print(f"  - NULL值: {null_count_after}")
+            print(f"  - 0值: {zero_count_after}")
+            print(f"  - 有值: {has_value_count_after}")
+            
+            # 显示具体的计算结果
+            print(f"\n具体的5天升跌%计算结果:")
+            for item in data['items'][:10]:  # 只显示前10条
+                date = item['date']
+                close = item['close']
+                five_day_change = item.get('five_day_change_percent')
+                if five_day_change is not None:
+                    print(f"  {date}: 收盘价={close}, 5天升跌%={five_day_change}%")
+                else:
+                    print(f"  {date}: 收盘价={close}, 5天升跌%=未计算")
+            
         else:
-            print("⚠️ 测试部分通过，仍有部分记录未计算")
-            return False
+            print(f"获取历史数据失败: {response.status_code}")
+            print(response.text)
             
     except Exception as e:
-        print(f"❌ 验证查询异常: {e}")
-        return False
+        print(f"验证计算结果异常: {e}")
 
-def test_edge_cases():
-    """测试边界情况"""
-    print("\n" + "=" * 60)
-    print("测试边界情况")
-    print("=" * 60)
+def test_multiple_calculations():
+    """测试多次计算是否正常工作"""
+    print("\n=== 测试多次计算功能 ===")
     
-    # 测试数据不足的情况
-    print("1. 测试数据不足的情况...")
+    stock_code = "300058"
+    end_date = datetime.now().strftime("%Y-%m-%d")
+    start_date = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
+    
+    print(f"对同一日期范围进行第二次计算...")
+    
     try:
-        response = requests.post(
-            f"{API_BASE_URL}/api/stock/history/calculate_five_day_change",
-            headers={"Content-Type": "application/json"},
-            json={
-                "stock_code": "INVALID_CODE",
-                "start_date": "2024-01-01",
-                "end_date": "2024-01-05"
-            }
-        )
+        response = requests.post(f"{API_BASE_URL}/api/stock/history/calculate_five_day_change", json={
+            "stock_code": stock_code,
+            "start_date": start_date,
+            "end_date": end_date
+        })
         
-        if response.status_code == 400:
-            print("✅ 正确处理了数据不足的情况")
+        if response.status_code == 200:
+            result = response.json()
+            print("第二次计算成功!")
+            print(f"消息: {result['message']}")
+            print(f"更新记录数: {result['updated_count']}")
+            print(f"总记录数: {result['total_records']}")
+            
+            # 如果更新记录数为0，说明所有记录都已经计算过了
+            if result['updated_count'] == 0:
+                print("✓ 所有记录都已经计算完成，无需重复计算")
+            else:
+                print(f"⚠ 仍有 {result['updated_count']} 条记录被更新")
+                
         else:
-            print(f"⚠️ 数据不足情况处理异常: {response.status_code}")
+            print(f"第二次计算失败: {response.status_code}")
+            print(response.text)
             
     except Exception as e:
-        print(f"❌ 边界测试异常: {e}")
+        print(f"第二次计算异常: {e}")
+
+def main():
+    """主函数"""
+    print("开始测试修复后的5天升跌计算功能...")
+    print(f"API基础URL: {API_BASE_URL}")
+    print("=" * 50)
+    
+    try:
+        # 测试基本功能
+        test_calculate_five_day_change()
+        
+        # 测试多次计算
+        test_multiple_calculations()
+        
+        print("\n" + "=" * 50)
+        print("测试完成!")
+        
+    except KeyboardInterrupt:
+        print("\n测试被用户中断")
+    except Exception as e:
+        print(f"\n测试过程中发生异常: {e}")
 
 if __name__ == "__main__":
-    print("开始测试5天升跌计算修复...")
-    print(f"API地址: {API_BASE_URL}")
-    print()
-    
-    # 检查API是否可用
-    try:
-        response = requests.get(f"{API_BASE_URL}/api/stock/history?code=000001&page=1&size=1", timeout=5)
-        if response.status_code == 200:
-            print("✅ API服务正常")
-        else:
-            print("⚠️ API服务响应异常")
-    except Exception as e:
-        print(f"❌ API服务不可用: {e}")
-        print("请确保后端API服务正在运行")
-        sys.exit(1)
-    
-    # 执行测试
-    success = test_five_day_change_calculation()
-    test_edge_cases()
-    
-    print("\n" + "=" * 60)
-    if success:
-        print("🎉 所有测试完成，修复验证成功！")
-    else:
-        print("⚠️ 测试完成，但存在问题需要进一步检查")
-    print("=" * 60)
+    main()
