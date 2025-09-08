@@ -75,9 +75,9 @@ class StockHistoryPage {
     
     setDefaultDates() {
         const today = new Date();
-        const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+        const threeMonthsAgo = new Date(today.getTime() - 90 * 24 * 60 * 60 * 1000);
         
-        document.getElementById('startDate').value = this.formatDate(thirtyDaysAgo);
+        document.getElementById('startDate').value = this.formatDate(threeMonthsAgo);
         document.getElementById('endDate').value = this.formatDate(today);
     }
     
@@ -96,6 +96,11 @@ class StockHistoryPage {
     }
     
     async searchHistory() {
+        // 检查用户登录状态
+        if (!CommonUtils.checkLoginAndHandleExpiry()) {
+            return;
+        }
+        
         const startDate = document.getElementById('startDate').value;
         const endDate = document.getElementById('endDate').value;
         const includeNotes = document.getElementById('includeNotes').checked;
@@ -106,7 +111,7 @@ class StockHistoryPage {
         }
         
         try {
-            const response = await fetch(`${API_BASE_URL}/api/stock/history?code=${this.currentStockCode}&start_date=${startDate}&end_date=${endDate}&include_notes=${includeNotes}&page=${this.currentPage}&size=${this.pageSize}`);
+            const response = await authFetch(`${API_BASE_URL}/api/stock/history?code=${this.currentStockCode}&start_date=${startDate}&end_date=${endDate}&include_notes=${includeNotes}&page=${this.currentPage}&size=${this.pageSize}`);
             
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
@@ -217,6 +222,15 @@ class StockHistoryPage {
     }
     
     async exportHistory() {
+        // 检查用户登录状态
+        const userInfo = CommonUtils.auth.getUserInfo();
+        if (!userInfo || !userInfo.id) {
+            CommonUtils.showToast('请先登录后再导出数据', 'warning');
+            // 跳转到登录页面
+            window.location.href = 'login.html';
+            return;
+        }
+        
         const startDate = document.getElementById('startDate').value;
         const endDate = document.getElementById('endDate').value;
         const includeNotes = document.getElementById('includeNotes').checked;
@@ -229,13 +243,27 @@ class StockHistoryPage {
         try {
             const url = `${API_BASE_URL}/api/stock/history/export?code=${this.currentStockCode}&start_date=${startDate}&end_date=${endDate}&include_notes=${includeNotes}`;
             
+            // 使用authFetch获取带认证的下载链接
+            const response = await authFetch(url);
+            if (!response.ok) {
+                if (response.status === 401) {
+                    CommonUtils.showToast('登录已过期，请重新登录', 'error');
+                    CommonUtils.auth.logout();
+                    return;
+                }
+                throw new Error(`导出失败: ${response.status}`);
+            }
+            
             // 创建下载链接
+            const blob = await response.blob();
+            const downloadUrl = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
-            link.href = url;
+            link.href = downloadUrl;
             link.download = `${this.currentStockCode}_历史行情_${new Date().toISOString().slice(0, 10)}.csv`;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
+            window.URL.revokeObjectURL(downloadUrl);
             
         } catch (error) {
             console.error('导出失败:', error);
@@ -244,6 +272,15 @@ class StockHistoryPage {
     }
     
     async calculateFiveDayChange() {
+        // 检查用户登录状态
+        const userInfo = CommonUtils.auth.getUserInfo();
+        if (!userInfo || !userInfo.id) {
+            CommonUtils.showToast('请先登录后再计算涨跌幅', 'warning');
+            // 跳转到登录页面
+            window.location.href = 'login.html';
+            return;
+        }
+        
         const startDate = document.getElementById('startDate').value;
         const endDate = document.getElementById('endDate').value;
 
@@ -267,7 +304,7 @@ class StockHistoryPage {
             // 为了确保最后5条记录也能计算5天升跌%，将结束日期延长5个工作日
             const extendedEndDate = this.addBusinessDays(endDate, 5);
             
-            const response = await fetch(`${API_BASE_URL}/api/stock/history/calculate_five_day_change`, {
+            const response = await authFetch(`${API_BASE_URL}/api/stock/history/calculate_five_day_change`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -301,6 +338,15 @@ class StockHistoryPage {
     }
 
     async calculateTenDayChange() {
+        // 检查用户登录状态
+        const userInfo = CommonUtils.auth.getUserInfo();
+        if (!userInfo || !userInfo.id) {
+            CommonUtils.showToast('请先登录后再计算涨跌幅', 'warning');
+            // 跳转到登录页面
+            window.location.href = 'login.html';
+            return;
+        }
+        
         const startDate = document.getElementById('startDate').value;
         const endDate = document.getElementById('endDate').value;
 
@@ -324,7 +370,7 @@ class StockHistoryPage {
             // 为了确保最后10条记录也能计算10天涨跌%，将结束日期延长10个工作日
             const extendedEndDate = this.addBusinessDays(endDate, 10);
             
-            const response = await fetch(`${API_BASE_URL}/api/stock/history/calculate_ten_day_change`, {
+            const response = await authFetch(`${API_BASE_URL}/api/stock/history/calculate_ten_day_change`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -358,6 +404,15 @@ class StockHistoryPage {
     }
 
     async calculateSixtyDayChange() {
+        // 检查用户登录状态
+        const userInfo = CommonUtils.auth.getUserInfo();
+        if (!userInfo || !userInfo.id) {
+            CommonUtils.showToast('请先登录后再计算涨跌幅', 'warning');
+            // 跳转到登录页面
+            window.location.href = 'login.html';
+            return;
+        }
+        
         const startDate = document.getElementById('startDate').value;
         const endDate = document.getElementById('endDate').value;
 
@@ -381,7 +436,7 @@ class StockHistoryPage {
             // 为了确保最后60条记录也能计算60天涨跌%，将结束日期延长60个工作日
             const extendedEndDate = this.addBusinessDays(endDate, 60);
             
-            const response = await fetch(`${API_BASE_URL}/api/stock/history/calculate_sixty_day_change`, {
+            const response = await authFetch(`${API_BASE_URL}/api/stock/history/calculate_sixty_day_change`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -495,7 +550,7 @@ class StockHistoryPage {
         
         try {
             // 使用upsert接口，自动处理创建或更新
-            const response = await fetch(`${API_BASE_URL}/api/trading_notes/upsert`, {
+            const response = await authFetch(`${API_BASE_URL}/api/trading_notes/upsert`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -533,13 +588,13 @@ class StockHistoryPage {
         
         try {
             // 先查询备注ID
-            const checkResponse = await fetch(`${API_BASE_URL}/api/trading_notes/${stockCode}?trade_date=${tradeDate}`);
+            const checkResponse = await authFetch(`${API_BASE_URL}/api/trading_notes/${stockCode}?trade_date=${tradeDate}`);
             
             if (checkResponse.ok) {
                 const existingNotes = await checkResponse.json();
                 if (existingNotes && existingNotes.length > 0) {
                     // 删除备注
-                    const deleteResponse = await fetch(`${API_BASE_URL}/api/trading_notes/${existingNotes[0].id}`, {
+                    const deleteResponse = await authFetch(`${API_BASE_URL}/api/trading_notes/${existingNotes[0].id}`, {
                         method: 'DELETE'
                     });
                     
@@ -564,7 +619,24 @@ class StockHistoryPage {
     }
     }
 
-    // 页面加载完成后初始化
+    // 测试查询按钮登录验证（用于调试）
+window.testHistoryQueryAuth = function() {
+    console.log('测试历史行情查询按钮登录验证...');
+    
+    // 清除本地存储模拟登录失效
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('userInfo');
+    localStorage.removeItem('token');
+    
+    // 模拟点击查询按钮
+    if (window.stockHistoryPage) {
+        window.stockHistoryPage.searchHistory();
+    } else {
+        console.log('StockHistoryPage 未初始化');
+    }
+};
+
+// 页面加载完成后初始化
 document.addEventListener('DOMContentLoaded', () => {
     window.stockHistoryPage = new StockHistoryPage();
 }); 

@@ -726,6 +726,20 @@ class StockAnalysisService:
     def _get_current_price(self, stock_code: str) -> Optional[float]:
         """获取当前价格"""
         try:
+            # 优先从实时行情API获取最新价格
+            import akshare as ak
+            
+            try:
+                df_bid_ask = ak.stock_bid_ask_em(symbol=stock_code)
+                if not df_bid_ask.empty:
+                    bid_ask_dict = dict(zip(df_bid_ask['item'], df_bid_ask['value']))
+                    current_price = bid_ask_dict.get("最新")
+                    if current_price:
+                        return float(current_price)
+            except Exception as e:
+                logger.warning(f"从实时API获取价格失败: {str(e)}")
+            
+            # 如果实时API失败，从数据库获取
             stock = self.db.query(StockRealtimeQuote).filter(StockRealtimeQuote.code == stock_code).first()
             if stock:
                 return float(stock.current_price) if stock.current_price else None

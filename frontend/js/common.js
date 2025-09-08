@@ -1,16 +1,58 @@
 // API配置 - 使用环境检测
 const API_BASE_URL = Config ? Config.getApiBaseUrl() : 'http://192.168.31.237:5000';
 
-// 全局带token的fetch
-function authFetch(url, options = {}) {
+// 全局带token的fetch，自动处理登录失效
+async function authFetch(url, options = {}) {
     const token = localStorage.getItem('access_token');
     options.headers = options.headers || {};
     if (token) {
         options.headers['Authorization'] = 'Bearer ' + token;
     }
-    return fetch(url, options);
+    
+    const response = await fetch(url, options);
+    
+    // 检查401错误，自动处理token失效
+    if (response.status === 401) {
+        console.log('Token已失效，清除本地存储并跳转到登录页');
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('userInfo');
+        localStorage.removeItem('token');
+        
+        // 如果不在登录页面，跳转到登录页
+        if (!window.location.pathname.includes('login.html') && 
+            !window.location.pathname.includes('test-login.html')) {
+            CommonUtils.showToast('登录已过期，请重新登录', 'error');
+            window.location.href = 'login.html';
+        }
+    }
+    
+    return response;
 }
+
+// 智能API调用函数，根据URL自动判断是否需要认证
+async function smartFetch(url, options = {}) {
+    // 判断是否需要认证的API端点
+    const authRequiredEndpoints = [
+        '/api/watchlist',
+        '/api/auth/',
+        '/api/analysis/',
+        '/api/stock/history',
+        '/api/trading_notes',
+        '/api/user/',
+        '/api/admin/'
+    ];
+    
+    const needsAuth = authRequiredEndpoints.some(endpoint => url.includes(endpoint));
+    
+    if (needsAuth) {
+        return await authFetch(url, options);
+    } else {
+        return await fetch(url, options);
+    }
+}
+
 window.authFetch = authFetch;
+window.smartFetch = smartFetch;
 
 // 通用功能模块
 const CommonUtils = {
@@ -28,10 +70,7 @@ const CommonUtils = {
                     // 如果不在登录页面且未登录，跳转到登录页
                     if (!window.location.pathname.includes('login.html') && 
                         !window.location.pathname.includes('test-login.html')) {
-                        // 延迟跳转，避免和登录页面的检查冲突
-                        setTimeout(() => {
-                            window.location.href = 'login.html';
-                        }, 100);
+                        window.location.href = 'login.html';
                         return false;
                     }
                     return null;
@@ -69,10 +108,8 @@ const CommonUtils = {
                 CommonUtils.showToast('已安全退出', 'success');
                 
                 // 强制跳转到登录页面
-                setTimeout(() => {
-                    // 使用replace而不是href，防止用户通过后退按钮返回
-                    window.location.replace('login.html');
-                }, 1000);
+                // 使用replace而不是href，防止用户通过后退按钮返回
+                window.location.replace('login.html');
             }
         },
 
@@ -448,6 +485,68 @@ const CommonUtils = {
             `;
             document.head.appendChild(style);
         }
+    },
+    
+    // 按钮功能认证装饰器
+    requireAuth: function(func) {
+        return function(...args) {
+            const userInfo = CommonUtils.auth.getUserInfo();
+            if (!userInfo || !userInfo.id) {
+                CommonUtils.showToast('请先登录后再使用此功能', 'warning');
+                // 跳转到登录页面
+                window.location.href = 'login.html';
+                return;
+            }
+            return func.apply(this, args);
+        };
+    },
+    
+    // 检查登录状态并处理失效
+    checkLoginAndHandleExpiry: function() {
+        const userInfo = CommonUtils.auth.getUserInfo();
+        if (!userInfo || !userInfo.id) {
+            CommonUtils.showToast('请先登录后再使用此功能', 'warning');
+            window.location.href = 'login.html';
+            return false;
+        }
+        return true;
+    },
+    
+    // 异步检查登录状态并处理失效
+    checkLoginAndHandleExpiryAsync: async function() {
+        try {
+            const response = await authFetch(`${API_BASE_URL}/api/auth/status`);
+            const result = await response.json();
+            
+            if (result.success && result.logged_in) {
+                return result.user;
+            } else {
+                CommonUtils.showToast('登录已失效，请重新登录', 'warning');
+                window.location.href = 'login.html';
+                return null;
+            }
+        } catch (error) {
+            console.error('检查登录状态失败:', error);
+            CommonUtils.showToast('网络错误，请检查网络连接', 'error');
+            return null;
+        }
+    },
+    
+    // 测试登录提示后自动跳转（用于调试）
+    testLoginPromptRedirect: function() {
+        console.log('测试登录提示后自动跳转...');
+        
+        // 清除本地存储模拟登录失效
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('userInfo');
+        localStorage.removeItem('token');
+        
+        // 测试登录检查（应该显示提示并跳转）
+        const result = CommonUtils.checkLoginAndHandleExpiry();
+        console.log('登录检查结果:', result);
+        
+        // 注意：这个测试会实际跳转到登录页面
+        return result;
     }
 };
 

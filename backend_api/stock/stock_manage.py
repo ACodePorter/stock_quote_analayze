@@ -132,27 +132,52 @@ async def get_stocks_list(request: Request, db: Session = Depends(get_db)):
 async def get_quote_board(limit: int = Query(10, description="返回前N个涨幅最高的股票")):
     """获取沪深京A股最新行情，返回涨幅最高的前limit个股票（始终从stock_realtime_quote表读取，不联表）"""
     try:
+        # 获取最新交易日期的实时行情数据
         db = next(get_db())
-        cursor = db.query(StockRealtimeQuote)\
-            .filter(StockRealtimeQuote.change_percent != None)\
-            .filter(StockRealtimeQuote.change_percent != 0)\
-            .order_by(StockRealtimeQuote.change_percent.desc())\
-            .limit(limit).all()
+        
+        # 首先获取最新的交易日期
+        latest_date_result = pd.read_sql_query("""
+            SELECT MAX(trade_date) as latest_date 
+            FROM stock_realtime_quote 
+            WHERE change_percent IS NOT NULL AND change_percent != 0
+        """, db.bind)
+        
+        if latest_date_result.empty or latest_date_result.iloc[0]['latest_date'] is None:
+            db.close()
+            return JSONResponse({'success': False, 'message': '暂无行情数据'}, status_code=404)
+        
+        latest_trade_date = latest_date_result.iloc[0]['latest_date']
+        print(f"📅 首页涨幅榜使用最新交易日期: {latest_trade_date}")
+        
+        # 获取最新交易日期的数据
+        df = pd.read_sql_query(f"""
+            SELECT * FROM stock_realtime_quote 
+            WHERE change_percent IS NOT NULL AND change_percent != 0 AND trade_date = '{latest_trade_date}'
+            ORDER BY code
+        """, db.bind)
+        db.close()
+        
+        # 按涨幅降序排列
+        df = df.sort_values(by='change_percent', ascending=False)
+        
+        # 取前limit个
+        df_limit = df.head(limit)
+        
         data = []
-        for row in cursor:
+        for _, row in df_limit.iterrows():
             data.append({
-                'code': row.code,
-                'name': row.name,
-                'current': row.current_price,
-                'change_percent': row.change_percent,
-                'open': row.open,
-                'pre_close': row.pre_close,
-                'high': row.high,
-                'low': row.low,
-                'volume': row.volume,
-                'turnover': row.amount,
+                'code': row['code'],
+                'name': row['name'],
+                'current': row['current_price'],
+                'change_percent': row['change_percent'],
+                'open': row['open'],
+                'pre_close': row['pre_close'],
+                'high': row['high'],
+                'low': row['low'],
+                'volume': row['volume'],
+                'turnover': row['amount'],
             })
-        print(f"✅(DB) 成功获取 {len(data)} 条A股涨幅榜数据")
+        print(f"✅(DB) 成功获取 {len(data)} 条A股涨幅榜数据（已去重）")
         return JSONResponse({'success': True, 'data': data})
     except Exception as e:
         print(f"❌ 获取A股涨幅榜数据失败: {str(e)}")
@@ -174,12 +199,32 @@ def get_quote_board_list(
     try:
         print(f"📊 获取A股行情排行 (from DB): type={ranking_type}, market={market}, page={page}, page_size={page_size}")
         
-        # 1. 从数据库读取数据到 pandas DataFrame
+        # 1. 获取最新交易日期的实时行情数据
         db = next(get_db())
-        df = pd.read_sql_query("SELECT * FROM stock_realtime_quote WHERE change_percent IS NOT NULL", db.bind)
+        
+        # 首先获取最新的交易日期
+        latest_date_result = pd.read_sql_query("""
+            SELECT MAX(trade_date) as latest_date 
+            FROM stock_realtime_quote 
+            WHERE change_percent IS NOT NULL
+        """, db.bind)
+        
+        if latest_date_result.empty or latest_date_result.iloc[0]['latest_date'] is None:
+            db.close()
+            return JSONResponse({'success': False, 'message': '暂无行情数据'}, status_code=404)
+        
+        latest_trade_date = latest_date_result.iloc[0]['latest_date']
+        print(f"📅 使用最新交易日期: {latest_trade_date}")
+        
+        # 获取最新交易日期的数据
+        df = pd.read_sql_query(f"""
+            SELECT * FROM stock_realtime_quote 
+            WHERE change_percent IS NOT NULL AND trade_date = '{latest_trade_date}'
+            ORDER BY code
+        """, db.bind)
         db.close()
 
-        # 2. 市场类型过滤
+        # 3. 市场类型过滤
         if market != 'all':
             if market == 'sh':
                 df = df[df['code'].str.startswith('6')]
@@ -190,7 +235,7 @@ def get_quote_board_list(
             elif market == 'bj':
                 df = df[df['code'].str.startswith('8') | df['code'].str.startswith('4')] # 北交所
         
-        # 3. 排行类型排序
+        # 4. 排行类型排序
         sort_column_map = {
             'rise': ('change_percent', False),
             'fall': ('change_percent', True),
@@ -204,7 +249,7 @@ def get_quote_board_list(
         else:
             return JSONResponse({'success': False, 'message': '无效的排行类型'}, status_code=400)
 
-        # 4. 字段重命名和格式化
+        # 5. 字段重命名和格式化
         df = df.replace({np.nan: None})
         
         # 确保数值字段的数据类型正确
@@ -247,7 +292,7 @@ def get_quote_board_list(
         else:
             df_selected['change'] = None
 
-        # 5. 分页
+        # 6. 分页
         total = len(df_selected)
         start = (page - 1) * page_size
         end = start + page_size

@@ -332,6 +332,11 @@ const WatchlistPage = {
 
     // 显示添加自选股弹窗
     showAddStockModal() {
+        // 检查登录状态并处理失效
+        if (!CommonUtils.checkLoginAndHandleExpiry()) {
+            return;
+        }
+        
         const modal = document.getElementById('addStockModal');
         modal.classList.add('active');
         modal.querySelector('.stock-search-input').focus();
@@ -397,6 +402,12 @@ const WatchlistPage = {
         if (this._adding) return;
         this._adding = true;
 
+        // 首先检查登录状态
+        if (!CommonUtils.checkLoginAndHandleExpiry()) {
+            this._adding = false;
+            return;
+        }
+
         await this.loadWatchlist();
         const input = document.querySelector('.stock-search-input');
         const groupSelect = document.querySelector('.group-select');
@@ -410,11 +421,6 @@ const WatchlistPage = {
         }
         const stockInfo = this.selectedStock;
         const user_id = await this.getUserId();
-        if (!user_id) {
-            CommonUtils.showToast('请先登录', 'warning');
-            this._adding = false;
-            return;
-        }
         if (this.stocksData.some(s => s.code === stockInfo.code && s.group === group_name)) {
             CommonUtils.showToast('该股票已在该分组中', 'warning');
             this._adding = false;
@@ -665,6 +671,11 @@ const WatchlistPage = {
 
     // 新建分组弹窗
     showCreateGroupModal() {
+        // 检查登录状态
+        if (!CommonUtils.checkLoginAndHandleExpiry()) {
+            return;
+        }
+        
         const name = prompt('请输入新分组名称');
         if (name && name.trim()) {
             this.createGroup(name.trim());

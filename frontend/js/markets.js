@@ -331,7 +331,8 @@ async loadRankingData(page = 1) {
                 <td class="price-column">${this.formatTurnover(stock.turnover)}</td>
                 <td class="price-column">${this.formatTurnoverRate(stock.rate)}</td>
                 <td>
-                    <button class="btn btn-sm btn-primary" data-stock-code="${stock.code}" data-stock-name="${stock.name}" onclick="addToWatchlist('${stock.code}', event)">+自选</button>
+                    <button class="btn btn-sm btn-primary" data-stock-code="${stock.code}" data-stock-name="${stock.name}" onclick="addToWatchlist('${stock.code}', event); event.stopPropagation();">+自选</button>
+                    <button class="btn btn-sm btn-secondary" onclick="goToStockHistory('${stock.code}', '${stock.name}'); event.stopPropagation();" style="margin-left: 5px;">历史</button>
                 </td>
             </tr>
         `).join('');
@@ -883,6 +884,10 @@ function goToSectorDetail(sectorName) {
     // 实际项目中这里会跳转到板块详情页
 }
 
+function goToStockHistory(code, name) {
+    window.location.href = `stock_history.html?code=${code}`;
+}
+
 // 自选股状态管理
 const watchlistManager = {
     // 缓存用户的自选股列表
@@ -928,11 +933,12 @@ const watchlistManager = {
     // 添加到自选股
     async addToWatchlist(stockCode, stockName) {
         try {
-            const userInfo = CommonUtils.auth.getUserInfo();
-            if (!userInfo || !userInfo.id) {
-                CommonUtils.showToast('请先登录后再操作自选股', 'warning');
+            // 检查登录状态并处理失效
+            if (!CommonUtils.checkLoginAndHandleExpiry()) {
                 return false;
             }
+            
+            const userInfo = CommonUtils.auth.getUserInfo();
             
             const res = await authFetch(`${API_BASE_URL}/api/watchlist`, {
                 method: 'POST',

@@ -215,10 +215,8 @@ function handleLogout() {
         // 显示退出成功消息
         showToast('已安全退出', 'success');
         
-        // 延迟跳转到登录页面
-        setTimeout(() => {
-            window.location.href = 'login.html';
-        }, 1000);
+        // 直接跳转到登录页面
+        window.location.href = 'login.html';
     }
 }
 

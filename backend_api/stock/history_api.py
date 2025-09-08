@@ -149,7 +149,7 @@ def export_stock_history(
     end_date_fmt = format_date_yyyymmdd(end_date)
     print(f"[export_stock_history] 输入参数: code={code}, start_date={start_date_fmt}, end_date={end_date_fmt}, include_notes={include_notes}")
     
-    # 根据是否包含备注选择不同的查询
+        # 根据是否包含备注选择不同的查询
     if include_notes:
         # 包含备注的查询，关联trading_notes表
         base_query = """
@@ -158,6 +158,8 @@ def export_stock_history(
                 hq.volume, hq.amount, hq.change_percent, hq.change, hq.turnover_rate,
                 COALESCE(hq.cumulative_change_percent, 0) as cumulative_change_percent, 
                 COALESCE(hq.five_day_change_percent, 0) as five_day_change_percent,
+                COALESCE(hq.ten_day_change_percent, 0) as ten_day_change_percent,
+                COALESCE(hq.sixty_day_change_percent, 0) as sixty_day_change_percent,
                 COALESCE(tn.notes, '') as user_notes,
                 COALESCE(tn.strategy_type, '') as strategy_type,
                 COALESCE(tn.risk_level, '') as risk_level
@@ -173,6 +175,8 @@ def export_stock_history(
                 volume, amount, change_percent, change, turnover_rate,
                 COALESCE(cumulative_change_percent, 0) as cumulative_change_percent, 
                 COALESCE(five_day_change_percent, 0) as five_day_change_percent,
+                COALESCE(ten_day_change_percent, 0) as ten_day_change_percent,
+                COALESCE(sixty_day_change_percent, 0) as sixty_day_change_percent,
                 '' as user_notes,
                 '' as strategy_type,
                 '' as risk_level
@@ -241,13 +245,13 @@ def export_stock_history(
             headers = [
                 "股票代码", "股票名称", "日期", "开盘", "收盘", "最高", "最低",
                 "成交量", "成交额", "涨跌幅%", "涨跌额", "换手率%",
-                "累计升跌%", "5天升跌%", "用户备注", "策略类型", "风险等级"
+                "累计升跌%", "5天升跌%", "10天升跌%", "60天升跌%", "用户备注", "策略类型", "风险等级"
             ]
         else:
             headers = [
                 "股票代码", "股票名称", "日期", "开盘", "收盘", "最高", "最低",
                 "成交量", "成交额", "涨跌幅%", "涨跌额", "换手率%",
-                "累计升跌%", "5天升跌%", "备注"
+                "累计升跌%", "5天升跌%", "10天升跌%", "60天升跌%", "备注"
             ]
         
         writer.writerow(headers)
@@ -259,14 +263,14 @@ def export_stock_history(
                 writer.writerow([
                     row[0], row[1], row[2], row[3], row[4], row[5], row[6],
                     row[7], row[8], row[9], row[10], row[11],
-                    row[12], row[13], row[14], row[15], row[16]
+                    row[12], row[13], row[14], row[15], row[16], row[17], row[18]
                 ])
             else:
                 # 不包含备注的数据
                 writer.writerow([
                     row[0], row[1], row[2], row[3], row[4], row[5], row[6],
                     row[7], row[8], row[9], row[10], row[11],
-                    row[12], row[13], row[14]
+                    row[12], row[13], row[14], row[15], row[16]
                 ])
         
         output.seek(0)

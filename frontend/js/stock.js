@@ -233,6 +233,8 @@ const StockPage = {
         const userInfo = CommonUtils.auth.getUserInfo();
         if (!userInfo || !userInfo.id) {
             CommonUtils.showToast('请先登录后再操作自选股', 'warning');
+            // 跳转到登录页面
+            window.location.href = 'login.html';
             return;
         }
 
@@ -248,7 +250,13 @@ const StockPage = {
     // 添加到自选股
     async addToWatchlist() {
         try {
+            // 检查登录状态并处理失效
+            if (!CommonUtils.checkLoginAndHandleExpiry()) {
+                return;
+            }
+            
             const userInfo = CommonUtils.auth.getUserInfo();
+            
             const res = await authFetch(`${API_BASE_URL}/api/watchlist`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -852,7 +860,7 @@ const StockPage = {
             this.showAnalysisLoading();
             
             // 调用智能分析API
-            const response = await fetch(`${API_BASE_URL}/api/analysis/stock/${this.stockCode}`);
+            const response = await authFetch(`${API_BASE_URL}/api/analysis/stock/${this.stockCode}`);
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
@@ -1068,11 +1076,17 @@ const StockPage = {
             return;
         }
         
+        console.log('[关键价位] 当前价格:', this.currentPrice);
+        console.log('[关键价位] 阻力位数据:', levels.resistance_levels);
+        console.log('[关键价位] 支撑位数据:', levels.support_levels);
+        
         // 更新阻力位
         if (levels.resistance_levels && levels.resistance_levels.length > 0) {
             const resistanceElements = document.querySelectorAll('.level-item:not(.current) .level-value.resistance');
+            console.log('[关键价位] 找到阻力位元素数量:', resistanceElements.length);
             levels.resistance_levels.forEach((level, index) => {
                 if (resistanceElements[index]) {
+                    console.log(`[关键价位] 更新阻力位${index+1}: ${level.toFixed(2)}`);
                     resistanceElements[index].textContent = level.toFixed(2);
                 }
             });
@@ -1081,8 +1095,10 @@ const StockPage = {
         // 更新支撑位
         if (levels.support_levels && levels.support_levels.length > 0) {
             const supportElements = document.querySelectorAll('.level-item:not(.current) .level-value.support');
+            console.log('[关键价位] 找到支撑位元素数量:', supportElements.length);
             levels.support_levels.forEach((level, index) => {
                 if (supportElements[index]) {
+                    console.log(`[关键价位] 更新支撑位${index+1}: ${level.toFixed(2)}`);
                     supportElements[index].textContent = level.toFixed(2);
                 }
             });
@@ -1144,41 +1160,8 @@ const StockPage = {
         changeElement.textContent = `${change > 0 ? '+' : ''}${change}%`;
         changeElement.className = `prediction-change ${change > 0 ? 'positive' : 'negative'}`;
         
-        // 更新关键价位 - 确保支撑位严格小于当前价格，阻力位严格大于当前价格
-        const currentPrice = this.currentPrice || 6.80;
-        
-        // 生成合理的支撑位（严格小于当前价格）
-        const supportLevels = [
-            (currentPrice * 0.95).toFixed(2),  // 支撑位1：当前价格的95%
-            (currentPrice * 0.90).toFixed(2),  // 支撑位2：当前价格的90%
-            (currentPrice * 0.85).toFixed(2)   // 支撑位3：当前价格的85%
-        ];
-        
-        // 生成合理的阻力位（严格大于当前价格）
-        const resistanceLevels = [
-            (currentPrice * 1.05).toFixed(2),  // 阻力位1：当前价格的105%
-            (currentPrice * 1.10).toFixed(2),  // 阻力位2：当前价格的110%
-            (currentPrice * 1.15).toFixed(2)   // 阻力位3：当前价格的115%
-        ];
-        
-        // 更新阻力位显示
-        const resistanceElements = document.querySelectorAll('.level-item:not(.current) .level-value.resistance');
-        resistanceLevels.forEach((level, index) => {
-            if (resistanceElements[index]) {
-                resistanceElements[index].textContent = level;
-            }
-        });
-        
-        // 更新支撑位显示
-        const supportElements = document.querySelectorAll('.level-item:not(.current) .level-value.support');
-        supportLevels.forEach((level, index) => {
-            if (supportElements[index]) {
-                supportElements[index].textContent = level;
-            }
-        });
-        
-        // 更新当前价格
-        this.updateKeyLevelsCurrentPrice();
+        // 注意：不在这里更新关键价位，因为关键价位应该使用后端计算的真实数据
+        // 关键价位会在 loadAnalysisData() 中通过后端API获取
         
         // 设置数据已加载标志
         this.analysisDataLoaded = true;
@@ -1188,7 +1171,7 @@ const StockPage = {
     async loadNewsData() {
         try {
             console.log('[loadNewsData] 开始加载新闻数据:', this.stockCode);
-            const url = `${API_BASE_URL}/api/stock/news_combined?symbol=${this.stockCode}&news_limit=50&announcement_limit=20&research_limit=10`;
+            const url = `${API_BASE_URL}/api/stock/news/news_combined?symbol=${this.stockCode}&news_limit=50&announcement_limit=20&research_limit=10`;
             const resp = await fetch(url);
             const data = await resp.json();
             
@@ -1249,7 +1232,7 @@ const StockPage = {
                 <h4 class="news-title">${item.title || '无标题'}</h4>
                 <p class="news-summary">${item.summary || item.content || '无摘要'}</p>
                 ${item.target_price ? `<div class="target-price">目标价: ${item.target_price}</div>` : ''}
-                ${item.url ? `<a href="${item.url}" target="_blank" class="news-link">查看详情</a>` : ''}
+                ${item.url ? `<a href="#" onclick="StockPage.viewPDFDetail('${item.url}', '${item.title || 'PDF文档'}'); return false;" class="news-link">查看详情</a>` : ''}
             `;
             
             newsContainer.appendChild(newsCard);
@@ -1262,7 +1245,7 @@ const StockPage = {
     async loadResearchData() {
         try {
             console.log('[loadResearchData] 开始加载研报数据:', this.stockCode);
-            const url = `${API_BASE_URL}/api/stock/research_reports?symbol=${this.stockCode}&limit=20`;
+            const url = `${API_BASE_URL}/api/stock/news/research_reports?symbol=${this.stockCode}&limit=20`;
             const resp = await fetch(url);
             const data = await resp.json();
             
@@ -1349,6 +1332,30 @@ const StockPage = {
         console.log('[loadResearchData] 研报数据渲染完成，共', researchData.length, '条');
     },
 
+    // 查看PDF详情（使用重定向API）
+    viewPDFDetail(url, title) {
+        try {
+            console.log('[viewPDFDetail] 查看PDF详情:', url, title);
+            
+            // 使用后端重定向页面来绕过防盗链
+            const redirectUrl = `${API_BASE_URL}/api/stock/news/pdf_redirect?url=${encodeURIComponent(url)}&title=${encodeURIComponent(title || 'PDF文档')}`;
+            const newWindow = window.open(redirectUrl, '_blank', 'width=1000,height=800,scrollbars=yes,resizable=yes');
+            
+            if (newWindow) {
+                CommonUtils.showToast(`正在打开: ${title}`, 'success');
+                return;
+            } else {
+                // 如果弹窗被阻止，尝试直接访问
+                console.warn('[viewPDFDetail] 弹窗被阻止，尝试直接访问');
+                window.open(url, '_blank');
+            }
+            
+        } catch (error) {
+            console.error('[viewPDFDetail] 查看PDF详情失败:', error);
+            CommonUtils.showToast('打开PDF失败，请稍后重试', 'error');
+        }
+    },
+
     // 下载PDF报告
     downloadPDF(url, title) {
         try {
@@ -1388,7 +1395,7 @@ const StockPage = {
         
         // 方案1：使用后端重定向页面（最强力的去referrer方法）
         try {
-            const redirectUrl = `${API_BASE_URL}/api/stock/pdf_redirect?url=${encodeURIComponent(url)}&title=${encodeURIComponent(title || 'PDF文档')}`;
+            const redirectUrl = `${API_BASE_URL}/api/stock/news/pdf_redirect?url=${encodeURIComponent(url)}&title=${encodeURIComponent(title || 'PDF文档')}`;
             const newWindow = window.open(redirectUrl, '_blank', 'width=1000,height=800,scrollbars=yes,resizable=yes');
             
             if (newWindow) {
@@ -1627,7 +1634,7 @@ const StockPage = {
             
             // 方案1：使用后端代理下载
             try {
-                const proxyUrl = `${API_BASE_URL}/api/stock/download_pdf?url=${encodeURIComponent(url)}&filename=${encodeURIComponent(title || '研报')}.pdf`;
+                const proxyUrl = `${API_BASE_URL}/api/stock/news/download_pdf?url=${encodeURIComponent(url)}&filename=${encodeURIComponent(title || '研报')}.pdf`;
                 console.log('[downloadPDFWithProxy] 尝试后端代理下载:', proxyUrl);
                 
                 const link = document.createElement('a');
@@ -1797,8 +1804,34 @@ const StockPage = {
 
     // 更新主图指标
     updateMainIndicator(indicator) {
-        CommonUtils.showToast(`切换到${indicator}指标`, 'info');
-        // 实际项目中这里会更新图表指标
+        console.log(`[技术指标] 切换到${indicator}指标`);
+        
+        if (!this.klineChart) {
+            console.error('[技术指标] K线图表未初始化');
+            return;
+        }
+        
+        const option = this.klineChart.getOption();
+        
+        // 清除现有的技术指标线
+        this.clearTechnicalIndicators(option);
+        
+        switch(indicator) {
+            case 'ma':
+                this.addMAIndicators(option);
+                break;
+            case 'ema':
+                this.addEMAIndicators(option);
+                break;
+            case 'boll':
+                this.addBollingerBands(option);
+                break;
+            default:
+                console.warn(`[技术指标] 未知指标类型: ${indicator}`);
+        }
+        
+        this.klineChart.setOption(option);
+        CommonUtils.showToast(`已切换到${this.getIndicatorName(indicator)}`, 'success');
     },
 
     // 更新副图指标
@@ -2131,6 +2164,367 @@ const StockPage = {
             // 即使图表加载失败，也尝试加载智能分析数据
             await this.loadAnalysisData();
         }
+    },
+    
+    // 测试关键价位更新（用于调试）
+    testKeyLevelsUpdate() {
+        console.log('[测试] 开始测试关键价位更新...');
+        
+        // 模拟后端返回的关键价位数据
+        const mockLevels = {
+            resistance_levels: [23.50, 24.80, 26.20],
+            support_levels: [20.50, 19.20, 18.00],
+            current_price: 22.19
+        };
+        
+        console.log('[测试] 模拟数据:', mockLevels);
+        
+        // 调用更新函数
+        this.updateKeyLevels(mockLevels);
+        
+        console.log('[测试] 关键价位更新完成');
+    },
+    
+    // 清除技术指标线
+    clearTechnicalIndicators(option) {
+        // 移除所有技术指标相关的series
+        option.series = option.series.filter(series => {
+            return !series.name.includes('MA') && 
+                   !series.name.includes('EMA') && 
+                   !series.name.includes('布林带') &&
+                   !series.name.includes('BB');
+        });
+    },
+    
+    // 添加MA均线
+    addMAIndicators(option) {
+        const klineData = option.series[0].data;
+        if (!klineData || klineData.length === 0) {
+            console.warn('[MA均线] 没有K线数据');
+            return;
+        }
+        
+        // 计算收盘价
+        const closes = klineData.map(item => item[1]); // 收盘价
+        
+        // 计算MA5, MA10, MA20
+        const ma5 = this.calculateMA(closes, 5);
+        const ma10 = this.calculateMA(closes, 10);
+        const ma20 = this.calculateMA(closes, 20);
+        
+        // 添加MA线
+        option.series.push({
+            name: 'MA5',
+            type: 'line',
+            data: ma5,
+            smooth: true,
+            lineStyle: { width: 1, color: '#fbbf24' },
+            showSymbol: false
+        });
+        
+        option.series.push({
+            name: 'MA10',
+            type: 'line',
+            data: ma10,
+            smooth: true,
+            lineStyle: { width: 1, color: '#3b82f6' },
+            showSymbol: false
+        });
+        
+        option.series.push({
+            name: 'MA20',
+            type: 'line',
+            data: ma20,
+            smooth: true,
+            lineStyle: { width: 1, color: '#8b5cf6' },
+            showSymbol: false
+        });
+    },
+    
+    // 添加EMA均线
+    addEMAIndicators(option) {
+        const klineData = option.series[0].data;
+        if (!klineData || klineData.length === 0) {
+            console.warn('[EMA均线] 没有K线数据');
+            return;
+        }
+        
+        // 计算收盘价
+        const closes = klineData.map(item => item[1]); // 收盘价
+        
+        // 计算EMA12, EMA26
+        const ema12 = this.calculateEMA(closes, 12);
+        const ema26 = this.calculateEMA(closes, 26);
+        
+        // 添加EMA线
+        option.series.push({
+            name: 'EMA12',
+            type: 'line',
+            data: ema12,
+            smooth: true,
+            lineStyle: { width: 1, color: '#f59e0b' },
+            showSymbol: false
+        });
+        
+        option.series.push({
+            name: 'EMA26',
+            type: 'line',
+            data: ema26,
+            smooth: true,
+            lineStyle: { width: 1, color: '#6366f1' },
+            showSymbol: false
+        });
+    },
+    
+    // 添加布林带
+    addBollingerBands(option) {
+        const klineData = option.series[0].data;
+        if (!klineData || klineData.length === 0) {
+            console.warn('[布林带] 没有K线数据');
+            return;
+        }
+        
+        // 计算收盘价
+        const closes = klineData.map(item => item[1]); // 收盘价
+        
+        // 计算布林带
+        const bb = this.calculateBollingerBands(closes, 20, 2);
+        
+        // 添加布林带中线（MA20）
+        option.series.push({
+            name: '布林带中线',
+            type: 'line',
+            data: bb.middle,
+            smooth: true,
+            lineStyle: { width: 1, color: '#6b7280' },
+            showSymbol: false
+        });
+        
+        // 添加布林带上轨
+        option.series.push({
+            name: '布林带上轨',
+            type: 'line',
+            data: bb.upper,
+            smooth: true,
+            lineStyle: { width: 1, color: '#ef4444' },
+            showSymbol: false
+        });
+        
+        // 添加布林带下轨
+        option.series.push({
+            name: '布林带下轨',
+            type: 'line',
+            data: bb.lower,
+            smooth: true,
+            lineStyle: { width: 1, color: '#10b981' },
+            showSymbol: false
+        });
+        
+        // 添加布林带填充区域
+        option.series.push({
+            name: '布林带区域',
+            type: 'line',
+            data: bb.upper,
+            lineStyle: { opacity: 0 },
+            showSymbol: false,
+            stack: 'bollinger',
+            areaStyle: {
+                color: {
+                    type: 'linear',
+                    x: 0, y: 0, x2: 0, y2: 1,
+                    colorStops: [
+                        { offset: 0, color: 'rgba(239, 68, 68, 0.1)' },
+                        { offset: 1, color: 'rgba(16, 185, 129, 0.1)' }
+                    ]
+                }
+            }
+        });
+        
+        option.series.push({
+            name: '布林带区域填充',
+            type: 'line',
+            data: bb.lower,
+            lineStyle: { opacity: 0 },
+            showSymbol: false,
+            stack: 'bollinger',
+            areaStyle: {
+                color: {
+                    type: 'linear',
+                    x: 0, y: 0, x2: 0, y2: 1,
+                    colorStops: [
+                        { offset: 0, color: 'rgba(16, 185, 129, 0.1)' },
+                        { offset: 1, color: 'rgba(239, 68, 68, 0.1)' }
+                    ]
+                }
+            }
+        });
+    },
+    
+    // 计算移动平均线
+    calculateMA(data, period) {
+        const result = [];
+        for (let i = 0; i < data.length; i++) {
+            if (i < period - 1) {
+                result.push(null);
+            } else {
+                const sum = data.slice(i - period + 1, i + 1).reduce((a, b) => a + b, 0);
+                result.push(sum / period);
+            }
+        }
+        return result;
+    },
+    
+    // 计算指数移动平均线
+    calculateEMA(data, period) {
+        const result = [];
+        const multiplier = 2 / (period + 1);
+        
+        // 第一个值使用SMA
+        if (data.length >= period) {
+            const sum = data.slice(0, period).reduce((a, b) => a + b, 0);
+            result.push(sum / period);
+        }
+        
+        // 计算EMA
+        for (let i = period; i < data.length; i++) {
+            const ema = (data[i] - result[result.length - 1]) * multiplier + result[result.length - 1];
+            result.push(ema);
+        }
+        
+        // 前面补null
+        const paddedResult = new Array(data.length).fill(null);
+        for (let i = period - 1; i < data.length; i++) {
+            paddedResult[i] = result[i - period + 1];
+        }
+        
+        return paddedResult;
+    },
+    
+    // 计算布林带
+    calculateBollingerBands(data, period, multiplier) {
+        const result = {
+            upper: [],
+            middle: [],
+            lower: []
+        };
+        
+        for (let i = 0; i < data.length; i++) {
+            if (i < period - 1) {
+                result.upper.push(null);
+                result.middle.push(null);
+                result.lower.push(null);
+            } else {
+                const slice = data.slice(i - period + 1, i + 1);
+                const mean = slice.reduce((a, b) => a + b, 0) / period;
+                const variance = slice.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / period;
+                const stdDev = Math.sqrt(variance);
+                
+                result.middle.push(mean);
+                result.upper.push(mean + multiplier * stdDev);
+                result.lower.push(mean - multiplier * stdDev);
+            }
+        }
+        
+        return result;
+    },
+    
+    // 获取指标名称
+    getIndicatorName(indicator) {
+        const names = {
+            'ma': 'MA均线',
+            'ema': 'EMA均线',
+            'boll': '布林带'
+        };
+        return names[indicator] || indicator;
+    },
+    
+    // 测试布林带功能（用于调试）
+    testBollingerBands() {
+        console.log('[测试] 开始测试布林带功能...');
+        
+        if (!this.klineChart) {
+            console.error('[测试] K线图表未初始化');
+            return;
+        }
+        
+        // 模拟K线数据
+        const mockKlineData = [
+            [100, 102, 98, 101],   // [开,收,低,高]
+            [101, 103, 99, 104],
+            [103, 105, 101, 106],
+            [105, 107, 103, 108],
+            [107, 109, 105, 110],
+            [109, 111, 107, 112],
+            [111, 113, 109, 114],
+            [113, 115, 111, 116],
+            [115, 117, 113, 118],
+            [117, 119, 115, 120],
+            [119, 121, 117, 122],
+            [121, 123, 119, 124],
+            [123, 125, 121, 126],
+            [125, 127, 123, 128],
+            [127, 129, 125, 130],
+            [129, 131, 127, 132],
+            [131, 133, 129, 134],
+            [133, 135, 131, 136],
+            [135, 137, 133, 138],
+            [137, 139, 135, 140],
+            [139, 141, 137, 142],
+            [141, 143, 139, 144],
+            [143, 145, 141, 146],
+            [145, 147, 143, 148],
+            [147, 149, 145, 150]
+        ];
+        
+        // 设置模拟数据
+        const option = this.klineChart.getOption();
+        option.series[0].data = mockKlineData;
+        option.xAxis[0].data = mockKlineData.map((_, index) => `Day${index + 1}`);
+        
+        // 添加布林带
+        this.addBollingerBands(option);
+        
+        // 更新图表
+        this.klineChart.setOption(option);
+        
+        console.log('[测试] 布林带功能测试完成');
+        CommonUtils.showToast('布林带功能测试完成', 'success');
+    },
+    
+    // 测试研报下载功能（用于调试）
+    testResearchDownload() {
+        console.log('[测试] 开始测试研报下载功能...');
+        
+        // 测试PDF重定向API
+        const testUrl = 'https://pdf.dfcfw.com/pdf/H3_AP202308301596848153_1.pdf';
+        const testTitle = '2023年中报研报';
+        
+        console.log('[测试] 测试URL:', testUrl);
+        console.log('[测试] 测试标题:', testTitle);
+        
+        // 调用下载方法
+        this.downloadPDF(testUrl, testTitle);
+        
+        console.log('[测试] 研报下载功能测试完成');
+        CommonUtils.showToast('研报下载功能测试完成', 'success');
+    },
+    
+    // 测试研报查看详情功能（用于调试）
+    testResearchViewDetail() {
+        console.log('[测试] 开始测试研报查看详情功能...');
+        
+        // 测试PDF查看详情API
+        const testUrl = 'https://pdf.dfcfw.com/pdf/H3_AP202504251662360192_1.pdf';
+        const testTitle = '2024年年报点评:超硬刀具量价齐升,新业务稳步拓展';
+        
+        console.log('[测试] 测试URL:', testUrl);
+        console.log('[测试] 测试标题:', testTitle);
+        
+        // 调用查看详情方法
+        this.viewPDFDetail(testUrl, testTitle);
+        
+        console.log('[测试] 研报查看详情功能测试完成');
+        CommonUtils.showToast('研报查看详情功能测试完成', 'success');
     }
 
 };

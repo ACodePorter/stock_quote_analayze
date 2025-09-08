@@ -1,5 +1,10 @@
 // 登录页面功能模块
 const LoginPage = {
+    // 获取API基础URL
+    getApiBaseUrl() {
+        return Config ? Config.getApiBaseUrl() : 'http://192.168.31.237:5000';
+    },
+    
     // 初始化
     init() {
         this.bindEvents();
@@ -12,7 +17,7 @@ const LoginPage = {
     async checkIfAlreadyLoggedIn() {
         try {
             const token = localStorage.getItem('access_token');
-            const response = await fetch(`${API_BASE_URL}/api/auth/status`, {
+            const response = await fetch(`${this.getApiBaseUrl()}/api/auth/status`, {
                 headers: token ? { 'Authorization': 'Bearer ' + token } : {},
                 // credentials: 'include', // 不需要 cookie
             });
@@ -123,7 +128,7 @@ const LoginPage = {
 
         try {
             // 调用后端登录API
-            const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+            const response = await fetch(`${this.getApiBaseUrl()}/api/auth/login`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -326,7 +331,7 @@ const LoginPage = {
 
         try {
             // 调用后端注册API
-            const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
+            const response = await fetch(`${this.getApiBaseUrl()}/api/auth/register`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
