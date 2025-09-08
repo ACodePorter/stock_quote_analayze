@@ -146,7 +146,7 @@ const handleLogout = async () => {
 }
 </script>
 
-<style scoped>
+<style scoped lang="postcss">
 .admin-layout {
   @apply min-h-screen bg-gray-50;
 }
