@@ -413,23 +413,68 @@ const StockPage = {
         const option = {
             backgroundColor: 'transparent',
             grid: [
-                { left: '10%', right: '8%', height: '65%' },
-                { left: '10%', right: '8%', top: '75%', height: '15%' }
+                { left: '8%', right: '6%', top: '5%', height: '70%' },
+                { left: '8%', right: '6%', top: '78%', height: '18%' }
             ],
             xAxis: [
-                { type: 'category', data: [], boundaryGap: false, axisLine: { onZero: false }, splitLine: { show: false } },
-                { type: 'category', gridIndex: 1, data: [], boundaryGap: false, axisLine: { onZero: false }, axisTick: { show: false }, splitLine: { show: false }, axisLabel: { show: false } }
+                { 
+                    type: 'category', 
+                    data: [], 
+                    boundaryGap: [0.1, 0.1], 
+                    axisLine: { onZero: false }, 
+                    splitLine: { show: false },
+                    axisLabel: {
+                        interval: 'auto',
+                        rotate: 0
+                    }
+                },
+                { 
+                    type: 'category', 
+                    gridIndex: 1, 
+                    data: [], 
+                    boundaryGap: [0.1, 0.1], 
+                    axisLine: { onZero: false }, 
+                    axisTick: { show: false }, 
+                    splitLine: { show: false }, 
+                    axisLabel: { show: false } 
+                }
             ],
             yAxis: [
                 { scale: true, splitArea: { show: true } },
                 { scale: true, gridIndex: 1, splitNumber: 2, axisLabel: { show: false }, axisLine: { show: false }, axisTick: { show: false }, splitLine: { show: false } }
             ],
-            dataZoom: [{ type: 'inside', xAxisIndex: [0, 1], start: 50, end: 100 }],
+            dataZoom: [
+                { 
+                    type: 'inside', 
+                    xAxisIndex: [0, 1], 
+                    start: 30, 
+                    end: 100,
+                    zoomOnMouseWheel: true,
+                    moveOnMouseMove: true,
+                    moveOnMouseWheel: true
+                },
+                {
+                    type: 'slider',
+                    xAxisIndex: [0, 1],
+                    bottom: '2%',
+                    height: '15px',
+                    start: 30,
+                    end: 100,
+                    handleStyle: {
+                        color: '#1890ff'
+                    },
+                    textStyle: {
+                        color: '#333'
+                    }
+                }
+            ],
             series: [
                 { 
                     name: 'K线', 
                     type: 'candlestick', 
                     data: [], 
+                    barWidth: '60%',
+                    barMaxWidth: '80%',
                     itemStyle: { 
                         color: '#dc2626', 
                         color0: '#16a34a', 
@@ -439,26 +484,60 @@ const StockPage = {
                     },
                     emphasis: {
                         itemStyle: {
-                            borderWidth: 2
+                            borderWidth: 2,
+                            shadowBlur: 10,
+                            shadowColor: 'rgba(0, 0, 0, 0.3)'
                         }
                     }
                 },
-                { name: 'MA5', type: 'line', data: [], smooth: true, lineStyle: { width: 1, color: '#fbbf24' }, showSymbol: false },
-                { name: 'MA10', type: 'line', data: [], smooth: true, lineStyle: { width: 1, color: '#3b82f6' }, showSymbol: false },
+                { name: 'MA5', type: 'line', data: [], smooth: true, lineStyle: { width: 2, color: '#fbbf24' }, showSymbol: false },
+                { name: 'MA10', type: 'line', data: [], smooth: true, lineStyle: { width: 2, color: '#3b82f6' }, showSymbol: false },
                 { 
                     name: '成交量', 
                     type: 'bar', 
                     xAxisIndex: 1, 
                     yAxisIndex: 1, 
                     data: [], 
+                    barWidth: '60%',
+                    barMaxWidth: '80%',
                     itemStyle: { 
                         color: function(params) { 
                             return params.dataIndex % 2 === 0 ? '#dc2626' : '#16a34a'; 
+                        },
+                        borderRadius: [2, 2, 0, 0]
+                    },
+                    emphasis: {
+                        itemStyle: {
+                            shadowBlur: 10,
+                            shadowColor: 'rgba(0, 0, 0, 0.3)'
                         } 
                     } 
                 }
             ],
-            tooltip: { trigger: 'axis', axisPointer: { type: 'cross' }, backgroundColor: 'rgba(245, 245, 245, 0.8)', borderWidth: 1, borderColor: '#ccc', textStyle: { color: '#000' } }
+            tooltip: { 
+                trigger: 'axis', 
+                axisPointer: { type: 'cross' }, 
+                backgroundColor: 'rgba(245, 245, 245, 0.9)', 
+                borderWidth: 1, 
+                borderColor: '#ccc', 
+                textStyle: { color: '#000' },
+                formatter: function(params) {
+                    let result = params[0].name + '<br/>';
+                    params.forEach(function(item) {
+                        if (item.seriesName === 'K线') {
+                            // 简单调试
+                            console.log('[Tooltip] K线数据:', item.data);
+                            
+                            result += item.marker + ' ' + item.seriesName + ': ';
+                            result += '开盘:' + item.data[1] + ' 收盘:' + item.data[2] + '<br/>';
+                            result += '最低:' + item.data[3] + ' 最高:' + item.data[4] + '<br/>';
+                        } else {
+                            result += item.marker + ' ' + item.seriesName + ': ' + item.data + '<br/>';
+                        }
+                    });
+                    return result;
+                }
+            }
         };
         this.klineChart.setOption(option);
     },
@@ -473,15 +552,19 @@ const StockPage = {
         const option = {
             backgroundColor: 'transparent',
             grid: {
-                left: '10%',
-                right: '8%',
-                top: '8%',
-                bottom: '15%'
+                left: '8%',
+                right: '6%',
+                top: '5%',
+                bottom: '12%'
             },
             xAxis: {
                 type: 'category',
                 data: [], // 初始为空
-                boundaryGap: false
+                boundaryGap: [0.05, 0.05],
+                axisLabel: {
+                    interval: 'auto',
+                    rotate: 0
+                }
             },
             yAxis: {
                 type: 'value',
@@ -495,7 +578,7 @@ const StockPage = {
                 smooth: true,
                 lineStyle: {
                     color: '#2563eb',
-                    width: 2
+                    width: 3
                 },
                 areaStyle: {
                     color: {
@@ -683,26 +766,7 @@ const StockPage = {
         return times;
     },
 
-    // generateFlowDates() {
-    //     const dates = [];
-    //     const now = new Date();
-    //     for (let i = 9; i >= 0; i--) {
-    //         const date = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
-    //         dates.push(date.toISOString().split('T')[0].slice(5));
-    //     }
-    //     return dates;
-    // },
-
-    // generateFlowData(type) {
-    //     const data = [];
-    //     for (let i = 0; i < 10; i++) {
-    //         const value = type === 'main' 
-    //             ? (Math.random() - 0.3) * 5 
-    //             : (Math.random() - 0.7) * 3;
-    //         data.push(value.toFixed(2));
-    //     }
-    //     return data;
-    // },
+  
 
     // 加载股票数据
     async loadStockData() {
@@ -2007,8 +2071,28 @@ const StockPage = {
                 
                 // x轴日期
                 const dates = list.map(item => item.date ? item.date : '-');
-                // K线数据 [开,收,低,高]
-                const kline = list.map(item => [item.open, item.close, item.low, item.high]);
+                // K线数据 - 根据ECharts candlestick格式要求
+                // ECharts candlestick格式: [open, close, low, high]
+                const kline = list.map((item, index) => {
+                    // 确保数据顺序正确
+                    const open = parseFloat(item.open) || 0;
+                    const close = parseFloat(item.close) || 0;
+                    const low = parseFloat(item.low) || 0;
+                    const high = parseFloat(item.high) || 0;
+                    
+                    // 调试：显示前3条数据
+                    if (index < 3) {
+                        console.log(`[K线数据映射] 第${index + 1}条:`, {
+                            date: item.date,
+                            original: { open: item.open, close: item.close, high: item.high, low: item.low },
+                            parsed: { open, close, high, low },
+                            mapped: [open, close, low, high]
+                        });
+                    }
+                    
+                    // 返回正确的ECharts candlestick格式
+                    return [open, close, low, high];
+                });
                 // MA5/MA10
                 function calcMA(arr, n) {
                     const result = [];
@@ -2525,6 +2609,97 @@ const StockPage = {
         
         console.log('[测试] 研报查看详情功能测试完成');
         CommonUtils.showToast('研报查看详情功能测试完成', 'success');
+    },
+    
+    // 测试K线图显示优化（用于调试）
+    testKlineDisplayOptimization() {
+        console.log('[测试] 开始测试K线图显示优化...');
+        
+        if (!this.klineChart) {
+            console.warn('[测试] K线图未初始化');
+            CommonUtils.showToast('K线图未初始化', 'warning');
+            return;
+        }
+        
+        // 获取当前配置
+        const currentOption = this.klineChart.getOption();
+        console.log('[测试] 当前K线图配置:', currentOption);
+        
+        // 检查关键配置项
+        const klineSeries = currentOption.series.find(s => s.name === 'K线');
+        const volumeSeries = currentOption.series.find(s => s.name === '成交量');
+        
+        console.log('[测试] K线配置:', {
+            barWidth: klineSeries.barWidth,
+            barMaxWidth: klineSeries.barMaxWidth,
+            boundaryGap: currentOption.xAxis[0].boundaryGap
+        });
+        
+        console.log('[测试] 成交量配置:', {
+            barWidth: volumeSeries.barWidth,
+            barMaxWidth: volumeSeries.barMaxWidth
+        });
+        
+        console.log('[测试] 网格配置:', {
+            grid: currentOption.grid,
+            dataZoom: currentOption.dataZoom
+        });
+        
+        console.log('[测试] K线图显示优化测试完成');
+        CommonUtils.showToast('K线图显示优化测试完成', 'success');
+    },
+    
+    // 测试K线图数据正确性（用于调试最高最低价格显示）
+    testKlineDataCorrectness() {
+        console.log('[测试] 开始测试K线图数据正确性...');
+        
+        if (!this.klineChart) {
+            console.warn('[测试] K线图未初始化');
+            CommonUtils.showToast('K线图未初始化', 'warning');
+            return;
+        }
+        
+        // 获取当前配置
+        const currentOption = this.klineChart.getOption();
+        const klineData = currentOption.series[0].data;
+        
+        if (!klineData || klineData.length === 0) {
+            console.warn('[测试] 没有K线数据');
+            CommonUtils.showToast('没有K线数据', 'warning');
+            return;
+        }
+        
+        console.log('[测试] K线数据格式验证:');
+        console.log('[测试] ECharts candlestick格式: [开盘, 收盘, 最低, 最高]');
+        
+        // 检查前几条数据
+        const sampleData = klineData.slice(0, 3);
+        sampleData.forEach((item, index) => {
+            if (Array.isArray(item) && item.length >= 4) {
+                const [open, close, low, high] = item;
+                console.log(`[测试] 数据${index + 1}: [${open}, ${close}, ${low}, ${high}]`);
+                
+                // 验证数据逻辑性
+                if (high < low) {
+                    console.error(`[测试] ❌ 数据${index + 1}错误: 最高价(${high}) < 最低价(${low})`);
+                } else {
+                    console.log(`[测试] ✅ 数据${index + 1}正确: 最高价(${high}) >= 最低价(${low})`);
+                }
+                
+                if (high < open || high < close) {
+                    console.warn(`[测试] ⚠️ 数据${index + 1}异常: 最高价(${high}) < 开盘价(${open}) 或 收盘价(${close})`);
+                }
+                
+                if (low > open || low > close) {
+                    console.warn(`[测试] ⚠️ 数据${index + 1}异常: 最低价(${low}) > 开盘价(${open}) 或 收盘价(${close})`);
+                }
+            } else {
+                console.error(`[测试] ❌ 数据${index + 1}格式错误:`, item);
+            }
+        });
+        
+        console.log('[测试] K线图数据正确性测试完成');
+        CommonUtils.showToast('K线图数据正确性测试完成', 'success');
     }
 
 };

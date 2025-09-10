@@ -682,7 +682,8 @@ const NewsChannel = {
         this.currentPage = 1;
         this.hasMore = true;
         this.isLoading = false;
-    },
+    }
+};
 
 // 页面加载完成后初始化
 document.addEventListener('DOMContentLoaded', () => {

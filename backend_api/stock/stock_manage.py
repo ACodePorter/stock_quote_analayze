@@ -511,13 +511,35 @@ async def get_kline_hist(
             date_val = row.get("日期")
             if hasattr(date_val, 'strftime'):
                 date_val = date_val.strftime('%Y-%m-%d')
+            
+            # 获取原始数据
+            open_price = fmt(row.get("开盘"))
+            close_price = fmt(row.get("收盘"))
+            high_price = fmt(row.get("最高"))
+            low_price = fmt(row.get("最低"))
+            
+            # 调试：输出原始Akshare数据
+            if len(result) < 3:  # 只输出前3条
+                print(f"[kline_hist] 原始Akshare数据 {date_val}:", {
+                    "开盘": row.get("开盘"),
+                    "收盘": row.get("收盘"), 
+                    "最高": row.get("最高"),
+                    "最低": row.get("最低")
+                })
+                print(f"[kline_hist] 格式化后数据 {date_val}:", {
+                    "open": open_price,
+                    "close": close_price,
+                    "high": high_price,
+                    "low": low_price
+                })
+            
             result.append({
                 "date": date_val,
                 "code": code,
-                "open": fmt(row.get("开盘")),
-                "close": fmt(row.get("收盘")),
-                "high": fmt(row.get("最高")),
-                "low": fmt(row.get("最低")),
+                "open": open_price,
+                "close": close_price,
+                "high": high_price,
+                "low": low_price,
                 "volume": int(row.get("成交量")) if row.get("成交量") is not None else None,
                 "amount": fmt(row.get("成交额")),
                 "amplitude": fmt(row.get("振幅")),
