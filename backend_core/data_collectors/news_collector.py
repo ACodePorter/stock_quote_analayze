@@ -267,23 +267,28 @@ class NewsCollector:
             for news in news_list:
                 try:
                     # 检查是否已存在（基于标题和发布时间）
+                    # 将datetime对象转换为字符串
+                    publish_time_str = news['publish_time'].strftime('%Y-%m-%d %H:%M:%S') if isinstance(news['publish_time'], datetime) else str(news['publish_time'])
                     existing = self.session.execute(text("""
                         SELECT id FROM stock_news 
                         WHERE title = :title AND publish_time = :publish_time
                     """), {
                         'title': news['title'],
-                        'publish_time': news['publish_time']
+                        'publish_time': publish_time_str
                     }).fetchone()
                     
                     if not existing:
                         # 插入新新闻
+                        # 准备插入数据，确保publish_time是字符串格式
+                        insert_data = news.copy()
+                        insert_data['publish_time'] = publish_time_str
                         self.session.execute(text("""
                             INSERT INTO stock_news 
                             (title, content, publish_time, source, url, category_id, 
                              summary, tags, read_count, is_hot, stock_code, image_url)
                             VALUES (:title, :content, :publish_time, :source, :url, :category_id,
                                     :summary, :tags, :read_count, :is_hot, :stock_code, :image_url)
-                        """), news)
+                        """), insert_data)
                         saved_count += 1
                         
                 except Exception as e:

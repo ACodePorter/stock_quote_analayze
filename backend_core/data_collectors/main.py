@@ -12,6 +12,7 @@ from backend_core.data_collectors.akshare.realtime_stock_industry_board_ak impor
 from backend_core.data_collectors.akshare.realtime_stock_notice_report_ak import AkshareStockNoticeReportCollector
 from apscheduler.schedulers.background import BackgroundScheduler
 from backend_core.data_collectors.akshare.watchlist_history_collector import collect_watchlist_history
+from backend_core.data_collectors.news_collector import NewsCollector
 import time
 
 
@@ -25,6 +26,7 @@ tushare_realtime_collector = RealtimeQuoteCollector(DATA_COLLECTORS.get('tushare
 index_collector = RealtimeIndexSpotAkCollector()
 industry_board_collector = RealtimeStockIndustryBoardCollector()
 notice_collector = AkshareStockNoticeReportCollector(DATA_COLLECTORS.get('akshare', {}))
+news_collector = NewsCollector()
 
 scheduler = BlockingScheduler()
 
@@ -113,6 +115,39 @@ def run_watchlist_history_collection():
     except Exception as e:
         logging.error(f"[定时任务] 自选股历史行情采集异常: {e}")
 
+def collect_market_news():
+    """采集市场新闻任务"""
+    try:
+        logging.info("[定时任务] 市场新闻采集开始...")
+        result = news_collector.collect_and_save_market_news()
+        if result["success"]:
+            logging.info(f"[定时任务] 市场新闻采集完成: {result['message']}")
+        else:
+            logging.error(f"[定时任务] 市场新闻采集失败: {result['message']}")
+    except Exception as e:
+        logging.error(f"[定时任务] 市场新闻采集异常: {e}")
+
+def update_hot_news():
+    """更新热门资讯任务"""
+    try:
+        logging.info("[定时任务] 热门资讯更新开始...")
+        success = news_collector.update_hot_news()
+        if success:
+            logging.info("[定时任务] 热门资讯更新完成")
+        else:
+            logging.error("[定时任务] 热门资讯更新失败")
+    except Exception as e:
+        logging.error(f"[定时任务] 热门资讯更新异常: {e}")
+
+def cleanup_old_news():
+    """清理旧新闻任务"""
+    try:
+        logging.info("[定时任务] 旧新闻清理开始...")
+        deleted_count = news_collector.cleanup_old_news(days=30)
+        logging.info(f"[定时任务] 旧新闻清理完成，删除了 {deleted_count} 条记录")
+    except Exception as e:
+        logging.error(f"[定时任务] 旧新闻清理异常: {e}")
+
 # 定时任务配置
 # 每个交易日上午9:00-11:30、下午13:30-15:30每15分钟采集一次A股实时行情
 scheduler.add_job(
@@ -174,6 +209,31 @@ scheduler.add_job(
     'cron',
     minute='*/5',
     id='watchlist_history_every_5_minutes',
+)
+
+# 市场新闻采集任务，每30分钟采集一次
+scheduler.add_job(
+    collect_market_news,
+    'interval',
+    minutes=30,
+    id='market_news_collection',
+)
+
+# 热门资讯更新任务，每小时更新一次
+scheduler.add_job(
+    update_hot_news,
+    'interval',
+    hours=1,
+    id='hot_news_update',
+)
+
+# 旧新闻清理任务，每天凌晨2点执行
+scheduler.add_job(
+    cleanup_old_news,
+    'cron',
+    hour=2,
+    minute=0,
+    id='old_news_cleanup',
 )
 
 if __name__ == "__main__":
