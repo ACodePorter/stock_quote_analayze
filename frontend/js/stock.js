@@ -1150,6 +1150,11 @@ const StockPage = {
             console.log('[关键价位] 找到阻力位元素数量:', resistanceElements.length);
             levels.resistance_levels.forEach((level, index) => {
                 if (resistanceElements[index]) {
+                    // 验证阻力位数据：阻力位必须严格大于当前价格
+                    if (level <= this.currentPrice) {
+                        console.warn(`[关键价位] 阻力位${index+1}数据无效: ${level.toFixed(2)} <= 当前价格 ${this.currentPrice.toFixed(2)}`);
+                        return; // 跳过无效数据
+                    }
                     console.log(`[关键价位] 更新阻力位${index+1}: ${level.toFixed(2)}`);
                     resistanceElements[index].textContent = level.toFixed(2);
                 }
@@ -1162,6 +1167,11 @@ const StockPage = {
             console.log('[关键价位] 找到支撑位元素数量:', supportElements.length);
             levels.support_levels.forEach((level, index) => {
                 if (supportElements[index]) {
+                    // 验证支撑位数据：支撑位必须严格小于当前价格
+                    if (level >= this.currentPrice) {
+                        console.warn(`[关键价位] 支撑位${index+1}数据无效: ${level.toFixed(2)} >= 当前价格 ${this.currentPrice.toFixed(2)}`);
+                        return; // 跳过无效数据
+                    }
                     console.log(`[关键价位] 更新支撑位${index+1}: ${level.toFixed(2)}`);
                     supportElements[index].textContent = level.toFixed(2);
                 }
