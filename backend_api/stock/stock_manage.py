@@ -61,20 +61,32 @@ async def get_stock_quote(request: Request):
         # 如果是周六或周日，从数据库获取
         if today.weekday() in (5, 6):
             db = next(get_db())
-            for code in codes:
-                stock_quote = db.query(StockRealtimeQuote).filter(StockRealtimeQuote.code == code).first()
-                if stock_quote:
-                    result.append({
-                        "code": stock_quote.code,
-                        "current_price": safe_float(stock_quote.current_price),
-                        "change_percent": safe_float(stock_quote.change_percent),
-                        "volume": safe_float(stock_quote.volume),
-                        "turnover": safe_float(stock_quote.amount),
-                        "high": safe_float(stock_quote.high),
-                        "low": safe_float(stock_quote.low),
-                        "open": safe_float(stock_quote.open),
-                        "pre_close": safe_float(stock_quote.pre_close),
-                    })
+            # 获取最新交易日期
+            latest_date_result = pd.read_sql_query("""
+                SELECT MAX(trade_date) as latest_date 
+                FROM stock_realtime_quote 
+                WHERE change_percent IS NOT NULL AND change_percent != 0
+            """, db.bind)
+            
+            if not latest_date_result.empty and latest_date_result.iloc[0]['latest_date'] is not None:
+                latest_trade_date = latest_date_result.iloc[0]['latest_date']
+                for code in codes:
+                    stock_quote = db.query(StockRealtimeQuote).filter(
+                        StockRealtimeQuote.code == code,
+                        StockRealtimeQuote.trade_date == latest_trade_date
+                    ).first()
+                    if stock_quote:
+                        result.append({
+                            "code": stock_quote.code,
+                            "current_price": safe_float(stock_quote.current_price),
+                            "change_percent": safe_float(stock_quote.change_percent),
+                            "volume": safe_float(stock_quote.volume),
+                            "turnover": safe_float(stock_quote.amount),
+                            "high": safe_float(stock_quote.high),
+                            "low": safe_float(stock_quote.low),
+                            "open": safe_float(stock_quote.open),
+                            "pre_close": safe_float(stock_quote.pre_close),
+                        })
             db.close()
         else:
             for code in codes:
@@ -320,7 +332,20 @@ async def get_realtime_quote_by_code(code: str = Query(None, description="股票
     try:
         # 优先从数据库获取市盈率等财务指标数据
         db = next(get_db())
-        db_stock_data = db.query(StockRealtimeQuote).filter(StockRealtimeQuote.code == code).first()
+        # 获取最新交易日期
+        latest_date_result = pd.read_sql_query("""
+            SELECT MAX(trade_date) as latest_date 
+            FROM stock_realtime_quote 
+            WHERE change_percent IS NOT NULL AND change_percent != 0
+        """, db.bind)
+        
+        db_stock_data = None
+        if not latest_date_result.empty and latest_date_result.iloc[0]['latest_date'] is not None:
+            latest_trade_date = latest_date_result.iloc[0]['latest_date']
+            db_stock_data = db.query(StockRealtimeQuote).filter(
+                StockRealtimeQuote.code == code,
+                StockRealtimeQuote.trade_date == latest_trade_date
+            ).first()
         
         # 获取买卖盘数据
         df_bid_ask = ak.stock_bid_ask_em(symbol=code)
@@ -723,8 +748,8 @@ async def get_financial_indicator_list(
         if not cols:
             return JSONResponse({"success": False, "message": "未找到所需指标"}, status_code=404)
 
-        # 按报告期降序排列
-        df = df.sort_values("报告期", ascending=False)
+        # 按报告期升序排列（从旧到新，便于图表从左到右显示）
+        df = df.sort_values("报告期", ascending=True)
         # 转为dict
         data = df[cols].to_dict(orient="records")
         data = clean_nan(data)

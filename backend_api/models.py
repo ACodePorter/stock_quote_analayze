@@ -250,6 +250,7 @@ class QuoteSyncTaskInDB(QuoteSyncTaskCreate):
 class StockRealtimeQuote(Base):
     __tablename__ = "stock_realtime_quote"
     code = Column(String, primary_key=True)
+    trade_date = Column(String, primary_key=True)
     name = Column(String)
     current_price = Column(Float)
     change_percent = Column(Float)

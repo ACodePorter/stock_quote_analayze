@@ -740,7 +740,20 @@ class StockAnalysisService:
                 logger.warning(f"从实时API获取价格失败: {str(e)}")
             
             # 如果实时API失败，从数据库获取
-            stock = self.db.query(StockRealtimeQuote).filter(StockRealtimeQuote.code == stock_code).first()
+            # 获取最新交易日期
+            latest_date_result = pd.read_sql_query("""
+                SELECT MAX(trade_date) as latest_date 
+                FROM stock_realtime_quote 
+                WHERE change_percent IS NOT NULL AND change_percent != 0
+            """, self.db.bind)
+            
+            stock = None
+            if not latest_date_result.empty and latest_date_result.iloc[0]['latest_date'] is not None:
+                latest_trade_date = latest_date_result.iloc[0]['latest_date']
+                stock = self.db.query(StockRealtimeQuote).filter(
+                    StockRealtimeQuote.code == stock_code,
+                    StockRealtimeQuote.trade_date == latest_trade_date
+                ).first()
             if stock:
                 return float(stock.current_price) if stock.current_price else None
             return None

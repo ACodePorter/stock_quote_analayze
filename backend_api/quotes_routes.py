@@ -172,8 +172,22 @@ async def get_stock_quotes(
     try:
         db = next(get_db())
         
-        # 构建查询
-        query = db.query(StockRealtimeQuote)
+        # 首先获取最新的交易日期
+        latest_date_result = pd.read_sql_query("""
+            SELECT MAX(trade_date) as latest_date 
+            FROM stock_realtime_quote 
+            WHERE change_percent IS NOT NULL AND change_percent != 0
+        """, db.bind)
+        
+        if latest_date_result.empty or latest_date_result.iloc[0]['latest_date'] is None:
+            db.close()
+            return JSONResponse({'success': False, 'message': '暂无行情数据'}, status_code=404)
+        
+        latest_trade_date = latest_date_result.iloc[0]['latest_date']
+        print(f"📅 使用最新交易日期: {latest_trade_date}")
+        
+        # 构建查询，按最新交易日期过滤
+        query = db.query(StockRealtimeQuote).filter(StockRealtimeQuote.trade_date == latest_trade_date)
         
         # 关键词搜索
         if keyword:

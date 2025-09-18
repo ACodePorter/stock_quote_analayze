@@ -215,7 +215,7 @@ scheduler.add_job(
 scheduler.add_job(
     collect_market_news,
     'interval',
-    minutes=30,
+    minutes=36,
     id='market_news_collection',
 )
 

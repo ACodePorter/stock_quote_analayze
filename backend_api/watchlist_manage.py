@@ -44,8 +44,28 @@ async def get_watchlist(
         names = {row[0]: row[1] for row in rows}
         watchlist = []
 
-        # 批量查行情
-        quotes = db.query(StockRealtimeQuote).filter(StockRealtimeQuote.code.in_(codes)).all()
+        # 首先获取最新的交易日期
+        from sqlalchemy import text
+        import pandas as pd
+        
+        latest_date_result = pd.read_sql_query("""
+            SELECT MAX(trade_date) as latest_date 
+            FROM stock_realtime_quote 
+            WHERE change_percent IS NOT NULL AND change_percent != 0
+        """, db.bind)
+        
+        if latest_date_result.empty or latest_date_result.iloc[0]['latest_date'] is None:
+            print("[watchlist] 暂无行情数据")
+            return JSONResponse({'success': True, 'data': []})
+        
+        latest_trade_date = latest_date_result.iloc[0]['latest_date']
+        print(f"[watchlist] 使用最新交易日期: {latest_trade_date}")
+        
+        # 批量查行情，按最新交易日期过滤
+        quotes = db.query(StockRealtimeQuote).filter(
+            StockRealtimeQuote.code.in_(codes),
+            StockRealtimeQuote.trade_date == latest_trade_date
+        ).all()
         print(f"[watchlist] 批量查到行情数量: {len(quotes)}")
         quote_map = {q.code: q for q in quotes}
 

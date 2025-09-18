@@ -27,8 +27,8 @@ class NewsCollector:
         try:
             logger.info("开始采集市场新闻...")
             
-            # 使用akshare获取财经新闻
-            news_df = ak.stock_news_em()
+            # 使用akshare获取财新网-财新数据通-内容精选，返回所有历史新闻数据
+            news_df = ak.stock_news_main_cx()
             
             if news_df is None or news_df.empty:
                 logger.warning("akshare返回空数据")
@@ -39,14 +39,15 @@ class NewsCollector:
             news_list = []
             for _, row in news_df.iterrows():
                 try:
-                    title = str(row.get('新闻标题', '') or row.get('标题', '') or '').strip()
-                    content = str(row.get('新闻内容', '') or row.get('内容', '') or '').strip()
+                    # 修复字段名映射 - 使用实际的akshare字段名
+                    title = str(row.get('tag', '') or '').strip()
+                    content = str(row.get('summary', '') or '').strip()
                     
                     if not title or not content:
                         continue
                     
-                    # 处理发布时间
-                    publish_time = row.get('发布时间', '') or row.get('时间', '')
+                    # 处理发布时间 - 使用实际的字段名
+                    publish_time = row.get('pub_time', '')
                     if pd.isna(publish_time) or not publish_time:
                         publish_time = datetime.now()
                     else:
@@ -54,7 +55,12 @@ class NewsCollector:
                             publish_time = publish_time
                         else:
                             try:
-                                publish_time = datetime.strptime(str(publish_time), '%Y-%m-%d %H:%M:%S')
+                                # 尝试解析时间格式
+                                time_str = str(publish_time)
+                                if '.' in time_str:
+                                    publish_time = datetime.strptime(time_str, '%Y-%m-%d %H:%M:%S.%f')
+                                else:
+                                    publish_time = datetime.strptime(time_str, '%Y-%m-%d %H:%M:%S')
                             except:
                                 publish_time = datetime.now()
                     
@@ -62,8 +68,8 @@ class NewsCollector:
                         'title': title,
                         'content': content,
                         'publish_time': publish_time,
-                        'source': str(row.get('文章来源', '') or '东方财富').strip(),
-                        'url': str(row.get('新闻链接', '') or '').strip(),
+                        'source': '财新网',  # 财新网数据源
+                        'url': str(row.get('url', '') or '').strip(),
                         'category_id': self._classify_news(title, content),
                         'summary': self._extract_summary(content),
                         'tags': self._extract_tags(title, content),
