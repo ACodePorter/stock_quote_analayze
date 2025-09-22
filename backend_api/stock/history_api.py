@@ -240,17 +240,46 @@ def export_stock_history(
         
         writer = csv.writer(output)
         
+        # 添加数据格式化函数
+        def format_volume(volume):
+            """格式化成交量为万手"""
+            if volume is None:
+                return '-'
+            vol = float(volume)
+            if vol >= 10000:
+                return f"{vol / 10000:.2f}万手"
+            return f"{vol:.0f}手"
+        
+        def format_amount(amount):
+            """格式化成交额为亿"""
+            if amount is None:
+                return '-'
+            amt = float(amount)
+            return f"{amt / 100000000:.2f}亿"
+        
+        def format_percent(value):
+            """格式化百分比"""
+            if value is None:
+                return '-'
+            return f"{float(value):.2f}%"
+        
+        def format_price(value):
+            """格式化价格"""
+            if value is None:
+                return '-'
+            return f"{float(value):.2f}"
+        
         # 根据是否有备注数据设置不同的CSV头
         if include_notes and has_notes_data:
             headers = [
                 "股票代码", "股票名称", "日期", "开盘", "收盘", "最高", "最低",
-                "成交量", "成交额", "涨跌幅%", "涨跌额", "换手率%",
+                "成交量(万手)", "成交额(亿)", "涨跌幅%", "涨跌额", "换手率%",
                 "累计升跌%", "5天升跌%", "10天升跌%", "60天升跌%", "用户备注", "策略类型", "风险等级"
             ]
         else:
             headers = [
                 "股票代码", "股票名称", "日期", "开盘", "收盘", "最高", "最低",
-                "成交量", "成交额", "涨跌幅%", "涨跌额", "换手率%",
+                "成交量(万手)", "成交额(亿)", "涨跌幅%", "涨跌额", "换手率%",
                 "累计升跌%", "5天升跌%", "10天升跌%", "60天升跌%", "备注"
             ]
         
@@ -259,18 +288,26 @@ def export_stock_history(
         # 写入数据
         for row in rows:
             if include_notes and has_notes_data:
-                # 包含备注的数据
+                # 包含备注的数据 - 格式化数值
                 writer.writerow([
-                    row[0], row[1], row[2], row[3], row[4], row[5], row[6],
-                    row[7], row[8], row[9], row[10], row[11],
-                    row[12], row[13], row[14], row[15], row[16], row[17], row[18]
+                    row[0], row[1], row[2], format_price(row[3]), format_price(row[4]), 
+                    format_price(row[5]), format_price(row[6]),
+                    format_volume(row[7]), format_amount(row[8]), 
+                    format_percent(row[9]), format_price(row[10]), format_percent(row[11]),
+                    format_percent(row[12]), format_percent(row[13]), 
+                    format_percent(row[14]), format_percent(row[15]), 
+                    row[16], row[17], row[18]
                 ])
             else:
-                # 不包含备注的数据
+                # 不包含备注的数据 - 格式化数值
                 writer.writerow([
-                    row[0], row[1], row[2], row[3], row[4], row[5], row[6],
-                    row[7], row[8], row[9], row[10], row[11],
-                    row[12], row[13], row[14], row[15], row[16]
+                    row[0], row[1], row[2], format_price(row[3]), format_price(row[4]), 
+                    format_price(row[5]), format_price(row[6]),
+                    format_volume(row[7]), format_amount(row[8]), 
+                    format_percent(row[9]), format_price(row[10]), format_percent(row[11]),
+                    format_percent(row[12]), format_percent(row[13]), 
+                    format_percent(row[14]), format_percent(row[15]), 
+                    row[16]
                 ])
         
         output.seek(0)
