@@ -13,7 +13,9 @@ from pydantic import BaseModel
 # 新增依赖
 import pandas as pd
 from openpyxl.utils import get_column_letter
-from openpyxl.styles import Font
+from openpyxl.styles import Font, PatternFill
+from openpyxl import Workbook
+from openpyxl.styles.alignment import Alignment
 
 router = APIRouter(prefix="/api/stock/history", tags=["StockHistory"])
 
@@ -23,7 +25,7 @@ class CalculateFiveDayChangeRequest(BaseModel):
     start_date: str
     end_date: str
 
-def format_date_yyyymmdd(date_str: Optional[str]) -> str:
+def format_date_yyyymmdd(date_str: Optional[str]) -> Optional[str]:
     if not date_str:
         return None
     # 支持 "YYYY-MM-DD"、"YYYY/MM/DD"、"YYYY.MM.DD" 等
@@ -95,8 +97,8 @@ def get_stock_history(
     total = db.execute(text(count_query), params).scalar()
 
     query += " LIMIT :limit OFFSET :offset"
-    params["limit"] = size
-    params["offset"] = (page - 1) * size
+    params["limit"] = str(size)
+    params["offset"] = str((page - 1) * size)
     result = db.execute(text(query), params)   
     
     items = []
@@ -143,6 +145,7 @@ def export_stock_history(
     start_date: Optional[str] = Query(None),
     end_date: Optional[str] = Query(None),
     include_notes: bool = Query(True, description="是否包含交易备注"),
+    format: str = Query("excel", description="导出格式: csv 或 excel"),
     db: Session = Depends(get_db)
 ):
     start_date_fmt = format_date_yyyymmdd(start_date)
@@ -232,96 +235,11 @@ def export_stock_history(
                 print(f"[export_stock_history] 检查备注数据时出错: {e}")
                 has_notes_data = False
         
-        # 创建CSV内容
-        output = io.StringIO()
-        
-        # 添加BOM头，解决Excel打开中文乱码问题
-        output.write('\ufeff')
-        
-        writer = csv.writer(output)
-        
-        # 添加数据格式化函数
-        def format_volume(volume):
-            """格式化成交量为万手"""
-            if volume is None:
-                return '-'
-            vol = float(volume)
-            if vol >= 10000:
-                return f"{vol / 10000:.2f}万手"
-            return f"{vol:.0f}手"
-        
-        def format_amount(amount):
-            """格式化成交额为亿"""
-            if amount is None:
-                return '-'
-            amt = float(amount)
-            return f"{amt / 100000000:.2f}亿"
-        
-        def format_percent(value):
-            """格式化百分比"""
-            if value is None:
-                return '-'
-            return f"{float(value):.2f}%"
-        
-        def format_price(value):
-            """格式化价格"""
-            if value is None:
-                return '-'
-            return f"{float(value):.2f}"
-        
-        # 根据是否有备注数据设置不同的CSV头
-        if include_notes and has_notes_data:
-            headers = [
-                "股票代码", "股票名称", "日期", "开盘", "收盘", "最高", "最低",
-                "成交量(万手)", "成交额(亿)", "涨跌幅%", "涨跌额", "换手率%",
-                "累计升跌%", "5天升跌%", "10天升跌%", "60天升跌%", "用户备注", "策略类型", "风险等级"
-            ]
+        # 根据格式选择导出方式
+        if format.lower() == "excel":
+            return export_to_excel(rows, include_notes, has_notes_data, code)
         else:
-            headers = [
-                "股票代码", "股票名称", "日期", "开盘", "收盘", "最高", "最低",
-                "成交量(万手)", "成交额(亿)", "涨跌幅%", "涨跌额", "换手率%",
-                "累计升跌%", "5天升跌%", "10天升跌%", "60天升跌%", "备注"
-            ]
-        
-        writer.writerow(headers)
-        
-        # 写入数据
-        for row in rows:
-            if include_notes and has_notes_data:
-                # 包含备注的数据 - 格式化数值
-                writer.writerow([
-                    row[0], row[1], row[2], format_price(row[3]), format_price(row[4]), 
-                    format_price(row[5]), format_price(row[6]),
-                    format_volume(row[7]), format_amount(row[8]), 
-                    format_percent(row[9]), format_price(row[10]), format_percent(row[11]),
-                    format_percent(row[12]), format_percent(row[13]), 
-                    format_percent(row[14]), format_percent(row[15]), 
-                    row[16], row[17], row[18]
-                ])
-            else:
-                # 不包含备注的数据 - 格式化数值
-                writer.writerow([
-                    row[0], row[1], row[2], format_price(row[3]), format_price(row[4]), 
-                    format_price(row[5]), format_price(row[6]),
-                    format_volume(row[7]), format_amount(row[8]), 
-                    format_percent(row[9]), format_price(row[10]), format_percent(row[11]),
-                    format_percent(row[12]), format_percent(row[13]), 
-                    format_percent(row[14]), format_percent(row[15]), 
-                    row[16]
-                ])
-        
-        output.seek(0)
-        
-        # 生成文件名
-        filename = f"{code}_historical_quotes_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
-        
-        print(f"[export_stock_history] 导出成功: {len(rows)} 条记录, 包含备注: {include_notes and has_notes_data}")
-        
-        return StreamingResponse(
-            iter([output.getvalue()]),
-            media_type="text/csv; charset=utf-8",
-            headers={"Content-Disposition": f"attachment; filename*=UTF-8''{filename}"}
-        )
+            return export_to_csv(rows, include_notes, has_notes_data, code)
         
     except HTTPException:
         raise
@@ -329,6 +247,226 @@ def export_stock_history(
         error_msg = f"导出失败: {str(e)}"
         print(f"[export_stock_history] {error_msg}")
         raise HTTPException(status_code=500, detail=error_msg)
+
+def export_to_csv(rows, include_notes, has_notes_data, code):
+    """导出为CSV格式"""
+    # 添加数据格式化函数
+    def format_volume(volume):
+        """格式化成交量为万手"""
+        if volume is None:
+            return '-'
+        vol = float(volume)
+        if vol >= 10000:
+            return f"{vol / 10000:.2f}万手"
+        return f"{vol:.0f}手"
+    
+    def format_amount(amount):
+        """格式化成交额为亿"""
+        if amount is None:
+            return '-'
+        amt = float(amount)
+        return f"{amt / 100000000:.2f}亿"
+    
+    def format_percent(value):
+        """格式化百分比"""
+        if value is None:
+            return '-'
+        return f"{float(value):.2f}%"
+    
+    def format_price(value):
+        """格式化价格"""
+        if value is None:
+            return '-'
+        return f"{float(value):.2f}"
+    
+    # 创建CSV内容
+    output = io.StringIO()
+    
+    # 添加BOM头，解决Excel打开中文乱码问题
+    output.write('\ufeff')
+    
+    writer = csv.writer(output)
+    
+    # 根据是否有备注数据设置不同的CSV头
+    if include_notes and has_notes_data:
+        headers = [
+            "股票代码", "股票名称", "日期", "开盘", "收盘", "最高", "最低",
+            "成交量(万手)", "成交额(亿)", "涨跌幅%", "涨跌额", "换手率%",
+            "累计升跌%", "5天升跌%", "10天升跌%", "60天升跌%", "用户备注", "策略类型", "风险等级"
+        ]
+    else:
+        headers = [
+            "股票代码", "股票名称", "日期", "开盘", "收盘", "最高", "最低",
+            "成交量(万手)", "成交额(亿)", "涨跌幅%", "涨跌额", "换手率%",
+            "累计升跌%", "5天升跌%", "10天升跌%", "60天升跌%", "备注"
+        ]
+    
+    writer.writerow(headers)
+    
+    # 写入数据
+    for row in rows:
+        if include_notes and has_notes_data:
+            # 包含备注的数据 - 格式化数值
+            writer.writerow([
+                row[0], row[1], row[2], format_price(row[3]), format_price(row[4]), 
+                format_price(row[5]), format_price(row[6]),
+                format_volume(row[7]), format_amount(row[8]), 
+                format_percent(row[9]), format_price(row[10]), format_percent(row[11]),
+                format_percent(row[12]), format_percent(row[13]), 
+                format_percent(row[14]), format_percent(row[15]), 
+                row[16], row[17], row[18]
+            ])
+        else:
+            # 不包含备注的数据 - 格式化数值
+            writer.writerow([
+                row[0], row[1], row[2], format_price(row[3]), format_price(row[4]), 
+                format_price(row[5]), format_price(row[6]),
+                format_volume(row[7]), format_amount(row[8]), 
+                format_percent(row[9]), format_price(row[10]), format_percent(row[11]),
+                format_percent(row[12]), format_percent(row[13]), 
+                format_percent(row[14]), format_percent(row[15]), 
+                row[16]
+            ])
+    
+    output.seek(0)
+    
+    # 生成文件名
+    filename = f"{code}_historical_quotes_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{filename}"}
+    )
+
+def export_to_excel(rows, include_notes, has_notes_data, code):
+    """导出为Excel格式，支持颜色效果"""
+    # 数据格式化函数
+    def format_volume_num(volume):
+        """格式化成交量数值"""
+        if volume is None:
+            return None
+        vol = float(volume)
+        return vol / 10000 if vol >= 10000 else vol
+    
+    def format_amount_num(amount):
+        """格式化成交额数值"""
+        if amount is None:
+            return None
+        return float(amount) / 100000000
+    
+    def safe_float(value):
+        """安全转换为浮点数"""
+        if value is None:
+            return None
+        return float(value)
+    
+    # 创建工作簿
+    wb = Workbook()
+    ws = wb.active  # type: ignore
+    assert ws is not None
+    ws.title = "历史行情数据"
+    
+    # 定义颜色样式
+    red_font = Font(color="FF0000", bold=True)    # 上涨红色
+    green_font = Font(color="00AA00", bold=True)  # 下跌绿色
+    normal_font = Font(color="000000")
+    header_font = Font(bold=True)
+    
+    # 设置表头
+    if include_notes and has_notes_data:
+        headers = [
+            "股票代码", "股票名称", "日期", "开盘", "收盘", "最高", "最低",
+            "成交量(万手)", "成交额(亿)", "涨跌幅%", "涨跌额", "换手率%",
+            "累计升跌%", "5天升跌%", "10天升跌%", "60天升跌%", "用户备注", "策略类型", "风险等级"
+        ]
+    else:
+        headers = [
+            "股票代码", "股票名称", "日期", "开盘", "收盘", "最高", "最低",
+            "成交量(万手)", "成交额(亿)", "涨跌幅%", "涨跌额", "换手率%",
+            "累计升跌%", "5天升跌%", "10天升跌%", "60天升跌%", "备注"
+        ]
+    
+    # 写入表头
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=header)
+        cell.font = header_font
+    
+    # 写入数据并应用颜色格式
+    for row_idx, row in enumerate(rows, 2):
+        # 基本数据
+        ws.cell(row=row_idx, column=1, value=row[0])  # 股票代码
+        ws.cell(row=row_idx, column=2, value=row[1])  # 股票名称
+        ws.cell(row=row_idx, column=3, value=row[2])  # 日期
+        ws.cell(row=row_idx, column=4, value=safe_float(row[3]))  # 开盘
+        
+        # 收盘价（需要颜色格式）
+        close_cell = ws.cell(row=row_idx, column=5, value=safe_float(row[4]))
+        change_percent = safe_float(row[9])
+        if change_percent is not None:
+            if change_percent > 0:
+                close_cell.font = red_font
+            elif change_percent < 0:
+                close_cell.font = green_font
+        
+        ws.cell(row=row_idx, column=6, value=safe_float(row[5]))  # 最高
+        ws.cell(row=row_idx, column=7, value=safe_float(row[6]))  # 最低
+        ws.cell(row=row_idx, column=8, value=format_volume_num(row[7]))  # 成交量
+        ws.cell(row=row_idx, column=9, value=format_amount_num(row[8]))  # 成交额
+        
+        # 涨跌幅%（需要颜色格式）
+        change_pct_cell = ws.cell(row=row_idx, column=10, value=change_percent)
+        if change_percent is not None:
+            if change_percent > 0:
+                change_pct_cell.font = red_font
+            elif change_percent < 0:
+                change_pct_cell.font = green_font
+        
+        # 涨跌额（需要颜色格式）
+        change_cell = ws.cell(row=row_idx, column=11, value=safe_float(row[10]))
+        if change_percent is not None:
+            if change_percent > 0:
+                change_cell.font = red_font
+            elif change_percent < 0:
+                change_cell.font = green_font
+        
+        ws.cell(row=row_idx, column=12, value=safe_float(row[11]))  # 换手率%
+        
+        # 各期涨跌%（需要颜色格式）
+        for col_offset, pct_val in enumerate([row[12], row[13], row[14], row[15]], 13):
+            pct_cell = ws.cell(row=row_idx, column=col_offset, value=safe_float(pct_val))
+            pct_value = safe_float(pct_val)
+            if pct_value is not None:
+                if pct_value > 0:
+                    pct_cell.font = red_font
+                elif pct_value < 0:
+                    pct_cell.font = green_font
+        
+        # 备注相关字段
+        if include_notes and has_notes_data:
+            ws.cell(row=row_idx, column=17, value=row[16])  # 用户备注
+            ws.cell(row=row_idx, column=18, value=row[17])  # 策略类型
+            ws.cell(row=row_idx, column=19, value=row[18])  # 风险等级
+        else:
+            ws.cell(row=row_idx, column=17, value=row[16])  # 备注
+    
+    # 调整列宽
+    for col in range(1, len(headers) + 1):
+        ws.column_dimensions[get_column_letter(col)].width = 15
+    
+    # 保存到内存
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    
+    # 生成文件名
+    filename = f"{code}_historical_quotes_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    
+    return StreamingResponse(
+        io.BytesIO(output.read()),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{filename}"}
+    )
 
 def _get_date_before_business_days(date_str: str, business_days: int) -> str:
     """
@@ -346,6 +484,7 @@ def _get_date_before_business_days(date_str: str, business_days: int) -> str:
     current_date = datetime.strptime(date_str, '%Y-%m-%d')
     days_back = 0
     business_days_count = 0
+    check_date = current_date  # 初始化变量
     
     while business_days_count < business_days:
         days_back += 1
