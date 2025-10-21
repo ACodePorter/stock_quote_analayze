@@ -32,7 +32,7 @@ flower>=1.0.0
 
 # 技术分析
 ta-lib>=0.4.0
-pandas-ta>=0.3.0
+pandas-ta>=0.4.67b0
 
 # 工具
 python-dotenv>=0.20.0

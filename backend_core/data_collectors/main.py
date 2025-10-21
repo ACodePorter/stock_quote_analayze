@@ -186,14 +186,7 @@ scheduler.add_job(
     minute=0,
     id='akshare_industry_board_realtime',
 )
-scheduler.add_job(
-    collect_akshare_industry_board_realtime,
-    'cron',
-    day_of_week='mon-fri',
-    hour='9-10,11,13-16',
-    minute='11,41',
-    id='akshare_industry_board_realtime',
-)
+
 
 # A股公告数据采集任务，每240分钟采集一次
 scheduler.add_job(

@@ -115,9 +115,10 @@ class Deployer:
         
         # 检查必要文件
         required_files = [
-            "requirements.txt",
-            "start_system.py",
-            "run.py"
+            "requirements-prod.txt",
+            "start_backend_api.py",
+            "start_backend_core.py",    
+            "start_frontend.py"
         ]
         
         for file_name in required_files:
@@ -184,11 +185,17 @@ class Deployer:
             
             # 安装子模块依赖（如果存在且需要）
             if self.config.get("install_submodules", True):
-                # 安装backend_core依赖
-                if os.path.exists("backend_core/requirements.txt"):
+                # 安装backend_core依赖 - 优先使用简化版本
+                if os.path.exists("backend_core/requirements-minimal.txt"):
+                    logger.info("📦 安装backend_core简化依赖...")
+                    subprocess.run([sys.executable, "-m", "pip", "install", "-r", "backend_core/requirements-minimal.txt"], 
+                                 check=True, capture_output=True)
+                    logger.info("✅ backend_core简化依赖安装完成")
+                elif os.path.exists("backend_core/requirements.txt"):
+                    logger.info("📦 安装backend_core完整依赖...")
                     subprocess.run([sys.executable, "-m", "pip", "install", "-r", "backend_core/requirements.txt"], 
                                  check=True, capture_output=True)
-                    logger.info("✅ backend_core依赖安装完成")
+                    logger.info("✅ backend_core完整依赖安装完成")
                 
                 # 安装backend_api依赖
                 if os.path.exists("backend_api/requirements.txt"):

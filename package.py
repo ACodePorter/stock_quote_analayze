@@ -81,12 +81,9 @@ class ProjectPackager:
             "POSTGRESQL_MIGRATION_GUIDE.md",
             
             # 启动脚本
-            "start_system.py",
             "start_frontend.py",
             "start_backend_core.py",
-            "start_admin.py",
-            "start_analysis_service.py",
-            "run.py",
+            "start_backend_api.py",
             
             # 数据库相关
             "migrate_db.py",
