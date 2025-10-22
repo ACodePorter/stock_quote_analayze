@@ -18,8 +18,7 @@ if __name__ == '__main__':
     
     parser = argparse.ArgumentParser(description='AKShare数据采集工具')
     parser.add_argument('--type', type=str, required=True,
-                      choices=['realtime_xq', 'historical', 'index', 'indicator','financial_report',
-                               'financial_report_sina'],
+                      choices=['realtime_xq', 'historical', 'index', 'indicator','financial_report','stock_a_spot_em','financial_report_sina'],
                       help='采集类型：realtime_xq(雪球实时行情), historical(雪球历史行情), index(指数行情), indicator(技术指标)')
     parser.add_argument('--date', type=str,
                       help='历史行情采集的日期，格式：YYYYMMDD')
@@ -98,6 +97,19 @@ if __name__ == '__main__':
             print(f"获取财务报告数据失败: {str(e)}")
             sys.exit(1)
 
+    elif args.type == 'stock_a_spot_em':
+        if not args.symbol:
+            print("获取上海证交所实时行情数据需要指定股票代码参数 --symbol")
+            sys.exit(1)
+        try:
+            # 调用 stock_a_spot_em 接口获取上海证交所实时行情数据
+            df = ak.stock_sh_a_spot_em()
+            print(f"成功获取 {args.symbol} 的上海证交所实时行情数据:")
+            print(f"共获取到 {len(df)} 条实时行情记录")
+            print(df)
+        except Exception as e:
+            print(f"获取实时行情数据失败: {str(e)}")
+            sys.exit(1)
 
     elif args.type == 'financial_report_sina':
     # 在 financial_report 部分

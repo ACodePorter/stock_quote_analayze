@@ -107,7 +107,34 @@ class AkshareRealtimeQuoteCollector(AKShareCollector):
         try:
             affected_rows = 0 
             session = SessionLocal()
-            df = self._retry_on_failure(ak.stock_zh_a_spot_em)
+            try:
+                df = self._retry_on_failure(ak.stock_zh_a_spot_em)
+            except Exception as e:
+                self.logger.warning(f"调用 stock_zh_a_spot_em 失败，切换到沪/深/京A接口: {e}")
+                dfs = []
+                try:
+                    df_sh = self._retry_on_failure(ak.stock_sh_a_spot_em)
+                    if df_sh is not None and hasattr(df_sh, 'empty') and not df_sh.empty:
+                        dfs.append(df_sh)
+                except Exception as e1:
+                    self.logger.error(f"调用 stock_sh_a_spot_em 失败: {e1}")
+                try:
+                    df_sz = self._retry_on_failure(ak.stock_sz_a_spot_em)
+                    if df_sz is not None and hasattr(df_sz, 'empty') and not df_sz.empty:
+                        dfs.append(df_sz)
+                except Exception as e2:
+                    self.logger.error(f"调用 stock_sz_a_spot_em 失败: {e2}")
+                try:
+                    df_bj = self._retry_on_failure(ak.stock_bj_a_spot_em)
+                    if df_bj is not None and hasattr(df_bj, 'empty') and not df_bj.empty:
+                        dfs.append(df_bj)
+                except Exception as e3:
+                    self.logger.error(f"调用 stock_bj_a_spot_em 失败: {e3}")
+                if dfs:
+                    df = pd.concat(dfs, ignore_index=True)
+                else:
+                    df = None
+
             if df is None or (hasattr(df, 'empty') and df.empty):
                 self.logger.error("采集到的实时行情数据为空")
                 return False
