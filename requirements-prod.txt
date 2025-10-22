@@ -17,7 +17,7 @@ psycopg2-binary==2.9.10
 # 数据处理
 pandas==2.2.0
 numpy==1.26.4
-akshare==1.16.95
+akshare==1.17.70
 openpyxl>=3.1.5,<4.0.0
 
 # 工具
