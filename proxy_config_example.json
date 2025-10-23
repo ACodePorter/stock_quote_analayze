@@ -1,0 +1,31 @@
+{
+  "proxies": [
+    {
+      "name": "proxy1",
+      "http": "http://proxy1.example.com:8080",
+      "https": "https://proxy1.example.com:8080",
+      "username": "your_username",
+      "password": "your_password",
+      "enabled": false
+    },
+    {
+      "name": "proxy2",
+      "http": "http://proxy2.example.com:3128",
+      "https": "https://proxy2.example.com:3128",
+      "username": "",
+      "password": "",
+      "enabled": false
+    },
+    {
+      "name": "socks5_proxy",
+      "http": "socks5://socks5.example.com:1080",
+      "https": "socks5://socks5.example.com:1080",
+      "username": "socks_user",
+      "password": "socks_pass",
+      "enabled": false
+    }
+  ],
+  "rotation_interval": 300,
+  "max_failures": 3,
+  "timeout": 30
+}

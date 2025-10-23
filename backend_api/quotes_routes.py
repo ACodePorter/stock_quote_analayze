@@ -5,8 +5,9 @@
 
 from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
-from sqlalchemy import desc, func, case
+from sqlalchemy import desc, func, case, text
 from datetime import datetime, timedelta
 import logging
 import math
@@ -560,6 +561,239 @@ async def get_quotes_stats():
         )
     finally:
         db.close()
+
+@router.get("/stocks/list")
+async def get_stock_list():
+    """获取股票列表（用于历史行情查询）"""
+    try:
+        db = next(get_db())
+        
+        # 从stock_basic_info表获取股票列表
+        query = db.execute(text("""
+            SELECT code, name 
+            FROM stock_basic_info 
+            ORDER BY code
+        """))
+        
+        stock_list = []
+        for row in query.fetchall():
+            stock_list.append({
+                "code": row[0],
+                "name": row[1]
+            })
+        
+        db.close()
+        
+        return {
+            "success": True,
+            "data": stock_list
+        }
+        
+    except Exception as e:
+        logger.error(f"获取股票列表失败: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"获取股票列表失败: {str(e)}"
+        )
+
+@router.get("/history")
+async def get_historical_quotes(
+    code: Optional[str] = Query(None, description="股票代码"),
+    page: int = Query(1, ge=1, description="页码"),
+    size: int = Query(20, ge=1, le=100, description="每页大小"),
+    start_date: Optional[str] = Query(None, description="开始日期"),
+    end_date: Optional[str] = Query(None, description="结束日期"),
+    include_notes: bool = Query(True, description="是否包含交易备注")
+):
+    """获取历史行情数据"""
+    try:
+        db = next(get_db())
+        
+        # 格式化日期
+        def format_date(date_str):
+            if not date_str:
+                return None
+            try:
+                # 支持多种日期格式
+                if len(date_str) == 8:  # YYYYMMDD
+                    return f"{date_str[:4]}-{date_str[4:6]}-{date_str[6:8]}"
+                elif len(date_str) == 10:  # YYYY-MM-DD
+                    return date_str
+                else:
+                    return date_str
+            except:
+                return date_str
+        
+        start_date_fmt = format_date(start_date)
+        end_date_fmt = format_date(end_date)
+        
+        # 构建基础查询
+        if include_notes:
+            base_query = """
+                SELECT 
+                    h.code, h.name, h.date, h.open, h.close, h.high, h.low, 
+                    h.volume, h.amount, h.change_percent, h.change, h.turnover_rate,
+                    h.cumulative_change_percent, h.five_day_change_percent, h.ten_day_change_percent, h.sixty_day_change_percent, h.remarks,
+                    COALESCE(tn.notes, '') as user_notes,
+                    COALESCE(tn.strategy_type, '') as strategy_type,
+                    COALESCE(tn.risk_level, '') as risk_level,
+                    COALESCE(tn.created_by, '') as notes_creator,
+                    tn.created_at as notes_created_at,
+                    tn.updated_at as notes_updated_at
+                FROM historical_quotes h
+                LEFT JOIN trading_notes tn ON h.code = tn.stock_code AND h.date::date = tn.trade_date
+            """
+        else:
+            base_query = """
+                SELECT 
+                    code, name, date, open, close, high, low, 
+                    volume, amount, change_percent, change, turnover_rate,
+                    cumulative_change_percent, five_day_change_percent, ten_day_change_percent, sixty_day_change_percent, remarks
+                FROM historical_quotes
+            """
+        
+        # 构建 WHERE 子句
+        where_clauses = []
+        params = {}
+        
+        if code:
+            where_clauses.append("h.code = :code" if include_notes else "code = :code")
+            params["code"] = code
+        
+        if start_date_fmt:
+            where_clauses.append("h.date >= :start_date" if include_notes else "date >= :start_date")
+            params["start_date"] = start_date_fmt
+        
+        if end_date_fmt:
+            where_clauses.append("h.date <= :end_date" if include_notes else "date <= :end_date")
+            params["end_date"] = end_date_fmt
+        
+        if where_clauses:
+            query = base_query + " WHERE " + " AND ".join(where_clauses)
+        else:
+            query = base_query
+        
+        query += " ORDER BY h.date DESC" if include_notes else " ORDER BY date DESC"
+        
+        # 获取总数
+        count_query = f"SELECT COUNT(*) FROM ({query})"
+        total = db.execute(text(count_query), params).scalar()
+        
+        # 分页查询
+        query += " LIMIT :limit OFFSET :offset"
+        params["limit"] = size
+        params["offset"] = (page - 1) * size
+        result = db.execute(text(query), params)
+        
+        items = []
+        for row in result.fetchall():
+            item = {
+                "code": row[0],
+                "name": row[1],
+                "date": row[2],
+                "open": safe_float(row[3]),
+                "close": safe_float(row[4]),
+                "high": safe_float(row[5]),
+                "low": safe_float(row[6]),
+                "volume": safe_float(row[7]),
+                "amount": safe_float(row[8]),
+                "change_percent": safe_float(row[9]),
+                "change": safe_float(row[10]),
+                "turnover_rate": safe_float(row[11]),
+                "cumulative_change_percent": safe_float(row[12]),
+                "five_day_change_percent": safe_float(row[13]),
+                "ten_day_change_percent": safe_float(row[14]),
+                "sixty_day_change_percent": safe_float(row[15]),
+                "remarks": row[16] if row[16] else ""
+            }
+            
+            # 如果包含备注，添加备注相关字段
+            if include_notes and len(row) > 17:
+                item.update({
+                    "user_notes": row[17] if row[17] else "",
+                    "strategy_type": row[18] if row[18] else "",
+                    "risk_level": row[19] if row[19] else "",
+                    "notes_creator": row[20] if row[20] else "",
+                    "notes_created_at": safe_datetime(row[21]),
+                    "notes_updated_at": safe_datetime(row[22])
+                })
+            
+            items.append(item)
+        
+        db.close()
+        
+        return {
+            "items": items,
+            "total": total
+        }
+        
+    except Exception as e:
+        logger.error(f"获取历史行情数据失败: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"获取历史行情数据失败: {str(e)}"
+        )
+
+@router.put("/history/{code}/{date}")
+async def update_historical_quote(
+    code: str,
+    date: str,
+    request_data: Dict[str, Any]
+):
+    """更新历史行情数据"""
+    try:
+        db = next(get_db())
+        
+        # 构建更新字段
+        update_fields = []
+        params = {"code": code, "date": date}
+        
+        for field, value in request_data.items():
+            if field in ['open', 'close', 'high', 'low', 'volume', 'amount', 'change_percent', 'change', 'turnover_rate']:
+                if value is not None:
+                    update_fields.append(f"{field} = :{field}")
+                    params[field] = value
+            elif field == 'remarks':
+                update_fields.append(f"{field} = :{field}")
+                params[field] = value
+        
+        if not update_fields:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="没有有效的更新字段"
+            )
+        
+        # 执行更新
+        update_query = f"""
+            UPDATE historical_quotes 
+            SET {', '.join(update_fields)}
+            WHERE code = :code AND date = :date
+        """
+        
+        result = db.execute(text(update_query), params)
+        db.commit()
+        
+        if result.rowcount == 0:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="未找到指定的历史行情数据"
+            )
+        
+        db.close()
+        
+        return {
+            "success": True,
+            "message": "历史行情数据更新成功"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"更新历史行情数据失败: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"更新历史行情数据失败: {str(e)}"
+        )
 
 @router.post("/refresh")
 async def refresh_quotes():

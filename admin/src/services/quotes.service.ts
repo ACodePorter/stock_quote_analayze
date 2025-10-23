@@ -23,6 +23,30 @@ export interface IndustryQuoteParams {
   sortBy?: string
 }
 
+export interface HistoricalQuoteParams {
+  code: string
+  page: number
+  pageSize: number
+  startDate?: string
+  endDate?: string
+  includeNotes?: boolean
+}
+
+export interface HistoricalQuoteUpdateParams {
+  code: string
+  date: string
+  open?: number
+  close?: number
+  high?: number
+  low?: number
+  volume?: number
+  amount?: number
+  change_percent?: number
+  change?: number
+  turnover_rate?: number
+  remarks?: string
+}
+
 export interface QuotesResponse<T> {
   success: boolean
   data: T[]
@@ -116,6 +140,59 @@ class QuotesService {
    */
   async refreshAllQuotes(): Promise<{ success: boolean; message: string }> {
     return apiService.post<{ success: boolean; message: string }>(this.getQuotesApiUrl('/refresh'))
+  }
+
+  /**
+   * 获取历史行情数据
+   */
+  async getHistoricalQuotes(params: HistoricalQuoteParams): Promise<QuotesResponse<any>> {
+    const queryParams = new URLSearchParams()
+    
+    // code 可以为空
+    if (params.code) {
+      queryParams.append('code', params.code)
+    }
+    
+    queryParams.append('page', params.page.toString())
+    queryParams.append('size', params.pageSize.toString())
+    
+    if (params.startDate) {
+      queryParams.append('start_date', params.startDate)
+    }
+    if (params.endDate) {
+      queryParams.append('end_date', params.endDate)
+    }
+    if (params.includeNotes !== undefined) {
+      queryParams.append('include_notes', params.includeNotes.toString())
+    }
+    
+    const response = await apiService.get<any>(this.getQuotesApiUrl(`/history?${queryParams}`))
+    
+    // 转换响应格式以匹配 QuotesResponse 接口
+    return {
+      success: true,
+      data: response.items || [],
+      total: response.total || 0,
+      page: params.page,
+      pageSize: params.pageSize
+    }
+  }
+
+  /**
+   * 更新历史行情数据
+   */
+  async updateHistoricalQuote(params: HistoricalQuoteUpdateParams): Promise<{ success: boolean; message: string }> {
+    return apiService.put<{ success: boolean; message: string }>(
+      this.getQuotesApiUrl(`/history/${params.code}/${params.date}`),
+      params
+    )
+  }
+
+  /**
+   * 获取股票列表（用于历史行情查询）
+   */
+  async getStockList(): Promise<{ success: boolean; data: any[] }> {
+    return apiService.get<{ success: boolean; data: any[] }>(this.getQuotesApiUrl('/stocks/list'))
   }
 }
 

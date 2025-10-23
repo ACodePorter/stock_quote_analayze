@@ -149,13 +149,13 @@ def cleanup_old_news():
         logging.error(f"[定时任务] 旧新闻清理异常: {e}")
 
 # 定时任务配置
-# 每个交易日上午9:00-11:30、下午13:30-15:30每15分钟采集一次A股实时行情
+# 每个交易日上午9:00-11:30、下午13:30-15:30每20分钟采集一次A股实时行情
 scheduler.add_job(
     collect_akshare_realtime,
     'cron',
     day_of_week='mon-fri',
-    hour='9-12,13-17',
-    minute='1,16,31,46',
+    hour='9-11,13-16',
+    minute='3,23,43',
     id='akshare_realtime',
     
 )
@@ -182,7 +182,7 @@ scheduler.add_job(
     collect_akshare_industry_board_realtime,
     'cron',
     day_of_week='mon-fri',
-    hour='9-10,11,13-16',
+    hour='9-11,13-16',
     minute=0,
     id='akshare_industry_board_realtime',
 )

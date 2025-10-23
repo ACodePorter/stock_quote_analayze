@@ -36,6 +36,11 @@ DATA_COLLECTORS = {
         'log_dir': str(ROOT_DIR / 'backend_core' / 'logs'),  # 日志目录
         'db_file': str(DB_DIR / 'stock_analysis.db'),  # 数据库文件路径
         'max_connection_errors': 10,  # 最大连接错误次数
+        # 增强配置
+        'proxy_pool': [],  # 代理池，格式: [{'http': 'http://proxy:port', 'https': 'https://proxy:port'}]
+        'random_delay_range': (1, 3),  # 随机延迟范围（秒）
+        'ssl_verify': False,  # SSL验证，设为False可解决SSL连接问题
+        'use_fallback_sources': True,  # 是否使用备用数据源
     }
 }
 

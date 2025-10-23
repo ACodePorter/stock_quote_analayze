@@ -1,6 +1,6 @@
 """
-实时行情数据采集器
-负责采集股票实时行情数据并存储到数据库
+增强的实时行情数据采集器
+解决SSL连接问题、IP封禁问题，支持代理轮换、User-Agent轮换等功能
 """
 
 import akshare as ak
@@ -10,13 +10,13 @@ from pathlib import Path
 import logging
 from datetime import datetime
 
-# 直接导入base模块
-from .base import AKShareCollector
+# 直接导入增强的base模块
+from .enhanced_base import EnhancedAKShareCollector
 from backend_core.database.db import SessionLocal
 from sqlalchemy import text
 
-class AkshareRealtimeQuoteCollector(AKShareCollector):
-    """沪深京A股实时行情数据采集器"""
+class EnhancedRealtimeQuoteCollector(EnhancedAKShareCollector):
+    """增强的沪深京A股实时行情数据采集器"""
     
     def __init__(self, config: Optional[Dict[str, Any]] = None):
         """
@@ -72,7 +72,7 @@ class AkshareRealtimeQuoteCollector(AKShareCollector):
 
         cursor = session.execute(text('''
             CREATE TABLE IF NOT EXISTS realtime_collect_operation_logs (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id SERIAL PRIMARY KEY,
                 operation_type TEXT NOT NULL,
                 operation_desc TEXT NOT NULL,
                 affected_rows INTEGER,
@@ -100,7 +100,8 @@ class AkshareRealtimeQuoteCollector(AKShareCollector):
     
     def collect_quotes(self) -> bool:
         """
-        采集实时行情数据
+        采集实时行情数据，使用增强的回退机制
+        
         Returns:
             bool: 是否成功
         """
@@ -108,57 +109,20 @@ class AkshareRealtimeQuoteCollector(AKShareCollector):
             affected_rows = 0 
             session = SessionLocal()
             try:
-                df = self._retry_on_failure(ak.stock_zh_a_spot_em)
+                # 使用增强的回退机制获取数据
+                df = self.get_realtime_quotes_with_fallback()
             except Exception as e:
-                self.logger.warning(f"调用 stock_zh_a_spot_em 失败，切换到沪/深/京A接口: {e}")
-                dfs = []
-                try:
-                    df_sh = self._retry_on_failure(ak.stock_sh_a_spot_em)
-                    if df_sh is not None and hasattr(df_sh, 'empty') and not df_sh.empty:
-                        dfs.append(df_sh)
-                except Exception as e1:
-                    self.logger.error(f"调用 stock_sh_a_spot_em 失败: {e1}")
-                try:
-                    df_sz = self._retry_on_failure(ak.stock_sz_a_spot_em)
-                    if df_sz is not None and hasattr(df_sz, 'empty') and not df_sz.empty:
-                        dfs.append(df_sz)
-                except Exception as e2:
-                    self.logger.error(f"调用 stock_sz_a_spot_em 失败: {e2}")
-                try:
-                    df_bj = self._retry_on_failure(ak.stock_bj_a_spot_em)
-                    if df_bj is not None and hasattr(df_bj, 'empty') and not df_bj.empty:
-                        dfs.append(df_bj)
-                except Exception as e3:
-                    self.logger.error(f"调用 stock_bj_a_spot_em 失败: {e3}")
-                if dfs:
-                    df = pd.concat(dfs, ignore_index=True)
-                else:
-                    # 增加新浪行情数据补充
-                    try:
-                        self.logger.warning("东方财富数据全部失败，尝试调用新浪数据源 stock_zh_a_spot ...")
-                        # 定义一个数据采集来源标志
-                        data_source = "sina"
-                        df_sina = self._retry_on_failure(ak.stock_zh_a_spot)
-                        if df_sina is not None and hasattr(df_sina, 'empty') and not df_sina.empty:
-                            df = df_sina
-                            self.logger.info(f"新浪行情接口采集到 {len(df)} 条股票数据")
-                        else:
-                            self.logger.error("新浪数据源 stock_zh_a_spot 采集数据为空")
-                            df = None
-                    except Exception as e4:
-                        self.logger.error(f"调用新浪数据源 stock_zh_a_spot 也失败: {e4}")
-                        df = None
+                self.logger.error(f"所有数据源都失败了: {e}")
+                return False
 
             if df is None or (hasattr(df, 'empty') and df.empty):
-                self.logger.error("akshare主数据源采集到的实时行情数据为空")
+                self.logger.error("采集到的实时行情数据为空")
                 return False
+                
             self.logger.info("采集到 %d 条股票行情数据", len(df))
 
             for _, row in df.iterrows():
                 code = row['代码']
-                if 'data_source' in locals() and data_source == "sina":
-                    # 如果新浪数据源，则过滤掉code前2位字母
-                    code = code[2:] if isinstance(code, str) and len(code) > 2 else code
                 name = row['名称']
                 # 获取当前交易日期
                 trade_date = datetime.now().strftime('%Y-%m-%d')
@@ -174,13 +138,11 @@ class AkshareRealtimeQuoteCollector(AKShareCollector):
                     'low': self._safe_value(row['最低']),
                     'open': self._safe_value(row['今开']),
                     'pre_close': self._safe_value(row['昨收']),
-                    # 如果是新浪数据源，不采集换手率字段
-                    'turnover_rate': self._safe_value(row['换手率']) if '换手率' in row else None,
-                    # akshare主数据源和新浪数据源市盈率字段兼容处理（新浪无'市盈率-动态'，只有'市盈率'）
-                    'pe_dynamic': self._safe_value(row['市盈率-动态']) if '市盈率-动态' in row else self._safe_value(row['市盈率']) if '市盈率' in row else None,
-                    'total_market_value': self._safe_value(row['总市值']) if '总市值' in row else None,
-                    'pb_ratio': self._safe_value(row['市净率']) if '市净率' in row else None,
-                    'circulating_market_value': self._safe_value(row['流通市值']) if '流通市值' in row else None,
+                    'turnover_rate': self._safe_value(row['换手率']),
+                    'pe_dynamic': self._safe_value(row['市盈率-动态']),
+                    'total_market_value': self._safe_value(row['总市值']),
+                    'pb_ratio': self._safe_value(row['市净率']),
+                    'circulating_market_value': self._safe_value(row['流通市值']),
                     'update_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 }
 
@@ -271,8 +233,8 @@ class AkshareRealtimeQuoteCollector(AKShareCollector):
                 (operation_type, operation_desc, affected_rows, status, error_message, created_at)
                 VALUES (:operation_type, :operation_desc, :affected_rows, :status, :error_message, :created_at)
             '''), {
-                'operation_type': 'realtime_quote_collect',
-                'operation_desc': f'采集并更新{len(df)}条股票实时行情数据',
+                'operation_type': 'enhanced_realtime_quote_collect',
+                'operation_desc': f'增强采集并更新{len(df)}条股票实时行情数据',
                 'affected_rows': affected_rows,
                 'status': 'success',
                 'error_message': None,
@@ -293,8 +255,8 @@ class AkshareRealtimeQuoteCollector(AKShareCollector):
                         (operation_type, operation_desc, affected_rows, status, error_message, created_at)
                         VALUES (:operation_type, :operation_desc, :affected_rows, :status, :error_message, :created_at)
                     '''), {
-                        'operation_type': 'realtime_quote_collect',
-                        'operation_desc': '采集股票实时行情数据失败',
+                        'operation_type': 'enhanced_realtime_quote_collect',
+                        'operation_desc': '增强采集股票实时行情数据失败',
                         'affected_rows': 0,
                         'status': 'error',
                         'error_message': error_msg,
@@ -306,4 +268,4 @@ class AkshareRealtimeQuoteCollector(AKShareCollector):
             finally:
                 if 'session' in locals():
                     session.close()
-            return False 
+            return False
