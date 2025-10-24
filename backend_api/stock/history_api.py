@@ -134,8 +134,67 @@ def get_stock_history(
                 "notes_updated_at": row[22]
             })
         
+
+
         items.append(item)
-    
+
+    # 遍历items，如果换手率为None，则用akshare查询并回写数据库
+    from sqlalchemy import update
+    import datetime
+
+    try:
+        import akshare as ak
+    except ImportError:
+        ak = None  # 如果akshare未安装，后面查询会报错
+
+    # 先判断是否存在换手率为None或0的记录
+    need_fill_items = [item for item in items if item.get("turnover_rate") is None or item.get("turnover_rate") == 0]
+    if ak and need_fill_items:
+        # 统一从前台参数获取start_date与end_date，批量查询
+        # start_date, end_date 已在上文Query参数中拿到
+        try:
+            # akshare日期要求为yyyymmdd字符串
+            # 查询所有缺失项共同的最小start_date和最大end_date，最小日期取实际参数的start，最大取end
+            # 但通常都是同一个code，直接以第一项code为例，可按code-日期分组
+            code = need_fill_items[0]["code"]
+            hist_df = ak.stock_zh_a_hist(symbol=code, start_date=start_date.replace("-", ""), end_date=end_date.replace("-", ""), adjust="")
+            print(f"akshare查询结果: {hist_df}")
+            
+            # 将日期设为index，便于查找
+            if not hist_df.empty and "换手率" in hist_df.columns and "日期" in hist_df.columns:
+                hist_df["日期"] = hist_df["日期"].astype(str)
+                hist_df.set_index("日期", inplace=True)
+                for item in need_fill_items:
+                    code = item["code"]
+                    date = item["date"]  # 格式已为yyyy-mm-dd
+                    q_date = date  # 结果集日期已经是yyyy-mm-dd, 无需格式化
+                    turnover = None
+                    try:
+                        # 从结果集中查找对应日期
+                        if q_date in hist_df.index and not pd.isna(hist_df.loc[q_date, "换手率"]):
+                            val = hist_df.loc[q_date, "换手率"]
+                            if isinstance(val, str):
+                                val = val.replace("%", "")
+                            turnover = float(val)
+                            item["turnover_rate"] = turnover
+                            # 回写数据库
+                            db.execute(
+                                text(
+                                    "UPDATE historical_quotes SET turnover_rate = :turnover_rate WHERE code = :code AND date = :date"
+                                ),
+                                {"turnover_rate": turnover, "code": code, "date": date}
+                            )
+                            db.commit()
+                            # 记录换手率更新的成功次数
+                            if not hasattr(get_stock_history, "_turnover_update_count"):
+                                get_stock_history._turnover_update_count = 0
+                            get_stock_history._turnover_update_count += 1
+                            print(f"成功更新【换手率】次数：{get_stock_history._turnover_update_count}")
+                    except Exception as ex:
+                        print(f"通过akshare批量补充换手率失败: code={code}, date={date}, error={str(ex)}")
+        except Exception as e:
+            print(f"调用akshare stock_zh_a_hist接口批量获取数据异常: {e}")
+
     print(f"[get_stock_history] 输出: total={total}, items_count={len(items)}")
     return {"items": items, "total": total}
 
