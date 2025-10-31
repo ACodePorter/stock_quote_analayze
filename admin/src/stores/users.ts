@@ -188,6 +188,29 @@ export const useUsersStore = defineStore('users', () => {
     }
   }
 
+  const changeUserPassword = async (userId: number, newPassword: string) => {
+    try {
+      await usersService.changePassword(userId, newPassword)
+      ElMessage.success('密码修改成功')
+    } catch (err: any) {
+      error.value = err.message || '修改密码失败'
+      ElMessage.error(error.value || '修改密码失败')
+      throw err
+    }
+  }
+
+  const resetUserPassword = async (userId: number) => {
+    try {
+      const res = await usersService.resetPassword(userId)
+      ElMessage.success('密码已重置为默认值')
+      return res
+    } catch (err: any) {
+      error.value = err.message || '重置密码失败'
+      ElMessage.error(error.value || '重置密码失败')
+      throw err
+    }
+  }
+
   const setPage = (page: number) => {
     currentPage.value = page
     fetchUsers()
@@ -234,6 +257,8 @@ export const useUsersStore = defineStore('users', () => {
     updateUser,
     updateUserStatus,
     deleteUser,
+    changeUserPassword,
+    resetUserPassword,
     setPage,
     setPageSize,
     setSearchKeyword,

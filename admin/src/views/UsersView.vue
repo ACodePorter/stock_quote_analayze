@@ -158,7 +158,7 @@
             {{ row.last_login ? formatDate(row.last_login) : '从未登录' }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" min-width="160" fixed="right" show-overflow-tooltip>
+        <el-table-column label="操作" min-width="220" fixed="right" show-overflow-tooltip>
           <template #default="{ row }">
             <el-button
               size="small"
@@ -172,6 +172,8 @@
               </el-button>
               <template #dropdown>
                 <el-dropdown-menu>
+                  <el-dropdown-item command="change_password">修改密码</el-dropdown-item>
+                  <el-dropdown-item command="reset_password">初始化密码</el-dropdown-item>
                   <el-dropdown-item
                     v-if="row.status === 'active'"
                     command="disable"
@@ -298,6 +300,26 @@
         </el-button>
       </template>
     </el-dialog>
+    
+    <!-- 修改密码对话框 -->
+    <el-dialog
+      v-model="showChangePasswordDialog"
+      title="修改密码"
+      width="450px"
+    >
+      <el-form label-width="100px">
+        <el-form-item label="新密码">
+          <el-input v-model="changePasswordForm.password" type="password" show-password placeholder="请输入新密码（至少6位）" />
+        </el-form-item>
+        <el-form-item>
+          <div style="color:#909399;">初始化默认密码：<b>bingfengtang$91</b></div>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showChangePasswordDialog = false">取消</el-button>
+        <el-button type="primary" :disabled="!changePasswordForm.password || changePasswordForm.password.length < 6" @click="submitChangePassword">确定</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -327,6 +349,8 @@ const editFormRef = ref<FormInstance>()
 // State
 const showCreateDialog = ref(false)
 const showEditDialog = ref(false)
+const showChangePasswordDialog = ref(false)
+const changePasswordForm = ref<{ userId: number | null; password: string }>({ userId: null, password: '' })
 const searchKeyword = ref('')
 const statusFilter = ref('')
 const roleFilter = ref('')
@@ -547,6 +571,18 @@ const handleUpdateUser = async () => {
 const handleUserAction = async (action: string, user: UserType) => {
   try {
     switch (action) {
+      case 'change_password':
+        changePasswordForm.value = { userId: user.id, password: '' }
+        showChangePasswordDialog.value = true
+        break
+      case 'reset_password':
+        await ElMessageBox.confirm(
+          `确认将用户 \"${user.username}\" 的密码重置为默认值?`,
+          '初始化密码',
+          { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
+        )
+        await usersStore.resetUserPassword(user.id)
+        break
       case 'enable':
         await usersStore.updateUserStatus(user.id, 'active')
         break
@@ -574,6 +610,14 @@ const handleUserAction = async (action: string, user: UserType) => {
       console.error('操作失败:', error)
     }
   }
+}
+
+const submitChangePassword = async () => {
+  if (!changePasswordForm.value.userId) return
+  if (!changePasswordForm.value.password || changePasswordForm.value.password.length < 6) return
+  await usersStore.changeUserPassword(changePasswordForm.value.userId, changePasswordForm.value.password)
+  showChangePasswordDialog.value = false
+  changePasswordForm.value = { userId: null, password: '' }
 }
 
 // Lifecycle
@@ -814,4 +858,4 @@ onMounted(async () => {
     font-size: 13px;
   }
 }
-</style> 
+</style>

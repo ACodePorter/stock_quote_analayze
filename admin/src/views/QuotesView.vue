@@ -814,17 +814,17 @@ const fetchStats = async () => {
   }
 }
 
-const fetchStockList = async () => {
-  try {
-    const response = await quotesService.getStockList()
-    if (response.success) {
-      stockList.value = response.data
-    }
-  } catch (error) {
-    console.error('获取股票列表失败:', error)
-    ElMessage.error('获取股票列表失败')
-  }
-}
+// const fetchStockList = async () => {
+//   try {
+//     const response = await quotesService.getStockList()
+//     if (response.success) {
+//       stockList.value = response.data
+//     }
+//   } catch (error) {
+//     console.error('获取股票列表失败:', error)
+//     ElMessage.error('获取股票列表失败')
+//   }
+// }
 
 const fetchHistoricalData = async () => {
   historicalLoading.value = true
@@ -1162,7 +1162,7 @@ onMounted(async () => {
   await fetchStockData()
   await fetchIndexData()
   await fetchIndustryData()
-  await fetchStockList()
+  // await fetchStockList()  // 注释：初次加载时可加载股票列表，若无需默认加载可注释
   await fetchHistoricalData()  // 添加这行，自动加载历史数据
 })
 </script>

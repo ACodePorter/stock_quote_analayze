@@ -40,9 +40,10 @@ def row_to_dict(row):
 @router.get("/indices")
 def get_market_indices(db: Session = Depends(get_db)):
     """获取市场指数数据(从数据库 index_realtime_quotes 表中获取)"""
-    def map_index_fields(row):
+    def map_index_fields(row, target_code):
+        """映射字段，并标准化code为前端期望的格式"""
         return {
-            "code": row.code,
+            "code": target_code,  # 使用标准化的代码（不带sh/sz前缀）
             "name": row.name,
             "current": row.price,
             "change": row.change,
@@ -51,21 +52,56 @@ def get_market_indices(db: Session = Depends(get_db)):
             "timestamp": row.update_time,
         }
     try:
-        index_codes = {
-            '上证指数': '000001',
-            '深圳成指': '399001',
-            '创业板指': '399006',
-            '沪深300': '000300',
+        # 定义目标指数：名称和对应的标准代码
+        target_indices = {
+            '000001': ['上证指数'],  # 可能有sh000001格式
+            '399001': ['深证成指', '深圳成指'],  # 支持两种名称
+            '399006': ['创业板指'],
+            '000300': ['沪深300'],
         }
         indices_data = []
-        for name, code in index_codes.items():
-            row = db.query(IndexRealtimeQuotes).filter(IndexRealtimeQuotes.code == code).order_by(IndexRealtimeQuotes.update_time.desc()).first()
+        for target_code, possible_names in target_indices.items():
+            # 尝试按名称匹配（支持多种可能的名称）
+            row = None
+            for name in possible_names:
+                row = db.query(IndexRealtimeQuotes).filter(
+                    IndexRealtimeQuotes.name == name
+                ).order_by(IndexRealtimeQuotes.update_time.desc()).first()
+                if row:
+                    break
+            
+            # 如果按名称没找到，尝试按代码匹配（支持sh/sz前缀格式）
             if row is None:
-                continue
-            indices_data.append(map_index_fields(row))
+                # 尝试直接匹配代码
+                row = db.query(IndexRealtimeQuotes).filter(
+                    IndexRealtimeQuotes.code == target_code
+                ).order_by(IndexRealtimeQuotes.update_time.desc()).first()
+            
+            # 如果还是没找到，尝试匹配带前缀的代码
+            if row is None:
+                # 根据代码判断市场前缀：000开头是sh，399开头是sz
+                if target_code.startswith('000'):
+                    prefix_code = f'sh{target_code}'
+                elif target_code.startswith('399') or target_code.startswith('159'):
+                    prefix_code = f'sz{target_code}'
+                else:
+                    prefix_code = target_code
+                
+                row = db.query(IndexRealtimeQuotes).filter(
+                    IndexRealtimeQuotes.code == prefix_code
+                ).order_by(IndexRealtimeQuotes.update_time.desc()).first()
+            
+            if row:
+                indices_data.append(map_index_fields(row, target_code))
+        
         return JSONResponse({'success': True, 'data': indices_data})
     except Exception as e:
-        return JSONResponse({'success': False, 'message': str(e)})
+        import traceback
+        return JSONResponse({
+            'success': False, 
+            'message': str(e),
+            'traceback': traceback.format_exc()
+        })
 
 # 获取当日最新板块行情，按涨幅降序排序
 @router.get("/industry_board")

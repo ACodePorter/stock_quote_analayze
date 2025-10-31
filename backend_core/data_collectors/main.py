@@ -149,18 +149,18 @@ def cleanup_old_news():
         logging.error(f"[定时任务] 旧新闻清理异常: {e}")
 
 # 定时任务配置
-# 每个交易日上午9:00-11:30、下午13:30-15:30每20分钟采集一次A股实时行情
+# 每个交易日上午9:00-11:30、下午13:30-15:30每30分钟采集一次A股实时行情
 scheduler.add_job(
     collect_akshare_realtime,
     'cron',
     day_of_week='mon-fri',
     hour='9-11,13-16',
-    minute='3,23,43',
+    minute='23,53',
     id='akshare_realtime',
     
 )
 # 每天采集前一天历史行情（收盘后）
-scheduler.add_job(collect_tushare_historical, 'cron', hour=10, minute=33, id='tushare_historical')
+scheduler.add_job(collect_tushare_historical, 'cron', hour='10', minute='12', id='tushare_historical')
 
 # 每隔5分钟采集一次Tushare实时行情----由于tushare对普通会员，一小时只能调用1次，所以暂时不启用
 #scheduler.add_job(collect_tushare_realtime, 'interval', minutes=5, id='tushare_realtime')
@@ -172,8 +172,8 @@ scheduler.add_job(
     collect_akshare_index_realtime,
     'cron',
     day_of_week='mon-fri',
-    hour='9-10,11,13-16',
-    minute='0,30',
+    hour='9-11,13-16',
+    minute='59',
     id='akshare_index_realtime',
 )
 

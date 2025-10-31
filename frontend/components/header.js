@@ -41,6 +41,7 @@ function initUserMenu() {
     const userStatus = document.getElementById('userStatus');
     const userDropdown = document.getElementById('userDropdown');
     const menuLogout = document.getElementById('menuLogout');
+    const menuChangePassword = document.getElementById('menuChangePassword');
     
     console.log('DOM元素检查:');
     console.log('- userMenu:', userMenu);
@@ -86,6 +87,15 @@ function initUserMenu() {
                 }
             });
             
+            // 绑定“修改密码”事件
+            if (menuChangePassword) {
+                menuChangePassword.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    openChangePasswordModal();
+                });
+            }
+
             // 绑定退出登录事件
             if (menuLogout) {
                 menuLogout.addEventListener('click', function(e) {
@@ -293,3 +303,112 @@ window.toggleUserDropdown = toggleUserDropdown;
 window.openUserDropdown = openUserDropdown;
 window.closeUserDropdown = closeUserDropdown;
 window.handleLogout = handleLogout; 
+
+// ===== 修改密码弹窗逻辑 =====
+function getChangePasswordElements() {
+    return {
+        modal: document.getElementById('changePasswordModal'),
+        form: document.getElementById('changePasswordForm'),
+        oldInput: document.getElementById('oldPassword'),
+        newInput: document.getElementById('newPassword'),
+        confirmInput: document.getElementById('confirmPassword'),
+        cancelBtn: document.getElementById('cpCancelBtn'),
+        submitBtn: document.getElementById('cpSubmitBtn')
+    };
+}
+
+function openChangePasswordModal() {
+    const { modal, cancelBtn, submitBtn } = getChangePasswordElements();
+    if (!modal) return;
+    modal.style.display = 'flex';
+    // 绑定一次性事件
+    if (cancelBtn) cancelBtn.onclick = closeChangePasswordModal;
+    if (submitBtn) submitBtn.onclick = submitChangePassword;
+    // 点击遮罩关闭
+    modal.onclick = (e) => {
+        if (e.target === modal) closeChangePasswordModal();
+    };
+}
+
+function closeChangePasswordModal() {
+    const { modal, form } = getChangePasswordElements();
+    if (!modal) return;
+    modal.style.display = 'none';
+    if (form) form.reset();
+}
+
+function validateChangePassword(oldPwd, newPwd, confirmPwd) {
+    if (!oldPwd || !newPwd || !confirmPwd) {
+        showToast('请完整填写所有字段', 'error');
+        return false;
+    }
+    if (newPwd.length < 6) {
+        showToast('新密码至少需要6位', 'error');
+        return false;
+    }
+    if (newPwd === oldPwd) {
+        showToast('新密码不能与旧密码相同', 'error');
+        return false;
+    }
+    if (newPwd !== confirmPwd) {
+        showToast('两次输入的新密码不一致', 'error');
+        return false;
+    }
+    return true;
+}
+
+async function submitChangePassword() {
+    const { oldInput, newInput, confirmInput, submitBtn } = getChangePasswordElements();
+    const oldPwd = oldInput ? oldInput.value.trim() : '';
+    const newPwd = newInput ? newInput.value.trim() : '';
+    const confirmPwd = confirmInput ? confirmInput.value.trim() : '';
+
+    if (!validateChangePassword(oldPwd, newPwd, confirmPwd)) return;
+
+    // 禁用按钮避免重复提交
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = '提交中...';
+    }
+
+    try {
+        const baseUrl = (typeof API_BASE_URL !== 'undefined' && API_BASE_URL) ? API_BASE_URL : '';
+        // 后端实际接口：PUT /api/users/me/password（查询参数 old_password/new_password）
+        const url = `${baseUrl}/api/users/me/password?old_password=${encodeURIComponent(oldPwd)}&new_password=${encodeURIComponent(newPwd)}`;
+
+        const reqInit = {
+            method: 'PUT'
+        };
+
+        // 优先使用带自动401处理的 authFetch
+        const resp = (typeof authFetch === 'function')
+            ? await authFetch(url, reqInit)
+            : await fetch(url, {
+                ...reqInit,
+                headers: {
+                    Authorization: `Bearer ${localStorage.getItem('access_token') || ''}`
+                }
+            });
+
+        const data = await resp.json().catch(() => ({}));
+        if (resp.ok || data.success) {
+            showToast('密码修改成功', 'success');
+            closeChangePasswordModal();
+        } else {
+            const msg = data.message || '密码修改失败';
+            showToast(msg, 'error');
+        }
+    } catch (err) {
+        console.error('修改密码请求失败:', err);
+        showToast('网络错误，请稍后重试', 'error');
+    } finally {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = '确定';
+        }
+    }
+}
+
+// 导出弹窗相关函数（可用于调试）
+window.openChangePasswordModal = openChangePasswordModal;
+window.closeChangePasswordModal = closeChangePasswordModal;

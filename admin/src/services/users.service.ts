@@ -42,6 +42,14 @@ export class UsersService {
     return apiService.delete<{ message: string }>(`/users/${userId}`)
   }
 
+  async changePassword(userId: number, newPassword: string): Promise<{ message: string }> {
+    return apiService.put<{ message: string }>(`/users/${userId}/password`, { new_password: newPassword })
+  }
+
+  async resetPassword(userId: number): Promise<{ message: string; default: string }> {
+    return apiService.post<{ message: string; default: string }>(`/users/${userId}/password/reset`, {})
+  }
+
   async getUserStats(): Promise<{
     total: number
     active: number

@@ -22,6 +22,10 @@ class UsersResponse(BaseModel):
     page: int
     pageSize: int
 
+class ChangePasswordRequest(BaseModel):
+    """管理员修改用户密码请求体"""
+    new_password: str
+
 @router.get("", response_model=UsersResponse)
 async def get_users(
     skip: int = Query(0, ge=0),
@@ -156,6 +160,52 @@ async def delete_user(
     db.commit()
     
     return {"message": "用户删除成功"}
+
+@router.put("/{user_id}/password")
+async def change_user_password(
+    user_id: int,
+    body: ChangePasswordRequest,
+    current_user = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """管理员直接修改指定用户密码"""
+    db_user = db.query(User).filter(User.id == user_id).first()
+    if not db_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="用户不存在"
+        )
+
+    if not body.new_password or len(body.new_password) < 6:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="新密码长度不能少于6位"
+        )
+
+    db_user.password_hash = get_password_hash(body.new_password)
+    db.commit()
+
+    return {"message": "密码修改成功"}
+
+@router.post("/{user_id}/password/reset")
+async def reset_user_password(
+    user_id: int,
+    current_user = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """管理员重置指定用户密码为系统默认值"""
+    DEFAULT_PASSWORD = "bingfengtang$91"
+    db_user = db.query(User).filter(User.id == user_id).first()
+    if not db_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="用户不存在"
+        )
+
+    db_user.password_hash = get_password_hash(DEFAULT_PASSWORD)
+    db.commit()
+
+    return {"message": "密码已重置为默认值", "default": DEFAULT_PASSWORD}
 
 @router.get("/stats")
 async def get_user_stats(

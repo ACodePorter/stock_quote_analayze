@@ -61,18 +61,57 @@ class RealtimeIndexSpotAkCollector:
         session = None
         try:
             session = self._init_db()
-            # 1: 沪深重要指数
-            df1 = ak.stock_zh_index_spot_em(symbol="沪深重要指数")
-            df1['index_spot_type'] = 1
-            # 2: 上证系列指数
-            df2 = ak.stock_zh_index_spot_em(symbol="上证系列指数")
-            df2['index_spot_type'] = 2
-            # 3: 深证系列指数
-            df3 = ak.stock_zh_index_spot_em(symbol="深证系列指数")
-            df3['index_spot_type'] = 3
-            df = pd.concat([df1, df2, df3], ignore_index=True)
-            # 去重
-            df = df.drop_duplicates(subset=['代码'], keep='first')
+            # 优先尝试用原来的接口
+            try:
+                # 1: 沪深重要指数
+                df1 = ak.stock_zh_index_spot_em(symbol="沪深重要指数")
+                df1['index_spot_type'] = 1
+                # 2: 上证系列指数
+                df2 = ak.stock_zh_index_spot_em(symbol="上证系列指数")
+                df2['index_spot_type'] = 2
+                # 3: 深证系列指数
+                df3 = ak.stock_zh_index_spot_em(symbol="深证系列指数")
+                df3['index_spot_type'] = 3
+                df = pd.concat([df1, df2, df3], ignore_index=True)
+                # 去重
+                df = df.drop_duplicates(subset=['代码'], keep='first')
+            except Exception as e:
+                self.logger.warning(f"akshare官网指数数据接口失败，原因：{e}，尝试调用新浪接口。")
+                df = None  # 初始化df，防止未定义
+                try:
+                    # 使用新浪指数接口
+                    df = ak.stock_zh_index_spot_sina()
+                    # 验证返回的数据是否有效
+                    if df is None:
+                        raise ValueError("新浪接口返回None")
+                    if df.empty:
+                        raise ValueError("新浪接口返回空数据")
+                    # 检查必要的列是否存在
+                    required_columns = ['代码', '名称', '最新价', '涨跌额', '涨跌幅', '今开', '昨收', '最高', '最低', '成交量', '成交额']
+                    missing_columns = [col for col in required_columns if col not in df.columns]
+                    if missing_columns:
+                        raise ValueError(f"新浪接口返回数据缺少必要列: {missing_columns}")
+                    # Sina接口没有index_spot_type，需标注类型（比如全部为0），或者根据"名称"映射
+                    def get_index_spot_type(name):
+                        if any(x in name for x in ['上证', '科创', 'ＳＴＡＲ', 'ＳＥＥ', 'ＳＨＥ', 'Ｓ０', '５０', '１８０', '３８０']): 
+                            return 2  # 上证系列
+                        if any(x in name for x in ['深证', '创业', 'ＣＮ', '１００', '新', 'Ａ股', 'Ｂ股']): 
+                            return 3  # 深证系列
+                        if any(x in name for x in ['沪深', '中证', '全指', '基金指数', '综合', '红利']): 
+                            return 1  # 沪深重要指数
+                        return 0   # 其他
+                    df['index_spot_type'] = df['名称'].map(get_index_spot_type)
+                    df = df.drop_duplicates(subset=['代码'], keep='first')
+                    self.logger.info("成功使用新浪接口获取指数数据")
+                except Exception as sina_e:
+                    self.logger.error(f"新浪指数接口也失败，原因：{sina_e}")
+                    df = None  # 确保df为None
+                    raise Exception(f"所有指数数据接口均失败。官网接口错误：{e}，新浪接口错误：{sina_e}")
+            
+            # 验证 df 是否有效，防止后续处理 None 或空数据
+            if df is None or df.empty:
+                raise ValueError("未能获取有效的指数数据")
+                
             df['collect_time'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             df['update_time'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             affected_rows = 0
@@ -103,11 +142,22 @@ class RealtimeIndexSpotAkCollector:
                         index_spot_type = EXCLUDED.index_spot_type
                 '''), 
                 {'code': row['代码'], 'name': row['名称'], 'price': row['最新价'], 'change': row['涨跌额'], 'pct_chg': row['涨跌幅'], 'open': row['今开'], 'pre_close': row['昨收'],
-                    'high': row['最高'], 'low': row['最低'], 'volume': row['成交量'], 'amount': row['成交额'], 'amplitude': row['振幅'], 
-                    'volume_ratio': row['量比'], 'update_time': row['update_time'], 'collect_time': row['collect_time'], 'index_spot_type': row['index_spot_type']
+                    'high': row['最高'],
+                    'low': row['最低'],
+                    'volume': row['成交量'],
+                    'amount': row['成交额'],
+                    # 如果数据来源为新浪，振幅需要系统计算
+                    'amplitude': (row['最高'] - row['最低']) / row['昨收'] * 100 if '振幅' not in row or pd.isnull(row['振幅']) else row['振幅'],
+                    # 对于新浪数据，量比需要系统自行计算（假设为1，或用合适的算法替代）
+                    'volume_ratio': row['量比'] if '量比' in row and not pd.isnull(row['量比']) else 1,  # 如果量比不存在，则设置为1
+                    'update_time': row['update_time'],
+                    'collect_time': row['collect_time'],
+                    'index_spot_type': row['index_spot_type']
                 })
                 affected_rows += 1
             # 记录操作日志
+            # 安全获取df的长度，防止df为None
+            df_len = len(df) if df is not None and not df.empty else 0
             session.execute(text('''
                 INSERT INTO realtime_collect_operation_logs 
                 (operation_type, operation_desc, affected_rows, status, error_message, created_at)
@@ -117,7 +167,7 @@ class RealtimeIndexSpotAkCollector:
             '''), 
             {
                 'operation_type': 'index_realtime_quote_collect',
-                'operation_desc': f'采集并更新{len(df)}条指数实时行情数据',
+                'operation_desc': f'采集并更新{df_len}条指数实时行情数据',
                 'affected_rows': affected_rows,
                 'status': 'success',
                 'error_message': None,
