@@ -43,16 +43,47 @@ const NewsChannel = {
         try {
             const headerContainer = document.getElementById('header-container');
             if (headerContainer) {
-                // 动态加载头部组件
+                // 动态加载头部组件HTML
                 const response = await fetch('components/header.html');
                 if (response.ok) {
                     const headerHtml = await response.text();
                     headerContainer.innerHTML = headerHtml;
                     
-                    // 初始化头部功能
-                    if (typeof loadHeader === 'function') {
-                        loadHeader('news');
-                    }
+                    // 等待DOM更新后初始化头部功能
+                    setTimeout(() => {
+                        // 高亮当前频道
+                        const nav = document.getElementById('nav-news');
+                        if (nav) {
+                            nav.classList.add('active');
+                        }
+                        
+                        // 初始化用户菜单
+                        if (typeof initUserMenu === 'function') {
+                            initUserMenu();
+                        }
+                        
+                        // 初始化股票搜索功能
+                        if (typeof initStockSearch === 'function') {
+                            initStockSearch();
+                        } else {
+                            console.warn('initStockSearch函数未找到，等待header.js加载');
+                            // 等待header.js加载完成
+                            const checkInterval = setInterval(() => {
+                                if (typeof initStockSearch === 'function') {
+                                    initStockSearch();
+                                    clearInterval(checkInterval);
+                                }
+                            }, 100);
+                            
+                            // 5秒后停止检查
+                            setTimeout(() => clearInterval(checkInterval), 5000);
+                        }
+                        
+                        // 更新用户显示
+                        if (window.CommonUtils && window.CommonUtils.auth) {
+                            CommonUtils.auth.updateUserDisplay(CommonUtils.auth.getUserInfo());
+                        }
+                    }, 100);
                 }
             }
         } catch (error) {

@@ -547,6 +547,77 @@ const CommonUtils = {
         
         // 注意：这个测试会实际跳转到登录页面
         return result;
+    },
+    
+    // 股票搜索工具函数（优先使用localStorage缓存）
+    stockSearch: {
+        // 搜索股票（优先使用缓存）
+        search: async function(keyword, limit = 20) {
+            if (!keyword || !keyword.trim()) {
+                return [];
+            }
+            
+            const trimmedKeyword = keyword.trim().toLowerCase();
+            
+            // 优先使用localStorage缓存
+            const cached = localStorage.getItem('stockBasicInfo');
+            if (cached) {
+                try {
+                    const stocks = JSON.parse(cached);
+                    const results = stocks.filter(stock => {
+                        const code = String(stock.code || '').toLowerCase();
+                        const name = (stock.name || '').toLowerCase();
+                        return code.includes(trimmedKeyword) || name.includes(trimmedKeyword);
+                    }).slice(0, limit);
+                    
+                    console.log(`从本地缓存搜索到 ${results.length} 条结果`);
+                    return results;
+                } catch (error) {
+                    console.error('解析本地缓存失败:', error);
+                    // 继续使用API搜索
+                }
+            }
+            
+            // 降级：调用API搜索
+            try {
+                const API_BASE_URL = (typeof window.API_BASE_URL !== 'undefined' && window.API_BASE_URL) 
+                    ? window.API_BASE_URL 
+                    : (typeof Config !== 'undefined' && Config.getApiBaseUrl) 
+                        ? Config.getApiBaseUrl() 
+                        : 'http://192.168.31.237:5000';
+                
+                const url = `${API_BASE_URL}/api/stock/list?query=${encodeURIComponent(keyword)}&limit=${limit}`;
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (data.success && data.data) {
+                    console.log(`从API搜索到 ${data.data.length} 条结果`);
+                    return data.data;
+                }
+            } catch (error) {
+                console.error('API搜索失败:', error);
+            }
+            
+            return [];
+        },
+        
+        // 获取所有股票信息（从缓存）
+        getAllStocks: function() {
+            const cached = localStorage.getItem('stockBasicInfo');
+            if (cached) {
+                try {
+                    return JSON.parse(cached);
+                } catch (error) {
+                    console.error('解析股票缓存失败:', error);
+                }
+            }
+            return [];
+        },
+        
+        // 检查是否有缓存
+        hasCache: function() {
+            return !!localStorage.getItem('stockBasicInfo');
+        }
     }
 };
 

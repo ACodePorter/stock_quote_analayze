@@ -194,12 +194,50 @@ const LoginPage = {
             localStorage.removeItem('rememberedUsername');
         }
 
+        // 登录成功后加载股票参数信息
+        this.loadStockBasicInfo();
+
         this.showToast(`登录成功，欢迎回来！`, 'success');
 
         // 延迟跳转到首页
         setTimeout(() => {
             window.location.href = 'index.html';
         }, 1500);
+    },
+
+    // 加载股票基本信息（用于搜索功能）
+    async loadStockBasicInfo() {
+        try {
+            console.log('开始加载股票基本信息...');
+            const API_BASE_URL = this.getApiBaseUrl();
+            const url = `${API_BASE_URL}/api/stock/basic-info/all`;
+            
+            // 使用authFetch如果可用，否则使用fetch
+            const fetchFn = (typeof authFetch === 'function') 
+                ? authFetch 
+                : (url, options) => {
+                    const token = localStorage.getItem('access_token');
+                    const headers = options?.headers || {};
+                    if (token) {
+                        headers['Authorization'] = 'Bearer ' + token;
+                    }
+                    return fetch(url, { ...options, headers });
+                };
+            
+            const response = await fetchFn(url);
+            const data = await response.json();
+            
+            if (data.success && data.data) {
+                localStorage.setItem('stockBasicInfo', JSON.stringify(data.data));
+                console.log(`✅ 成功加载 ${data.data.length} 条股票信息到localStorage`);
+            } else {
+                console.warn('加载股票信息失败:', data.message || '未知错误');
+                // 失败不影响登录流程，搜索时会降级使用API
+            }
+        } catch (error) {
+            console.error('加载股票信息异常:', error);
+            // 失败不影响登录流程，搜索时会降级使用API
+        }
     },
 
     // 播放登录成功动画

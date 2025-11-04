@@ -196,8 +196,14 @@ class TradingRecommendation:
     """交易建议类"""
     
     @staticmethod
-    def generate_recommendation(historical_data: List[Dict], current_price: float) -> Dict:
-        """生成交易建议"""
+    def generate_recommendation(historical_data: List[Dict], current_price: float, price_prediction: Dict = None) -> Dict:
+        """生成交易建议
+        
+        Args:
+            historical_data: 历史数据
+            current_price: 当前价格
+            price_prediction: 价格预测结果（可选），包含target_price和change_percent
+        """
         if len(historical_data) < 20:
             return {
                 "action": "hold",
@@ -221,8 +227,8 @@ class TradingRecommendation:
         # 分析信号
         signals = TradingRecommendation._analyze_signals(rsi, macd, kdj, bb, current_price, volumes)
         
-        # 生成建议
-        recommendation = TradingRecommendation._generate_action(signals)
+        # 生成建议（考虑价格预测）
+        recommendation = TradingRecommendation._generate_action(signals, price_prediction)
         
         return recommendation
     
@@ -286,20 +292,74 @@ class TradingRecommendation:
         return signals
     
     @staticmethod
-    def _generate_action(signals: Dict) -> Dict:
-        """根据信号生成交易建议"""
+    def _generate_action(signals: Dict, price_prediction: Dict = None) -> Dict:
+        """根据信号生成交易建议，考虑价格预测
+        
+        Args:
+            signals: 技术指标信号
+            price_prediction: 价格预测结果（可选）
+        """
         bullish_count = signals["bullish"]
         bearish_count = signals["bearish"]
         
-        if bullish_count > bearish_count and bullish_count >= 3:
+        # 如果有价格预测，根据预测结果调整建议
+        prediction_adjustment = 0
+        prediction_warning = None
+        
+        if price_prediction:
+            change_percent = price_prediction.get('change_percent', 0)
+            confidence = price_prediction.get('confidence', 0)
+            
+            # 如果预测跌幅超过15%，强烈看空
+            if change_percent < -15:
+                prediction_adjustment = -3
+                prediction_warning = f"价格预测显示未来30天可能下跌{abs(change_percent):.1f}%，建议谨慎"
+            # 如果预测跌幅超过10%，看空
+            elif change_percent < -10:
+                prediction_adjustment = -2
+                prediction_warning = f"价格预测显示未来30天可能下跌{abs(change_percent):.1f}%，建议谨慎"
+            # 如果预测跌幅超过5%，轻微看空
+            elif change_percent < -5:
+                prediction_adjustment = -1
+                prediction_warning = f"价格预测显示未来30天可能下跌{abs(change_percent):.1f}%"
+            # 如果预测涨幅超过15%，强烈看多
+            elif change_percent > 15:
+                prediction_adjustment = 3
+            # 如果预测涨幅超过10%，看多
+            elif change_percent > 10:
+                prediction_adjustment = 2
+            # 如果预测涨幅超过5%，轻微看多
+            elif change_percent > 5:
+                prediction_adjustment = 1
+        
+        # 调整看多/看空计数
+        adjusted_bullish = bullish_count + prediction_adjustment
+        adjusted_bearish = bearish_count - prediction_adjustment
+        
+        # 根据调整后的信号生成建议
+        if adjusted_bullish > adjusted_bearish and adjusted_bullish >= 3:
             action = "buy"
-            strength = min(100, bullish_count * 25)
-        elif bearish_count > bullish_count and bearish_count >= 3:
+            strength = min(100, adjusted_bullish * 25)
+        elif adjusted_bearish > adjusted_bullish and adjusted_bearish >= 3:
             action = "sell"
-            strength = min(100, bearish_count * 25)
+            strength = min(100, adjusted_bearish * 25)
         else:
             action = "hold"
             strength = 50
+        
+        # 如果价格预测大幅下跌，但技术指标建议买入，强制改为持有或卖出
+        if price_prediction and price_prediction.get('change_percent', 0) < -15:
+            if action == "buy":
+                action = "hold"
+                strength = max(30, strength - 30)
+                if prediction_warning:
+                    signals["reasons"].insert(0, prediction_warning)
+            elif action == "hold":
+                signals["reasons"].insert(0, prediction_warning if prediction_warning else "价格预测显示大幅下跌风险")
+        
+        # 如果有价格预测警告，添加到理由中
+        if prediction_warning and prediction_warning not in signals["reasons"]:
+            signals["reasons"].append(prediction_warning)
         
         # 确定风险等级
         if strength >= 80:
@@ -660,8 +720,12 @@ class StockAnalysisService:
             # 价格预测
             price_prediction = PricePrediction.predict_price(historical_data)
             
-            # 交易建议
-            trading_recommendation = TradingRecommendation.generate_recommendation(historical_data, current_price)
+            # 交易建议（传入价格预测结果）
+            trading_recommendation = TradingRecommendation.generate_recommendation(
+                historical_data, 
+                current_price, 
+                price_prediction=price_prediction
+            )
             
             # 关键价位
             key_levels = KeyLevels.calculate_key_levels(historical_data, current_price)

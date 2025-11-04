@@ -116,6 +116,21 @@ async def get_stock_quote(request: Request):
         print(f"[stock_quote] 异常: {e}")
         return JSONResponse({"success": False, "message": str(e)}, status_code=500)
 
+# 获取所有股票基本信息（用于前端全局缓存）
+@router.get("/basic-info/all")
+async def get_all_stocks_basic_info(db: Session = Depends(get_db)):
+    """获取所有股票的基本信息（代码和名称），用于前端登录后全局缓存"""
+    print(f"[stock_basic_info_all] 收到请求: 获取所有股票信息")
+    try:
+        from models import StockBasicInfo
+        stocks = db.query(StockBasicInfo).all()
+        result = [{'code': str(s.code), 'name': s.name} for s in stocks]
+        print(f"[stock_basic_info_all] 返回数据: 共{len(result)}条股票信息")
+        return JSONResponse({'success': True, 'data': result, 'total': len(result)})
+    except Exception as e:
+        print(f"[stock_basic_info_all] 查询异常: {e}\n{traceback.format_exc()}")
+        return JSONResponse({'success': False, 'message': str(e)}, status_code=500)
+
 # 获取股票列表
 @router.get("/list")
 async def get_stocks_list(request: Request, db: Session = Depends(get_db)):
@@ -132,7 +147,7 @@ async def get_stocks_list(request: Request, db: Session = Depends(get_db)):
                 (StockBasicInfo.name.like(f"%{query}%"))
             )
         stocks = q.limit(limit).all()
-        result = [{'code': s.code, 'name': s.name} for s in stocks]
+        result = [{'code': str(s.code), 'name': s.name} for s in stocks]
         print(f"[stock_list] 返回数据: {result}")
         return JSONResponse({'success': True, 'data': result, 'total': len(result)})
     except Exception as e:

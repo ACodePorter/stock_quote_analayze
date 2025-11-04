@@ -24,6 +24,12 @@ async function loadHeader(activePage) {
         initUserMenu();
     }, 100);
     
+    // 延迟初始化股票搜索功能
+    setTimeout(() => {
+        console.log('开始初始化股票搜索功能...');
+        initStockSearch();
+    }, 100);
+    
     // 如果CommonUtils已经加载，让它重新初始化用户显示
     if (window.CommonUtils && window.CommonUtils.auth) {
         setTimeout(() => {
@@ -412,3 +418,343 @@ async function submitChangePassword() {
 // 导出弹窗相关函数（可用于调试）
 window.openChangePasswordModal = openChangePasswordModal;
 window.closeChangePasswordModal = closeChangePasswordModal;
+
+// ===== 股票搜索功能逻辑 =====
+let searchTimeout = null;
+let currentHighlightIndex = -1;
+let currentSearchResults = [];
+
+// 初始化股票搜索功能
+function initStockSearch() {
+    console.log('=== 开始初始化股票搜索功能 ===');
+    
+    const searchBtn = document.querySelector('.search-btn');
+    const searchModal = document.getElementById('stockSearchModal');
+    const searchInput = document.getElementById('stockSearchInput');
+    const searchCloseBtn = document.getElementById('stockSearchCloseBtn');
+    const searchClearBtn = document.getElementById('stockSearchClearBtn');
+    const searchResults = document.getElementById('stockSearchResults');
+    
+    if (!searchBtn || !searchModal || !searchInput) {
+        console.error('❌ 搜索相关元素未找到');
+        return;
+    }
+    
+    // 绑定搜索按钮点击事件
+    searchBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        openStockSearchModal();
+    });
+    
+    // 确保模态框初始状态是隐藏的
+    if (searchModal) {
+        searchModal.style.display = 'none';
+    }
+    
+    // 绑定关闭按钮事件
+    if (searchCloseBtn) {
+        searchCloseBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            closeStockSearchModal();
+        });
+    }
+    
+    // 绑定清除按钮事件
+    if (searchClearBtn) {
+        searchClearBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            searchInput.value = '';
+            searchInput.focus();
+            searchClearBtn.style.display = 'none';
+            renderSearchResults([]);
+        });
+    }
+    
+    // 绑定输入框输入事件（防抖）
+    searchInput.addEventListener('input', function(e) {
+        const keyword = e.target.value.trim();
+        
+        // 显示/隐藏清除按钮
+        if (searchClearBtn) {
+            searchClearBtn.style.display = keyword ? 'flex' : 'none';
+        }
+        
+        // 清除之前的定时器
+        if (searchTimeout) {
+            clearTimeout(searchTimeout);
+        }
+        
+        // 如果关键词为空，显示空状态
+        if (!keyword) {
+            renderSearchResults([]);
+            currentHighlightIndex = -1;
+            return;
+        }
+        
+        // 防抖处理，300ms后执行搜索
+        searchTimeout = setTimeout(() => {
+            performStockSearch(keyword);
+        }, 300);
+    });
+    
+    // 绑定键盘事件
+    searchInput.addEventListener('keydown', function(e) {
+        handleSearchKeydown(e);
+    });
+    
+    // 点击遮罩关闭模态框（注意：不要点击模态框内容区域关闭）
+    if (searchModal) {
+        searchModal.addEventListener('click', function(e) {
+            // 只有点击遮罩层本身（不是子元素）时才关闭
+            if (e.target === searchModal) {
+                closeStockSearchModal();
+            }
+        });
+    }
+    
+    // 阻止模态框内容区域的点击事件冒泡到遮罩层
+    const modalContent = searchModal ? searchModal.querySelector('.stock-search-modal-content') : null;
+    if (modalContent) {
+        modalContent.addEventListener('click', function(e) {
+            e.stopPropagation();
+        });
+    }
+    
+    console.log('✅ 股票搜索功能初始化完成');
+}
+
+// 打开股票搜索模态框
+function openStockSearchModal() {
+    const searchModal = document.getElementById('stockSearchModal');
+    const searchInput = document.getElementById('stockSearchInput');
+    
+    if (searchModal && searchInput) {
+        // 显示模态框
+        searchModal.style.display = 'flex';
+        searchModal.style.visibility = 'visible';
+        
+        searchInput.value = '';
+        // 延迟聚焦，确保模态框完全显示后再聚焦
+        setTimeout(() => {
+            searchInput.focus();
+        }, 100);
+        
+        currentHighlightIndex = -1;
+        currentSearchResults = [];
+        renderSearchResults([]);
+        
+        // 隐藏清除按钮
+        const searchClearBtn = document.getElementById('stockSearchClearBtn');
+        if (searchClearBtn) {
+            searchClearBtn.style.display = 'none';
+        }
+        
+        console.log('股票搜索模态框已打开');
+    }
+}
+
+// 关闭股票搜索模态框
+function closeStockSearchModal() {
+    const searchModal = document.getElementById('stockSearchModal');
+    const searchInput = document.getElementById('stockSearchInput');
+    const searchClearBtn = document.getElementById('stockSearchClearBtn');
+    
+    if (searchModal) {
+        // 强制隐藏模态框
+        searchModal.style.display = 'none';
+        searchModal.style.visibility = 'hidden';
+        
+        if (searchInput) {
+            searchInput.value = '';
+            searchInput.blur(); // 移除焦点
+        }
+        
+        if (searchClearBtn) {
+            searchClearBtn.style.display = 'none';
+        }
+        
+        currentHighlightIndex = -1;
+        currentSearchResults = [];
+        
+        // 清除搜索定时器
+        if (searchTimeout) {
+            clearTimeout(searchTimeout);
+            searchTimeout = null;
+        }
+        
+        console.log('股票搜索模态框已关闭');
+    }
+}
+
+// 执行股票搜索
+async function performStockSearch(keyword) {
+    if (!keyword) {
+        renderSearchResults([]);
+        return;
+    }
+    
+    const searchResults = document.getElementById('stockSearchResults');
+    if (searchResults) {
+        searchResults.innerHTML = '<div class="stock-search-loading">搜索中...</div>';
+    }
+    
+    try {
+        // 优先使用localStorage缓存
+        const cached = localStorage.getItem('stockBasicInfo');
+        let results = [];
+        
+        if (cached) {
+            // 使用本地缓存搜索
+            const stocks = JSON.parse(cached);
+            const lowerKeyword = keyword.toLowerCase();
+            results = stocks.filter(stock => {
+                const code = String(stock.code).toLowerCase();
+                const name = stock.name ? stock.name.toLowerCase() : '';
+                return code.includes(lowerKeyword) || name.includes(lowerKeyword);
+            }).slice(0, 20);
+            
+            console.log(`从本地缓存搜索到 ${results.length} 条结果`);
+        } else {
+            // 降级：调用API搜索
+            const API_BASE_URL = (typeof window.API_BASE_URL !== 'undefined' && window.API_BASE_URL) 
+                ? window.API_BASE_URL 
+                : (typeof Config !== 'undefined' && Config.getApiBaseUrl) 
+                    ? Config.getApiBaseUrl() 
+                    : 'http://192.168.31.237:5000';
+            
+            const url = `${API_BASE_URL}/api/stock/list?query=${encodeURIComponent(keyword)}&limit=20`;
+            const response = await fetch(url);
+            const data = await response.json();
+            
+            if (data.success && data.data) {
+                results = data.data;
+                console.log(`从API搜索到 ${results.length} 条结果`);
+            } else {
+                console.error('搜索API返回错误:', data);
+            }
+        }
+        
+        currentSearchResults = results;
+        currentHighlightIndex = -1;
+        renderSearchResults(results);
+        
+    } catch (error) {
+        console.error('搜索失败:', error);
+        if (searchResults) {
+            searchResults.innerHTML = '<div class="stock-search-empty">搜索失败，请稍后重试</div>';
+        }
+    }
+}
+
+// 渲染搜索结果
+function renderSearchResults(results) {
+    const searchResults = document.getElementById('stockSearchResults');
+    if (!searchResults) return;
+    
+    if (results.length === 0) {
+        searchResults.innerHTML = '<div class="stock-search-empty">未找到相关股票</div>';
+        return;
+    }
+    
+    const html = results.map((stock, index) => {
+        const code = stock.code || '';
+        const name = stock.name || '';
+        return `
+            <div class="stock-search-result-item" data-index="${index}" data-code="${code}" data-name="${encodeURIComponent(name)}">
+                <span class="stock-search-result-icon">📊</span>
+                <div class="stock-search-result-info">
+                    <span class="stock-search-result-code">${code}</span>
+                    <span class="stock-search-result-name">${name}</span>
+                </div>
+            </div>
+        `;
+    }).join('');
+    
+    searchResults.innerHTML = html;
+    
+    // 绑定点击事件
+    const resultItems = searchResults.querySelectorAll('.stock-search-result-item');
+    resultItems.forEach((item, index) => {
+        item.addEventListener('click', function() {
+            const code = this.getAttribute('data-code');
+            const name = decodeURIComponent(this.getAttribute('data-name') || '');
+            navigateToStock(code, name);
+        });
+    });
+    
+    // 更新高亮
+    updateHighlight();
+}
+
+// 处理键盘事件
+function handleSearchKeydown(e) {
+    const { key } = e;
+    
+    switch (key) {
+        case 'Escape':
+            e.preventDefault();
+            closeStockSearchModal();
+            break;
+            
+        case 'ArrowDown':
+            e.preventDefault();
+            if (currentHighlightIndex < currentSearchResults.length - 1) {
+                currentHighlightIndex++;
+                updateHighlight();
+            }
+            break;
+            
+        case 'ArrowUp':
+            e.preventDefault();
+            if (currentHighlightIndex > 0) {
+                currentHighlightIndex--;
+                updateHighlight();
+            }
+            break;
+            
+        case 'Enter':
+            e.preventDefault();
+            if (currentHighlightIndex >= 0 && currentHighlightIndex < currentSearchResults.length) {
+                const stock = currentSearchResults[currentHighlightIndex];
+                navigateToStock(stock.code, stock.name);
+            } else if (currentSearchResults.length > 0) {
+                // 如果没有高亮，选择第一个结果
+                const stock = currentSearchResults[0];
+                navigateToStock(stock.code, stock.name);
+            }
+            break;
+    }
+}
+
+// 更新高亮状态
+function updateHighlight() {
+    const searchResults = document.getElementById('stockSearchResults');
+    if (!searchResults) return;
+    
+    const items = searchResults.querySelectorAll('.stock-search-result-item');
+    items.forEach((item, index) => {
+        if (index === currentHighlightIndex) {
+            item.classList.add('highlight');
+            // 滚动到可见区域
+            item.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        } else {
+            item.classList.remove('highlight');
+        }
+    });
+}
+
+// 跳转到股票详情页
+function navigateToStock(code, name) {
+    if (!code) return;
+    
+    const encodedName = encodeURIComponent(name || '');
+    const url = `stock.html?code=${code}&name=${encodedName}`;
+    window.location.href = url;
+}
+
+// 导出搜索相关函数
+window.openStockSearchModal = openStockSearchModal;
+window.closeStockSearchModal = closeStockSearchModal;
+window.initStockSearch = initStockSearch;

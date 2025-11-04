@@ -4,6 +4,7 @@ import sys
 import os
 import pandas as pd
 import akshare as ak
+import yfinance as yf
 
 # 假设stock_individual_info_em函数在backend_core/data_collectors/akshare/stock_individual_info_em.py中
 # 为了便于测试，临时加入backend_core到sys.path
@@ -55,6 +56,15 @@ def main():
     df = ak.stock_board_industry_name_em()
     print("行业板块名称数据获取成功，内容如下：")
     print(df)
+
+
+    dat = yf.Ticker("SH601127")
+    print(dat.info)
+    print(dat.calendar)
+    print(dat.analyst_price_targets)
+    print(dat.quarterly_income_stmt)
+    print(dat.history(period='1mo'))
+    print(dat.option_chain(dat.options[0]).calls)
 
 if __name__ == "__main__":
     main()
