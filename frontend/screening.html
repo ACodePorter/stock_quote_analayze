@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>选股 - 股票分析</title>
+    <link rel="stylesheet" href="css/common.css">
+    <link rel="stylesheet" href="css/screening.css">
+</head>
+<body>
+    <div id="header-container"></div>
+    
+    <main class="screening-container">
+        <div class="screening-header">
+            <h1>创业板中线选股策略</h1>
+            <p class="strategy-description">基于技术分析的智能选股策略</p>
+        </div>
+        
+        <div class="strategy-info-card">
+            <h2>策略说明</h2>
+            <ul class="strategy-conditions">
+                <li><strong>股票范围：</strong>创业板股票（代码以3开头）</li>
+                <li><strong>时间范围：</strong>最近3-4个月的历史数据</li>
+                <li><strong>选股条件：</strong></li>
+                <li class="condition-item">1. 起始一个涨停（涨幅≥9.8%）</li>
+                <li class="condition-item">2. 第一次回调不跌穿涨停底部</li>
+                <li class="condition-item">3. 第二次上涨突破第一个涨停高点</li>
+                <li class="condition-item">4. 中间包含向上跳空和揉搓线指标</li>
+                <li class="condition-item">5. 当前均线多头排列（MA5 > MA10 > MA20）</li>
+            </ul>
+        </div>
+        
+        <div class="screening-actions">
+            <button id="refreshBtn" class="refresh-btn">刷新筛选</button>
+            <span id="searchDate" class="search-date"></span>
+        </div>
+        
+        <div id="loadingIndicator" class="loading-indicator" style="display:none;">
+            <div class="spinner"></div>
+            <span>正在筛选股票，请稍候...</span>
+        </div>
+        
+        <div id="errorMessage" class="error-message" style="display:none;"></div>
+        
+        <div id="resultsContainer" class="results-container">
+            <div class="results-header">
+                <span id="resultsCount" class="results-count">共找到 0 只符合条件的股票</span>
+            </div>
+            <div id="resultsTable" class="results-table-wrapper">
+                <table class="results-table">
+                    <thead>
+                        <tr>
+                            <th>股票代码</th>
+                            <th>股票名称</th>
+                            <th>涨停日期</th>
+                            <th>涨停价格</th>
+                            <th>突破日期</th>
+                            <th>突破价格</th>
+                            <th>当前价格</th>
+                            <th>当前涨跌幅</th>
+                            <th>MA5</th>
+                            <th>MA10</th>
+                            <th>MA20</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="resultsTableBody">
+                        <tr>
+                            <td colspan="12" class="empty-state">点击"刷新筛选"按钮开始筛选</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+    
+    <script src="js/config.js"></script>
+    <script src="js/common.js"></script>
+    <script src="components/header.js"></script>
+    <script src="js/screening.js"></script>
+</body>
+</html>
+
+
