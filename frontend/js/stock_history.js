@@ -444,7 +444,8 @@ class StockHistoryPage {
                 body: JSON.stringify({
                     stock_code: this.currentStockCode,
                     start_date: startDate,
-                    end_date: extendedEndDate
+                    end_date: endDate,  // 传递原始结束日期，后端会自动扩展查询范围
+                    extended_end_date: extendedEndDate  // 扩展后的结束日期用于查询
                 })
             });
 
@@ -454,10 +455,11 @@ class StockHistoryPage {
             }
 
             const result = await response.json();
+            
+            // 重新查询数据以显示最新结果（先刷新，再提示）
+            await this.searchHistory();
+            
             alert(`计算完成！\n${result.message}\n更新记录数: ${result.updated_count}\n注意：结束日期已自动延长60个工作日以确保完整计算`);
-
-            // 重新查询数据以显示最新结果
-            this.searchHistory();
 
         } catch (error) {
             console.error('计算60天涨跌失败:', error);

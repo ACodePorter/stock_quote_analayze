@@ -432,4 +432,10 @@ class DataCollectionStatus(BaseModel):
     start_time: datetime
     end_time: Optional[datetime] = None
     error_message: Optional[str] = None
-    failed_details: List[str] = [] 
+    failed_details: List[str] = []
+
+class TushareHistoricalCollectionRequest(BaseModel):
+    """TuShare历史数据采集请求模型"""
+    start_date: str
+    end_date: str
+    force_update: bool = False  # 强制更新：如果已存在数据，先删除后插入 

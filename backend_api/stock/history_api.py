@@ -24,6 +24,7 @@ class CalculateFiveDayChangeRequest(BaseModel):
     stock_code: str
     start_date: str
     end_date: str
+    extended_end_date: Optional[str] = None  # 扩展后的结束日期（用于60天涨跌计算）
 
 def format_date_yyyymmdd(date_str: Optional[str]) -> Optional[str]:
     if not date_str:
@@ -758,10 +759,14 @@ def calculate_sixty_day_change(
         start_date_fmt = format_date_yyyymmdd(request.start_date)
         end_date_fmt = format_date_yyyymmdd(request.end_date)
         
+        # 如果提供了扩展后的结束日期，使用它来扩展查询范围
+        # 但只更新原始日期范围内的记录
+        query_end_date = format_date_yyyymmdd(request.extended_end_date) if request.extended_end_date else end_date_fmt
+        
         if not start_date_fmt or not end_date_fmt:
             raise HTTPException(status_code=400, detail="日期格式无效")
         
-        print(f"[calculate_sixty_day_change] 开始计算股票 {request.stock_code} 在 {start_date_fmt} 到 {end_date_fmt} 期间的60天涨跌%")
+        print(f"[calculate_sixty_day_change] 开始计算股票 {request.stock_code} 在 {start_date_fmt} 到 {end_date_fmt} 期间的60天涨跌%（查询范围扩展到 {query_end_date}）")
         
         # 为了确保最后60条记录也能计算60天涨跌%，需要查询更早的数据
         # 计算开始日期前60个工作日的数据
@@ -779,7 +784,7 @@ def calculate_sixty_day_change(
         result = db.execute(text(extended_query), {
             "stock_code": request.stock_code,
             "extended_start_date": extended_start_date,
-            "end_date": end_date_fmt
+            "end_date": query_end_date  # 使用扩展后的结束日期进行查询
         })
         
         quotes = result.fetchall()
@@ -793,7 +798,7 @@ def calculate_sixty_day_change(
             current_quote = quotes[i]
             prev_quote = quotes[i-60]  # 60天前的数据
             
-            # 只更新用户指定日期范围内的记录
+            # 只更新用户指定原始日期范围内的记录（不使用扩展后的日期）
             if current_quote.date >= start_date_fmt and current_quote.date <= end_date_fmt:
                 if current_quote.close and prev_quote.close and prev_quote.close > 0:
                     sixty_day_change = ((current_quote.close - prev_quote.close) / prev_quote.close) * 100

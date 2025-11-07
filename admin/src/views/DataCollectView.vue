@@ -14,13 +14,16 @@
       </div>
     </div>
 
-    <!-- 数据采集功能 -->
-    <el-card class="mb-8">
-      <div class="text-center mb-8">
-        <el-icon class="text-6xl text-gray-400 mb-4"><DataAnalysis /></el-icon>
-        <h2 class="text-2xl font-bold text-gray-900 mb-2">历史数据采集</h2>
-        <p class="text-gray-600">使用akshare采集A股历史行情数据（单任务执行，防重复采集）</p>
-      </div>
+    <!-- 标签页 -->
+    <el-tabs v-model="activeTab" class="mb-8">
+      <!-- AkShare标签页 -->
+      <el-tab-pane label="历史数据采集-AkShare" name="akshare">
+        <el-card>
+          <div class="text-center mb-8">
+            <el-icon class="text-6xl text-gray-400 mb-4"><DataAnalysis /></el-icon>
+            <h2 class="text-2xl font-bold text-gray-900 mb-2">历史数据采集-AkShare</h2>
+            <p class="text-gray-600">使用akshare采集A股历史行情数据（单任务执行，防重复采集）</p>
+          </div>
 
       <!-- 采集配置表单 -->
       <div class="max-w-2xl mx-auto">
@@ -115,7 +118,77 @@
           </el-form-item>
         </el-form>
       </div>
-    </el-card>
+        </el-card>
+      </el-tab-pane>
+
+      <!-- TuShare标签页 -->
+      <el-tab-pane label="历史数据采集-TuShare" name="tushare">
+        <el-card>
+          <div class="text-center mb-8">
+            <el-icon class="text-6xl text-gray-400 mb-4"><DataAnalysis /></el-icon>
+            <h2 class="text-2xl font-bold text-gray-900 mb-2">历史数据采集-TuShare</h2>
+            <p class="text-gray-600">使用tushare采集A股全量历史行情数据</p>
+          </div>
+
+          <!-- TuShare采集配置表单 -->
+          <div class="max-w-2xl mx-auto">
+            <el-form @submit.prevent="startTushareCollection" :model="tushareForm" label-width="120px">
+              <!-- 日期范围 -->
+              <el-row :gutter="20">
+                <el-col :span="12">
+                  <el-form-item label="开始日期" required>
+                    <el-date-picker
+                      v-model="tushareForm.start_date"
+                      type="date"
+                      placeholder="选择开始日期"
+                      format="YYYY-MM-DD"
+                      value-format="YYYY-MM-DD"
+                      style="width: 100%"
+                    />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                  <el-form-item label="结束日期" required>
+                    <el-date-picker
+                      v-model="tushareForm.end_date"
+                      type="date"
+                      placeholder="选择结束日期"
+                      format="YYYY-MM-DD"
+                      value-format="YYYY-MM-DD"
+                      style="width: 100%"
+                    />
+                  </el-form-item>
+                </el-col>
+              </el-row>
+
+              <!-- 强制更新选项 -->
+              <el-form-item>
+                <el-checkbox v-model="tushareForm.force_update">
+                  强制更新（如果已存在此日期的历史数据，将先删除后插入）
+                </el-checkbox>
+                <div class="text-sm text-gray-500 mt-1">
+                  未选择强制更新时，如果已存在数据则跳过插入
+                </div>
+              </el-form-item>
+
+              <!-- 操作按钮 -->
+              <el-form-item>
+                <el-button
+                  type="primary"
+                  :loading="tushareLoading"
+                  :disabled="!!currentTask"
+                  @click="startTushareCollection"
+                >
+                  <el-icon v-if="tushareLoading" class="mr-2"><Loading /></el-icon>
+                  {{ tushareLoading ? '启动中...' : (currentTask ? '等待当前任务完成' : '开始采集') }}
+                </el-button>
+                <el-button @click="resetTushareForm">重置</el-button>
+              </el-form-item>
+            </el-form>
+          </div>
+        </el-card>
+      </el-tab-pane>
+    </el-tabs>
 
     <!-- 任务列表 -->
     <el-card>
@@ -215,7 +288,9 @@ import {
   ElRadioGroup,
   ElRadio,
   ElCheckbox,
-  ElProgress
+  ElProgress,
+  ElTabs,
+  ElTabPane
 } from 'element-plus'
 import { 
   DataAnalysis, 
@@ -266,6 +341,9 @@ interface RequestData {
   full_collection_mode?: boolean
 }
 
+// 标签页状态
+const activeTab = ref('akshare')
+
 // 表单数据
 const form = ref<FormData>({
   start_date: '',
@@ -276,10 +354,24 @@ const form = ref<FormData>({
   test_mode: false
 })
 
+// TuShare表单数据
+interface TushareFormData {
+  start_date: string
+  end_date: string
+  force_update: boolean
+}
+
+const tushareForm = ref<TushareFormData>({
+  start_date: '',
+  end_date: '',
+  force_update: false
+})
+
 // 状态数据
 const tasks = ref<Task[]>([])
 const currentTask = ref<CurrentTask | null>(null)
 const loading = ref(false)
+const tushareLoading = ref(false)
 const pollingInterval = ref<NodeJS.Timeout | null>(null)
 
 // 方法
@@ -407,6 +499,61 @@ const resetForm = () => {
     single_stock_code: '',
     stock_codes_text: '',
     test_mode: false
+  }
+}
+
+const resetTushareForm = () => {
+  tushareForm.value = {
+    start_date: '',
+    end_date: '',
+    force_update: false
+  }
+}
+
+const startTushareCollection = async () => {
+  try {
+    tushareLoading.value = true
+    
+    // 验证表单
+    if (!tushareForm.value.start_date || !tushareForm.value.end_date) {
+      ElMessage.error('请选择开始日期和结束日期')
+      return
+    }
+    
+    // 检查当前任务状态
+    if (currentTask.value) {
+      ElMessage.error('已有采集任务正在运行，请等待完成后再启动新任务')
+      return
+    }
+
+    console.log('发送TuShare采集请求:', tushareForm.value)
+    const response = await axios.post(`${API_BASE}/api/data-collection/tushare-historical`, {
+      start_date: tushareForm.value.start_date,
+      end_date: tushareForm.value.end_date,
+      force_update: tushareForm.value.force_update
+    })
+    
+    if (response.data.status === 'started') {
+      ElMessage.success('TuShare采集任务已启动')
+      loadTasks()
+      loadCurrentTask()
+    }
+    
+  } catch (error: any) {
+    console.error('启动TuShare采集任务失败:', error)
+    let errorMsg = '启动TuShare采集任务失败'
+    
+    if (error.response) {
+      errorMsg = error.response.data?.detail || `服务器错误 (${error.response.status})`
+    } else if (error.request) {
+      errorMsg = '无法连接到服务器，请检查网络连接'
+    } else {
+      errorMsg = error.message || '未知错误'
+    }
+    
+    ElMessage.error(errorMsg)
+  } finally {
+    tushareLoading.value = false
   }
 }
 

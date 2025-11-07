@@ -18,7 +18,7 @@ import time
 import random
 
 from backend_api.database import get_db
-from backend_api.models import DataCollectionRequest, DataCollectionResponse, DataCollectionStatus
+from backend_api.models import DataCollectionRequest, DataCollectionResponse, DataCollectionStatus, TushareHistoricalCollectionRequest
 from sqlalchemy import text
 
 router = APIRouter(prefix="/api/data-collection", tags=["数据采集"])
@@ -643,3 +643,328 @@ async def get_current_task():
     except Exception as e:
         logger.error(f"获取当前任务信息失败: {e}")
         raise HTTPException(status_code=500, detail=f"获取当前任务信息失败: {str(e)}")
+
+class TushareDataCollector:
+    """Tushare数据采集器"""
+    
+    def __init__(self, db_session: Session):
+        self.session = db_session
+        self.collected_count = 0
+        self.skipped_count = 0
+        self.failed_count = 0
+        self.failed_details = []
+        
+        # 导入tushare并设置token
+        import tushare as ts
+        from backend_core.config.config import TUSHARE_CONFIG
+        ts.set_token(TUSHARE_CONFIG['token'])
+        self.ts_pro = ts.pro_api()
+    
+    def collect_historical_data_for_date_range(
+        self, 
+        start_date: str, 
+        end_date: str, 
+        force_update: bool = False
+    ) -> Dict[str, any]:
+        """
+        采集指定日期范围内的A股全量历史数据
+        
+        Args:
+            start_date: 开始日期 (YYYY-MM-DD)
+            end_date: 结束日期 (YYYY-MM-DD)
+            force_update: 是否强制更新（先删除后插入）
+        
+        Returns:
+            采集结果统计
+        """
+        try:
+            logger.info(f"开始Tushare历史数据采集: {start_date} 到 {end_date}, 强制更新: {force_update}")
+            
+            # 重置计数器
+            self.collected_count = 0
+            self.skipped_count = 0
+            self.failed_count = 0
+            self.failed_details = []
+            
+            # 生成日期列表（交易日）
+            from datetime import datetime, timedelta
+            start = datetime.strptime(start_date, '%Y-%m-%d')
+            end = datetime.strptime(end_date, '%Y-%m-%d')
+            
+            current_date = start
+            dates_to_collect = []
+            while current_date <= end:
+                date_str = current_date.strftime('%Y%m%d')  # tushare需要YYYYMMDD格式
+                dates_to_collect.append((current_date.strftime('%Y-%m-%d'), date_str))
+                current_date += timedelta(days=1)
+            
+            logger.info(f"需要采集 {len(dates_to_collect)} 天的数据")
+            
+            # 遍历每个日期进行采集
+            for display_date, trade_date in dates_to_collect:
+                try:
+                    result = self.collect_historical_data_for_single_date(trade_date, display_date, force_update)
+                    if result['success']:
+                        self.collected_count += result['collected']
+                        self.skipped_count += result['skipped']
+                    else:
+                        self.failed_count += 1
+                        self.failed_details.append(f"{display_date}: {result['error']}")
+                        
+                except Exception as e:
+                    logger.error(f"采集日期 {display_date} 失败: {e}")
+                    self.failed_count += 1
+                    self.failed_details.append(f"{display_date}: {str(e)}")
+                    continue
+            
+            result = {
+                'total_dates': len(dates_to_collect),
+                'success_dates': len(dates_to_collect) - self.failed_count,
+                'failed_dates': self.failed_count,
+                'collected': self.collected_count,
+                'skipped': self.skipped_count,
+                'failed_details': self.failed_details
+            }
+            
+            logger.info(f"Tushare采集完成: {result}")
+            return result
+            
+        except Exception as e:
+            logger.error(f"Tushare历史数据采集失败: {e}")
+            return {
+                'total_dates': 0,
+                'success_dates': 0,
+                'failed_dates': 1,
+                'collected': 0,
+                'skipped': 0,
+                'failed_details': [str(e)]
+            }
+    
+    def collect_historical_data_for_single_date(
+        self, 
+        trade_date: str, 
+        display_date: str,
+        force_update: bool = False
+    ) -> Dict[str, any]:
+        """
+        采集单个日期的历史数据
+        
+        Args:
+            trade_date: 交易日期 (YYYYMMDD格式，tushare接口要求)
+            display_date: 显示日期 (YYYY-MM-DD格式)
+            force_update: 是否强制更新
+        
+        Returns:
+            采集结果
+        """
+        try:
+            import tushare as ts
+            import pandas as pd
+            from backend_core.data_collectors.tushare.historical import HistoricalQuoteCollector
+            
+            # 检查已存在的数据
+            if not force_update:
+                result = self.session.execute(text("""
+                    SELECT COUNT(*) 
+                    FROM historical_quotes 
+                    WHERE date = :date
+                """), {'date': display_date})
+                existing_count = result.scalar()
+                
+                if existing_count > 0:
+                    logger.info(f"日期 {display_date} 已存在 {existing_count} 条数据，跳过采集")
+                    return {
+                        'success': True,
+                        'collected': 0,
+                        'skipped': existing_count,
+                        'error': None
+                    }
+            
+            # 如果需要强制更新，先删除该日期的数据
+            if force_update:
+                deleted_count = self.session.execute(text("""
+                    DELETE FROM historical_quotes 
+                    WHERE date = :date
+                """), {'date': display_date}).rowcount
+                self.session.commit()
+                logger.info(f"强制更新模式：已删除日期 {display_date} 的 {deleted_count} 条数据")
+            
+            # 使用backend_core的HistoricalQuoteCollector进行采集
+            collector = HistoricalQuoteCollector()
+            success = collector.collect_historical_quotes(trade_date)
+            
+            if success:
+                # 查询本次采集的数据量
+                result = self.session.execute(text("""
+                    SELECT COUNT(*) 
+                    FROM historical_quotes 
+                    WHERE date = :date AND collected_source = 'tushare'
+                """), {'date': display_date})
+                collected_count = result.scalar()
+                
+                return {
+                    'success': True,
+                    'collected': collected_count,
+                    'skipped': 0,
+                    'error': None
+                }
+            else:
+                return {
+                    'success': False,
+                    'collected': 0,
+                    'skipped': 0,
+                    'error': '采集失败'
+                }
+                
+        except Exception as e:
+            logger.error(f"采集日期 {display_date} 失败: {e}")
+            return {
+                'success': False,
+                'collected': 0,
+                'skipped': 0,
+                'error': str(e)
+            }
+
+@router.post("/tushare-historical", response_model=DataCollectionResponse)
+async def start_tushare_historical_collection(
+    request: TushareHistoricalCollectionRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db)
+):
+    """启动Tushare历史数据采集任务"""
+    global current_task_id
+    try:
+        # 验证日期格式
+        try:
+            from datetime import datetime
+            datetime.strptime(request.start_date, '%Y-%m-%d')
+            datetime.strptime(request.end_date, '%Y-%m-%d')
+        except ValueError:
+            raise HTTPException(status_code=400, detail="日期格式错误，请使用 YYYY-MM-DD 格式")
+        
+        # 检查是否有其他任务正在运行
+        with task_execution_lock:
+            if current_task_id is not None:
+                raise HTTPException(status_code=400, detail="已有采集任务正在运行，请等待完成后再启动新任务")
+        
+        # 生成任务ID
+        task_id = f"tushare_historical_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{threading.get_ident()}"
+        
+        # 初始化任务状态
+        with task_lock:
+            collection_tasks[task_id] = {
+                "status": "running",
+                "progress": 0,
+                "total_stocks": 0,  # Tushare是全量采集，不按股票统计
+                "processed_stocks": 0,
+                "total_dates": 0,
+                "processed_dates": 0,
+                "success_count": 0,
+                "failed_count": 0,
+                "collected_count": 0,
+                "skipped_count": 0,
+                "start_time": datetime.now(),
+                "end_time": None,
+                "error_message": None,
+                "failed_details": []
+            }
+        
+        # 设置当前任务ID
+        with task_execution_lock:
+            current_task_id = task_id
+        
+        # 启动后台任务
+        background_tasks.add_task(
+            run_tushare_historical_collection_task,
+            task_id,
+            request.start_date,
+            request.end_date,
+            request.force_update
+        )
+        
+        logger.info(f"启动Tushare历史数据采集任务: {task_id}")
+        
+        return DataCollectionResponse(
+            task_id=task_id,
+            status="started",
+            message="Tushare历史数据采集任务已启动",
+            start_date=request.start_date,
+            end_date=request.end_date,
+            stock_codes=None,
+            test_mode=False,
+            full_collection_mode=True
+        )
+        
+    except Exception as e:
+        logger.error(f"启动Tushare历史数据采集任务失败: {e}")
+        raise HTTPException(status_code=500, detail=f"启动采集任务失败: {str(e)}")
+
+def run_tushare_historical_collection_task(
+    task_id: str,
+    start_date: str,
+    end_date: str,
+    force_update: bool
+):
+    """运行Tushare历史数据采集任务（后台任务）"""
+    global current_task_id
+    try:
+        logger.info(f"开始执行Tushare历史数据采集任务: {task_id}")
+        
+        # 创建数据库会话
+        from backend_api.database import SessionLocal
+        db = SessionLocal()
+        
+        try:
+            # 创建采集器
+            collector = TushareDataCollector(db)
+            
+            # 执行采集
+            result = collector.collect_historical_data_for_date_range(
+                start_date, 
+                end_date, 
+                force_update
+            )
+            
+            # 更新任务状态
+            with task_lock:
+                if task_id in collection_tasks:
+                    # 计算进度（基于日期）
+                    progress = 100
+                    if result['total_dates'] > 0:
+                        progress = min(100, int((result['success_dates'] / result['total_dates']) * 100))
+                    
+                    collection_tasks[task_id].update({
+                        "status": "completed" if result['failed_dates'] == 0 else "partial_success",
+                        "progress": progress,
+                        "total_dates": result['total_dates'],
+                        "processed_dates": result['success_dates'],
+                        "success_count": result['success_dates'],
+                        "failed_count": result['failed_dates'],
+                        "collected_count": result['collected'],
+                        "skipped_count": result['skipped'],
+                        "end_time": datetime.now(),
+                        "failed_details": result['failed_details']
+                    })
+            
+            logger.info(f"Tushare历史数据采集任务完成: {task_id}")
+            
+        finally:
+            db.close()
+            
+    except Exception as e:
+        logger.error(f"Tushare历史数据采集任务执行失败: {task_id}, 错误: {e}")
+        
+        # 更新任务状态为失败
+        with task_lock:
+            if task_id in collection_tasks:
+                collection_tasks[task_id].update({
+                    "status": "failed",
+                    "end_time": datetime.now(),
+                    "error_message": str(e)
+                })
+    finally:
+        # 清除当前任务ID
+        with task_execution_lock:
+            if current_task_id == task_id:
+                current_task_id = None
+                logger.info(f"已清除当前任务ID: {task_id}")
