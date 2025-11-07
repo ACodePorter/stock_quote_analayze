@@ -260,6 +260,67 @@ const MarketsPage = {
         ctx.globalAlpha = 1;
     },
 
+    async handleQuickTrade(event, code, name, side) {
+        if (event) {
+            event.stopPropagation();
+        }
+
+        const actionLabel = side === 'sell' ? '卖出' : '买入';
+
+        const quantityInput = prompt(`请输入${actionLabel}股数`, '100');
+        if (!quantityInput) {
+            return;
+        }
+
+        const quantity = parseInt(quantityInput, 10);
+        if (!quantity || quantity <= 0) {
+            CommonUtils.showToast('请输入正确的股数', 'error');
+            return;
+        }
+
+        const priceInput = prompt('请输入成交价格，留空则使用最新价', '');
+        let price = null;
+        if (priceInput && priceInput.trim() !== '') {
+            const parsed = parseFloat(priceInput.trim());
+            if (Number.isNaN(parsed) || parsed <= 0) {
+                CommonUtils.showToast('请输入正确的价格', 'error');
+                return;
+            }
+            price = parsed;
+        }
+
+        try {
+            const payload = {
+                stock_code: code,
+                stock_name: name,
+                side,
+                quantity,
+            };
+            if (price !== null) {
+                payload.price = price;
+            }
+
+            const response = await authFetch(`${API_BASE_URL}/api/simtrade/orders`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload),
+            });
+
+            const result = await response.json();
+
+            if (response.ok) {
+                CommonUtils.showToast(`${actionLabel}指令已提交`, 'success');
+            } else {
+                CommonUtils.showToast(result.detail || result.message || '模拟交易下单失败', 'error');
+            }
+        } catch (error) {
+            console.error('模拟交易下单失败:', error);
+            CommonUtils.showToast('网络异常，模拟交易下单失败', 'error');
+        }
+    },
+
 // 加载排行榜数据
 async loadRankingData(page = 1) {
     const typeMap = {
@@ -331,8 +392,12 @@ async loadRankingData(page = 1) {
                 <td class="price-column">${this.formatTurnover(stock.turnover)}</td>
                 <td class="price-column">${this.formatTurnoverRate(stock.rate)}</td>
                 <td>
-                    <button class="btn btn-sm btn-primary" data-stock-code="${stock.code}" data-stock-name="${stock.name}" onclick="addToWatchlist('${stock.code}', event); event.stopPropagation();">+自选</button>
-                    <button class="btn btn-sm btn-secondary" onclick="goToStockHistory('${stock.code}', '${stock.name}'); event.stopPropagation();" style="margin-left: 5px;">历史</button>
+                    <div class="ranking-actions">
+                        <button class="btn btn-sm btn-primary" onclick="MarketsPage.handleQuickTrade(event, '${stock.code}', '${stock.name}', 'buy')">买入</button>
+                        <button class="btn btn-sm btn-danger" onclick="MarketsPage.handleQuickTrade(event, '${stock.code}', '${stock.name}', 'sell')" style="margin-left:5px;">卖出</button>
+                        <button class="btn btn-sm btn-secondary" data-stock-code="${stock.code}" data-stock-name="${stock.name}" onclick="addToWatchlist('${stock.code}', event); event.stopPropagation();" style="margin-left:5px;">+自选</button>
+                        <button class="btn btn-sm btn-secondary" onclick="goToStockHistory('${stock.code}', '${stock.name}'); event.stopPropagation();" style="margin-left:5px;">历史</button>
+                    </div>
                 </td>
             </tr>
         `).join('');

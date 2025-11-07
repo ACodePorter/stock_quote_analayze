@@ -58,23 +58,97 @@ async def get_stock_quote(request: Request):
             return JSONResponse({"success": False, "message": "缺少股票代码"}, status_code=400)
         result = []
         today = datetime.date.today()
-        # 如果是周六或周日，从数据库获取
-        if today.weekday() in (5, 6):
-            db = next(get_db())
-            # 获取最新交易日期
-            latest_date_result = pd.read_sql_query("""
-                SELECT MAX(trade_date) as latest_date 
-                FROM stock_realtime_quote 
-                WHERE change_percent IS NOT NULL AND change_percent != 0
-            """, db.bind)
-            
-            if not latest_date_result.empty and latest_date_result.iloc[0]['latest_date'] is not None:
-                latest_trade_date = latest_date_result.iloc[0]['latest_date']
-                for code in codes:
+        today_str = datetime.datetime.now().strftime('%Y-%m-%d')
+        today_pattern = f"{today_str}%"
+
+        db_session_gen = get_db()
+        db = next(db_session_gen)
+        try:
+            quotes_today = db.query(StockRealtimeQuote).filter(
+                StockRealtimeQuote.code.in_(codes),
+                StockRealtimeQuote.trade_date.like(today_pattern)
+            ).all()
+            quote_map = {q.code: q for q in quotes_today}
+
+            remaining_codes = []
+            for code in codes:
+                stock_quote = quote_map.get(code)
+                if stock_quote:
+                    result.append({
+                        "code": stock_quote.code,
+                        "current_price": safe_float(stock_quote.current_price),
+                        "change_percent": safe_float(stock_quote.change_percent),
+                        "volume": safe_float(stock_quote.volume),
+                        "turnover": safe_float(stock_quote.amount),
+                        "high": safe_float(stock_quote.high),
+                        "low": safe_float(stock_quote.low),
+                        "open": safe_float(stock_quote.open),
+                        "pre_close": safe_float(stock_quote.pre_close),
+                    })
+                else:
+                    remaining_codes.append(code)
+
+            api_failed_codes = []
+            if remaining_codes and today.weekday() not in (5, 6):
+                for code in remaining_codes:
+                    try:
+                        df = ak.stock_bid_ask_em(symbol=code)
+                        if df.empty:
+                            api_failed_codes.append(code)
+                            continue
+                        data_dict = dict(zip(df['item'], df['value']))
+                        api_result = {
+                            "code": code,
+                            "current_price": safe_float(data_dict.get("最新")),
+                            "change_amount": safe_float(data_dict.get("涨跌")),
+                            "change_percent": safe_float(data_dict.get("涨幅")),
+                            "open": safe_float(data_dict.get("今开")),
+                            "pre_close": safe_float(data_dict.get("昨收")),
+                            "high": safe_float(data_dict.get("最高")),
+                            "low": safe_float(data_dict.get("最低")),
+                            "volume": safe_float(data_dict.get("总手")),
+                            "turnover": safe_float(data_dict.get("金额")),
+                        }
+                        result.append(api_result)
+
+                        # 更新数据库，确保下次直接命中
+                        now_str = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                        db.merge(StockRealtimeQuote(
+                            code=code,
+                            trade_date=now_str,
+                            name=None,
+                            current_price=api_result["current_price"],
+                            change_percent=api_result["change_percent"],
+                            volume=api_result["volume"],
+                            amount=api_result["turnover"],
+                            high=api_result["high"],
+                            low=api_result["low"],
+                            open=api_result["open"],
+                            pre_close=api_result["pre_close"],
+                            turnover_rate=None,
+                            pe_dynamic=None,
+                            total_market_value=None,
+                            pb_ratio=None,
+                            circulating_market_value=None,
+                            update_time=datetime.datetime.now()
+                        ))
+                    except Exception as e:
+                        print(f"[stock_quote] 获取 {code} 行情异常: {e}")
+                        api_failed_codes.append(code)
+                try:
+                    db.commit()
+                except Exception as commit_err:
+                    db.rollback()
+                    print(f"[stock_quote] 更新数据库失败: {commit_err}")
+            else:
+                api_failed_codes = remaining_codes.copy()
+
+            # 对于仍未获取成功的代码，从数据库取最近一次记录
+            if api_failed_codes:
+                for code in api_failed_codes:
                     stock_quote = db.query(StockRealtimeQuote).filter(
-                        StockRealtimeQuote.code == code,
-                        StockRealtimeQuote.trade_date == latest_trade_date
-                    ).first()
+                        StockRealtimeQuote.code == code
+                    ).order_by(StockRealtimeQuote.trade_date.desc()).first()
                     if stock_quote:
                         result.append({
                             "code": stock_quote.code,
@@ -87,29 +161,8 @@ async def get_stock_quote(request: Request):
                             "open": safe_float(stock_quote.open),
                             "pre_close": safe_float(stock_quote.pre_close),
                         })
+        finally:
             db.close()
-        else:
-            for code in codes:
-                try:
-                    df = ak.stock_bid_ask_em(symbol=code)
-                    if df.empty:
-                        continue
-                    data_dict = dict(zip(df['item'], df['value']))
-                    result.append({
-                        "code": code,
-                        "current_price": safe_float(data_dict.get("最新")),
-                        "change_amount": safe_float(data_dict.get("涨跌")),
-                        "change_percent": safe_float(data_dict.get("涨幅")),
-                        "open": safe_float(data_dict.get("今开")),
-                        "pre_close": safe_float(data_dict.get("昨收")),
-                        "high": safe_float(data_dict.get("最高")),
-                        "low": safe_float(data_dict.get("最低")),
-                        "volume": safe_float(data_dict.get("总手")),
-                        "turnover": safe_float(data_dict.get("金额")),
-                    })
-                except Exception as e:
-                    print(f"[stock_quote] 获取 {code} 行情异常: {e}")
-                    continue
         print(f"[stock_quote] 返回数据: {result}")
         return JSONResponse({"success": True, "data": result})
     except Exception as e:

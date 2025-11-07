@@ -28,15 +28,15 @@
                         <p class="user-title">高级用户 • VIP会员</p>
                         <div class="user-stats">
                             <div class="stat-item">
-                                <span class="stat-value">365</span>
+                                <span class="stat-value" id="profileUsageDays">--</span>
                                 <span class="stat-label">使用天数</span>
                             </div>
                             <div class="stat-item">
-                                <span class="stat-value">28</span>
+                                <span class="stat-value" id="profileWatchlistCount">--</span>
                                 <span class="stat-label">自选股数</span>
                             </div>
                             <div class="stat-item">
-                                <span class="stat-value">156</span>
+                                <span class="stat-value" id="profileInfoCount">--</span>
                                 <span class="stat-label">关注资讯</span>
                             </div>
                         </div>
@@ -65,19 +65,19 @@
                             <h3>📊 资产概况</h3>
                             <div class="assets-content">
                                 <div class="total-assets">
-                                    <span class="amount">¥1,250,000</span>
+                                    <span class="amount" id="totalAssetsDisplay">--</span>
                                     <span class="label">总资产</span>
                                 </div>
                                 <div class="assets-breakdown">
                                     <div class="breakdown-item">
                                         <span class="breakdown-label">股票市值</span>
-                                        <span class="breakdown-value">¥980,000</span>
-                                        <span class="breakdown-percent">78.4%</span>
+                                        <span class="breakdown-value" id="marketValueDisplay">--</span>
+                                        <span class="breakdown-percent" id="marketValuePercent">--</span>
                                     </div>
                                     <div class="breakdown-item">
                                         <span class="breakdown-label">现金余额</span>
-                                        <span class="breakdown-value">¥270,000</span>
-                                        <span class="breakdown-percent">21.6%</span>
+                                        <span class="breakdown-value" id="cashBalanceDisplay">--</span>
+                                        <span class="breakdown-percent" id="cashBalancePercent">--</span>
                                     </div>
                                 </div>
                             </div>
@@ -88,53 +88,25 @@
                             <div class="performance-content">
                                 <div class="performance-item">
                                     <span class="performance-label">今日收益</span>
-                                    <span class="performance-value positive">+¥15,680</span>
-                                    <span class="performance-percent positive">+1.27%</span>
+                                    <span class="performance-value" id="todayProfitValue">--</span>
+                                    <span class="performance-percent" id="todayProfitPercent">--</span>
                                 </div>
                                 <div class="performance-item">
                                     <span class="performance-label">累计收益</span>
-                                    <span class="performance-value positive">+¥180,000</span>
-                                    <span class="performance-percent positive">+16.82%</span>
+                                    <span class="performance-value" id="totalProfitValue">--</span>
+                                    <span class="performance-percent" id="totalProfitPercent">--</span>
                                 </div>
                                 <div class="performance-item">
                                     <span class="performance-label">年化收益率</span>
-                                    <span class="performance-value positive">+22.5%</span>
-                                    <span class="performance-change">超越85%用户</span>
+                                    <span class="performance-value" id="annualizedReturnValue">--</span>
+                                    <span class="performance-change" id="annualizedReturnHint">--</span>
                                 </div>
                             </div>
                         </div>
 
                         <div class="overview-card recent-trades">
                             <h3>🔄 最近交易</h3>
-                            <div class="trades-list">
-                                <div class="trade-item">
-                                    <div class="trade-stock">
-                                        <span class="stock-name">比亚迪</span>
-                                        <span class="stock-code">002594</span>
-                                    </div>
-                                    <div class="trade-action buy">买入</div>
-                                    <div class="trade-amount">500股</div>
-                                    <div class="trade-time">今天 14:30</div>
-                                </div>
-                                <div class="trade-item">
-                                    <div class="trade-stock">
-                                        <span class="stock-name">宁德时代</span>
-                                        <span class="stock-code">300750</span>
-                                    </div>
-                                    <div class="trade-action sell">卖出</div>
-                                    <div class="trade-amount">200股</div>
-                                    <div class="trade-time">昨天 10:15</div>
-                                </div>
-                                <div class="trade-item">
-                                    <div class="trade-stock">
-                                        <span class="stock-name">贵州茅台</span>
-                                        <span class="stock-code">600519</span>
-                                    </div>
-                                    <div class="trade-action buy">买入</div>
-                                    <div class="trade-amount">100股</div>
-                                    <div class="trade-time">3天前</div>
-                                </div>
-                            </div>
+                            <div class="trades-list" id="recentTradesList"></div>
                             <button class="view-all-btn">查看全部交易</button>
                         </div>
 
@@ -196,61 +168,7 @@
                                         <th>操作</th>
                                     </tr>
                                 </thead>
-                                <tbody>
-                                    <tr>
-                                        <td>
-                                            <div class="stock-info">
-                                                <span class="stock-name">比亚迪</span>
-                                                <span class="stock-code">002594</span>
-                                            </div>
-                                        </td>
-                                        <td>1,500股</td>
-                                        <td>¥215.60</td>
-                                        <td>¥245.67</td>
-                                        <td>¥368,505</td>
-                                        <td class="positive">+¥45,105</td>
-                                        <td class="positive">+13.94%</td>
-                                        <td>
-                                            <button class="btn btn-sm btn-secondary">交易</button>
-                                            <button class="btn btn-sm btn-danger">清仓</button>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td>
-                                            <div class="stock-info">
-                                                <span class="stock-name">宁德时代</span>
-                                                <span class="stock-code">300750</span>
-                                            </div>
-                                        </td>
-                                        <td>800股</td>
-                                        <td>¥198.45</td>
-                                        <td>¥187.50</td>
-                                        <td>¥150,000</td>
-                                        <td class="negative">-¥8,760</td>
-                                        <td class="negative">-5.52%</td>
-                                        <td>
-                                            <button class="btn btn-sm btn-secondary">交易</button>
-                                            <button class="btn btn-sm btn-danger">清仓</button>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td>
-                                            <div class="stock-info">
-                                                <span class="stock-name">招商银行</span>
-                                                <span class="stock-code">600036</span>
-                                            </div>
-                                        </td>
-                                        <td>3,000股</td>
-                                        <td>¥42.80</td>
-                                        <td>¥45.67</td>
-                                        <td>¥137,010</td>
-                                        <td class="positive">+¥8,610</td>
-                                        <td class="positive">+6.71%</td>
-                                        <td>
-                                            <button class="btn btn-sm btn-secondary">交易</button>
-                                            <button class="btn btn-sm btn-danger">清仓</button>
-                                        </td>
-                                    </tr>
+                                <tbody id="positionsTableBody">
                                 </tbody>
                             </table>
                         </div>
@@ -273,52 +191,7 @@
                             </div>
                         </div>
                         
-                        <div class="transactions-list">
-                            <div class="transaction-item">
-                                <div class="transaction-date">2025-01-20 14:30:25</div>
-                                <div class="transaction-stock">
-                                    <span class="stock-name">比亚迪</span>
-                                    <span class="stock-code">002594</span>
-                                </div>
-                                <div class="transaction-type buy">买入</div>
-                                <div class="transaction-details">
-                                    <span class="quantity">500股</span>
-                                    <span class="price">¥245.67</span>
-                                    <span class="amount">¥122,835</span>
-                                </div>
-                                <div class="transaction-status success">已成交</div>
-                            </div>
-                            
-                            <div class="transaction-item">
-                                <div class="transaction-date">2025-01-19 10:15:30</div>
-                                <div class="transaction-stock">
-                                    <span class="stock-name">宁德时代</span>
-                                    <span class="stock-code">300750</span>
-                                </div>
-                                <div class="transaction-type sell">卖出</div>
-                                <div class="transaction-details">
-                                    <span class="quantity">200股</span>
-                                    <span class="price">¥189.50</span>
-                                    <span class="amount">¥37,900</span>
-                                </div>
-                                <div class="transaction-status success">已成交</div>
-                            </div>
-                            
-                            <div class="transaction-item">
-                                <div class="transaction-date">2025-01-17 09:45:12</div>
-                                <div class="transaction-stock">
-                                    <span class="stock-name">贵州茅台</span>
-                                    <span class="stock-code">600519</span>
-                                </div>
-                                <div class="transaction-type buy">买入</div>
-                                <div class="transaction-details">
-                                    <span class="quantity">100股</span>
-                                    <span class="price">¥1,865.00</span>
-                                    <span class="amount">¥186,500</span>
-                                </div>
-                                <div class="transaction-status success">已成交</div>
-                            </div>
-                        </div>
+                        <div class="transactions-list" id="transactionsList"></div>
                         
                         <div class="pagination">
                             <button class="pagination-btn">上一页</button>

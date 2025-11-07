@@ -398,6 +398,61 @@ class TradingNotes(Base):
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
     created_by = Column(String(50))     # 创建用户
     
+
+class SimTradeAccount(Base):
+    """模拟交易账户"""
+    __tablename__ = "sim_trade_accounts"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), unique=True, nullable=False)
+    initial_capital = Column(Float, default=0.0)
+    cash_balance = Column(Float, default=0.0)
+    total_market_value = Column(Float, default=0.0)
+    total_profit = Column(Float, default=0.0)
+    total_profit_rate = Column(Float, default=0.0)
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+
+
+class SimTradePosition(Base):
+    """模拟交易持仓"""
+    __tablename__ = "sim_trade_positions"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    stock_code = Column(String(20), nullable=False)
+    stock_name = Column(String(50))
+    quantity = Column(Integer, nullable=False, default=0)
+    avg_price = Column(Float, default=0.0)
+    last_price = Column(Float, default=0.0)
+    market_value = Column(Float, default=0.0)
+    unrealized_profit = Column(Float, default=0.0)
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+
+    __table_args__ = (
+        UniqueConstraint('user_id', 'stock_code', name='uq_sim_trade_position_user_code'),
+    )
+
+
+class SimTradeOrder(Base):
+    """模拟交易订单"""
+    __tablename__ = "sim_trade_orders"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    stock_code = Column(String(20), nullable=False)
+    stock_name = Column(String(50))
+    side = Column(String(10), nullable=False)  # buy / sell
+    price = Column(Float, nullable=False)
+    quantity = Column(Integer, nullable=False)
+    amount = Column(Float, nullable=False)
+    fee = Column(Float, default=0.0)
+    status = Column(String(20), default="filled")
+    remark = Column(String(200))
+    realized_profit = Column(Float, default=0.0)
+    created_at = Column(DateTime, default=datetime.now)
+
 # 数据采集相关模型
 class DataCollectionRequest(BaseModel):
     """数据采集请求模型"""

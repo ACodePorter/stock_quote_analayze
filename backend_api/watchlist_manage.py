@@ -3,15 +3,15 @@
 提供自选股管理相关的接口
 """
 
-from typing import List, Optional
+from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from sqlalchemy import desc
+from sqlalchemy import desc, func
 from datetime import datetime
 from fastapi.responses import JSONResponse
 import akshare as ak
 from pydantic import BaseModel
-import sqlite3
+import math
 
 from models import (
     Watchlist, WatchlistGroup,
@@ -44,38 +44,165 @@ async def get_watchlist(
         names = {row[0]: row[1] for row in rows}
         watchlist = []
 
-        # 首先获取最新的交易日期
-        from sqlalchemy import text
-        import pandas as pd
-        
-        latest_date_result = pd.read_sql_query("""
-            SELECT MAX(trade_date) as latest_date 
-            FROM stock_realtime_quote 
-            WHERE change_percent IS NOT NULL AND change_percent != 0
-        """, db.bind)
-        
-        if latest_date_result.empty or latest_date_result.iloc[0]['latest_date'] is None:
-            print("[watchlist] 暂无行情数据")
-            return JSONResponse({'success': True, 'data': []})
-        
-        latest_trade_date = latest_date_result.iloc[0]['latest_date']
-        print(f"[watchlist] 使用最新交易日期: {latest_trade_date}")
-        
-        # 批量查行情，按最新交易日期过滤
-        quotes = db.query(StockRealtimeQuote).filter(
-            StockRealtimeQuote.code.in_(codes),
-            StockRealtimeQuote.trade_date == latest_trade_date
-        ).all()
-        print(f"[watchlist] 批量查到行情数量: {len(quotes)}")
-        quote_map = {q.code: q for q in quotes}
+        today_str = datetime.now().strftime('%Y-%m-%d')
+        print(f"[watchlist] 当前日期: {today_str}")
 
         def safe_float(value):
             try:
-                if value in [None, '', '-']:
+                if value in [None, '', '-', '--']:
                     return None
-                return float(value)
+                if isinstance(value, str):
+                    cleaned = value.replace(',', '').strip()
+                    if cleaned in ['', '-', '--']:
+                        return None
+                    value = cleaned
+                result = float(value)
+                if isinstance(result, float) and math.isnan(result):
+                    return None
+                return result
             except (ValueError, TypeError):
                 return None
+
+        def normalize_code(raw_code):
+            if raw_code is None:
+                return None
+            code = str(raw_code).strip()
+            if '.' in code:
+                code = code.split('.')[0]
+            return code
+
+        def value_from_row(row, *keys):
+            for key in keys:
+                if key in row:
+                    val = row.get(key)
+                    if val not in [None, '', '-', '--']:
+                        return val
+            return None
+
+        def fetch_realtime_from_api(target_codes: List[str]):
+            if not target_codes:
+                return {}
+            print(f"[watchlist] 尝试从akshare获取缺失行情: {target_codes}")
+            target_set = set(target_codes)
+            collected = {}
+
+            dataframes = []
+            try:
+                df_main = ak.stock_zh_a_spot_em()
+                if df_main is not None and hasattr(df_main, 'empty') and not df_main.empty:
+                    dataframes.append(('eastmoney', df_main))
+            except Exception as e:
+                print(f"[watchlist] 调用 stock_zh_a_spot_em 异常: {e}")
+
+            if not dataframes:
+                for api_func in [ak.stock_sh_a_spot_em, ak.stock_sz_a_spot_em, ak.stock_bj_a_spot_em]:
+                    try:
+                        df_part = api_func()
+                        if df_part is not None and hasattr(df_part, 'empty') and not df_part.empty:
+                            dataframes.append(('eastmoney', df_part))
+                    except Exception as sub_e:
+                        print(f"[watchlist] 调用 {api_func.__name__} 异常: {sub_e}")
+
+            if not dataframes:
+                try:
+                    df_sina = ak.stock_zh_a_spot()
+                    if df_sina is not None and hasattr(df_sina, 'empty') and not df_sina.empty:
+                        dataframes.append(('sina', df_sina))
+                except Exception as e:
+                    print(f"[watchlist] 调用 stock_zh_a_spot 异常: {e}")
+                    return {}
+
+            for source, df in dataframes:
+                for _, row in df.iterrows():
+                    raw_code = value_from_row(row, '代码', '股票代码', '证券代码')
+                    code = normalize_code(raw_code)
+                    if code not in target_set or code in collected:
+                        continue
+                    collected[code] = {
+                        'name': value_from_row(row, '名称', '股票名称', '证券简称') or names.get(code, ''),
+                        'current_price': safe_float(value_from_row(row, '最新价', '现价')),
+                        'change_percent': safe_float(value_from_row(row, '涨跌幅')),
+                        'volume': safe_float(value_from_row(row, '成交量')),
+                        'amount': safe_float(value_from_row(row, '成交额')),
+                        'high': safe_float(value_from_row(row, '最高')),
+                        'low': safe_float(value_from_row(row, '最低')),
+                        'open': safe_float(value_from_row(row, '今开', '开盘')),
+                        'pre_close': safe_float(value_from_row(row, '昨收', '前收', '前收盘')),
+                        'turnover_rate': safe_float(value_from_row(row, '换手率')),
+                        'pe_dynamic': safe_float(value_from_row(row, '市盈率-动态', '市盈率')),
+                        'total_market_value': safe_float(value_from_row(row, '总市值')),
+                        'pb_ratio': safe_float(value_from_row(row, '市净率')),
+                        'circulating_market_value': safe_float(value_from_row(row, '流通市值')),
+                        'data_source': source
+                    }
+                if len(collected) == len(target_set):
+                    break
+
+            print(f"[watchlist] akshare返回行情数量: {len(collected)}")
+            return collected
+
+        # 查询当日行情
+        today_pattern = f"{today_str}%"
+        quotes_today = db.query(StockRealtimeQuote).filter(
+            StockRealtimeQuote.code.in_(codes),
+            StockRealtimeQuote.trade_date.like(today_pattern)
+        ).all()
+        print(f"[watchlist] 数据库当日行情数量: {len(quotes_today)}")
+
+        have_today_codes = {q.code for q in quotes_today}
+        missing_codes = [code for code in codes if code not in have_today_codes]
+
+        if missing_codes:
+            api_data = fetch_realtime_from_api(missing_codes)
+            if api_data:
+                for code, data in api_data.items():
+                    quote = StockRealtimeQuote(
+                        code=code,
+                        trade_date=today_str,
+                        name=data.get('name', names.get(code, '')),
+                        current_price=data.get('current_price'),
+                        change_percent=data.get('change_percent'),
+                        volume=data.get('volume'),
+                        amount=data.get('amount'),
+                        high=data.get('high'),
+                        low=data.get('low'),
+                        open=data.get('open'),
+                        pre_close=data.get('pre_close'),
+                        turnover_rate=data.get('turnover_rate'),
+                        pe_dynamic=data.get('pe_dynamic'),
+                        total_market_value=data.get('total_market_value'),
+                        pb_ratio=data.get('pb_ratio'),
+                        circulating_market_value=data.get('circulating_market_value'),
+                        update_time=datetime.now()
+                    )
+                    db.merge(quote)
+                db.commit()
+                quotes_today = db.query(StockRealtimeQuote).filter(
+                    StockRealtimeQuote.code.in_(codes),
+                    StockRealtimeQuote.trade_date.like(today_pattern)
+                ).all()
+                print(f"[watchlist] akshare更新后当日行情数量: {len(quotes_today)}")
+            else:
+                print(f"[watchlist] akshare未返回缺失行情，保留已有数据")
+
+        quotes = quotes_today
+        target_trade_date = today_str
+
+        if not quotes:
+            latest_trade_date = db.query(func.max(StockRealtimeQuote.trade_date)).scalar()
+            if latest_trade_date:
+                quotes = db.query(StockRealtimeQuote).filter(
+                    StockRealtimeQuote.code.in_(codes),
+                    StockRealtimeQuote.trade_date == latest_trade_date
+                ).all()
+                target_trade_date = latest_trade_date
+                print(f"[watchlist] 当日无数据，回退至最新交易日 {latest_trade_date}，行情数量: {len(quotes)}")
+            else:
+                print("[watchlist] 暂无行情数据")
+                return JSONResponse({'success': True, 'data': []})
+
+        print(f"[watchlist] 使用交易日期: {target_trade_date}，行情数量: {len(quotes)}")
+        quote_map = {q.code: q for q in quotes}
 
         for code in codes:
             q = quote_map.get(code)
