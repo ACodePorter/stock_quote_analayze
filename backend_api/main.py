@@ -54,13 +54,12 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# 添加请求日志中间件
-app.add_middleware(RequestLoggingMiddleware)
-
-# 配置CORS
+# 配置CORS - 必须在其他中间件之前添加
 origins = [
     "http://localhost:3000",     # Vue 开发服务器
     "http://127.0.0.1:3000",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
     "http://localhost:8000",
     "http://127.0.0.1:8000",
     "http://localhost:8001",
@@ -78,12 +77,16 @@ origins = [
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
+    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+)(:\d+)?",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
     expose_headers=["*"],
     max_age=3600,
 )
+
+# 添加请求日志中间件 - 在CORS之后
+app.add_middleware(RequestLoggingMiddleware)
 
 # 挂载静态文件目录
 #app.mount("/admin", StaticFiles(directory="admin", html=True), name="admin")

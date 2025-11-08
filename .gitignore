@@ -60,3 +60,6 @@ node_modules/
 /docs/chat_history/
 
 .qoder/
+
+backend_api/config.py
+backend_core/database/db.py

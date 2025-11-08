@@ -395,6 +395,51 @@
         </div>
     </div>
 
+    <!-- 模拟交易表单模态框 -->
+    <div id="tradeModal" class="trade-modal" style="display: none;">
+        <div class="trade-modal-content">
+            <div class="trade-modal-header">
+                <h3 id="tradeModalTitle">新增持仓</h3>
+                <button class="trade-modal-close" id="tradeModalClose">×</button>
+            </div>
+            <form id="tradeForm" class="trade-form">
+                <div class="form-group">
+                    <label for="stockCode">股票代码 <span class="required">*</span></label>
+                    <input type="text" id="stockCode" name="stockCode" placeholder="如：600519" required>
+                </div>
+                <div class="form-group">
+                    <label for="stockName">股票名称</label>
+                    <input type="text" id="stockName" name="stockName" placeholder="留空则自动获取">
+                </div>
+                <div class="form-group">
+                    <label for="tradeSide">交易方向 <span class="required">*</span></label>
+                    <select id="tradeSide" name="tradeSide" required>
+                        <option value="buy">买入</option>
+                        <option value="sell">卖出</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="quantity">交易数量 <span class="required">*</span></label>
+                    <input type="number" id="quantity" name="quantity" placeholder="请输入股数" min="1" step="100" value="100" required>
+                    <small class="form-hint">必须是100的整数倍</small>
+                </div>
+                <div class="form-group">
+                    <label for="price">成交价格</label>
+                    <input type="number" id="price" name="price" placeholder="留空则使用最新价" min="0" step="0.01">
+                    <small class="form-hint">留空则使用最新价</small>
+                </div>
+                <div class="form-group">
+                    <label for="remark">备注</label>
+                    <textarea id="remark" name="remark" rows="3" placeholder="可选，记录交易备注信息"></textarea>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" id="tradeCancelBtn">取消</button>
+                    <button type="submit" class="btn btn-primary" id="tradeSubmitBtn">确认交易</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script src="js/config.js"></script>
     <script src="js/common.js"></script>
     <script src="js/profile.js"></script>

@@ -113,25 +113,50 @@ async def get_stock_quote(request: Request):
 
                         # 更新数据库，确保下次直接命中
                         now_str = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                        db.merge(StockRealtimeQuote(
-                            code=code,
-                            trade_date=now_str,
-                            name=None,
-                            current_price=api_result["current_price"],
-                            change_percent=api_result["change_percent"],
-                            volume=api_result["volume"],
-                            amount=api_result["turnover"],
-                            high=api_result["high"],
-                            low=api_result["low"],
-                            open=api_result["open"],
-                            pre_close=api_result["pre_close"],
-                            turnover_rate=None,
-                            pe_dynamic=None,
-                            total_market_value=None,
-                            pb_ratio=None,
-                            circulating_market_value=None,
-                            update_time=datetime.datetime.now()
-                        ))
+                        # 先查询是否已存在
+                        existing_quote = db.query(StockRealtimeQuote).filter(
+                            StockRealtimeQuote.code == code,
+                            StockRealtimeQuote.trade_date == now_str
+                        ).first()
+                        
+                        if existing_quote:
+                            # 更新现有记录
+                            existing_quote.name = None
+                            existing_quote.current_price = api_result["current_price"]
+                            existing_quote.change_percent = api_result["change_percent"]
+                            existing_quote.volume = api_result["volume"]
+                            existing_quote.amount = api_result["turnover"]
+                            existing_quote.high = api_result["high"]
+                            existing_quote.low = api_result["low"]
+                            existing_quote.open = api_result["open"]
+                            existing_quote.pre_close = api_result["pre_close"]
+                            existing_quote.turnover_rate = None
+                            existing_quote.pe_dynamic = None
+                            existing_quote.total_market_value = None
+                            existing_quote.pb_ratio = None
+                            existing_quote.circulating_market_value = None
+                            existing_quote.update_time = datetime.datetime.now()
+                        else:
+                            # 插入新记录
+                            db.add(StockRealtimeQuote(
+                                code=code,
+                                trade_date=now_str,
+                                name=None,
+                                current_price=api_result["current_price"],
+                                change_percent=api_result["change_percent"],
+                                volume=api_result["volume"],
+                                amount=api_result["turnover"],
+                                high=api_result["high"],
+                                low=api_result["low"],
+                                open=api_result["open"],
+                                pre_close=api_result["pre_close"],
+                                turnover_rate=None,
+                                pe_dynamic=None,
+                                total_market_value=None,
+                                pb_ratio=None,
+                                circulating_market_value=None,
+                                update_time=datetime.datetime.now()
+                            ))
                     except Exception as e:
                         print(f"[stock_quote] 获取 {code} 行情异常: {e}")
                         api_failed_codes.append(code)

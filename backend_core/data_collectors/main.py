@@ -153,9 +153,9 @@ def cleanup_old_news():
 scheduler.add_job(
     collect_akshare_realtime,
     'cron',
-    day_of_week='mon-fri',
-    hour='9-11,13-16',
-    minute='23,53',
+    day_of_week='mon-sun',
+    hour='0-11,13-16',
+    minute='28,53',
     id='akshare_realtime',
     
 )

@@ -431,7 +431,6 @@ const WatchlistPage = {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    user_id,
                     stock_code: stockInfo.code,
                     stock_name: stockInfo.name,
                     group_name

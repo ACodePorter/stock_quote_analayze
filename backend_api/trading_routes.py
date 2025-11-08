@@ -107,7 +107,8 @@ def _latest_quote(db: Session, stock_code: str) -> Optional[StockRealtimeQuote]:
 
 def _fallback_price(position: Optional[SimTradePosition], quote: Optional[StockRealtimeQuote]) -> float:
     if quote:
-        for candidate in [quote.current_price, quote.close, quote.pre_close]:
+        # StockRealtimeQuote 模型中没有 close 字段，只有 current_price 和 pre_close
+        for candidate in [quote.current_price, quote.pre_close]:
             if candidate is not None:
                 return float(candidate)
     if position is not None:

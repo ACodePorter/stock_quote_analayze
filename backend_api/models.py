@@ -117,7 +117,7 @@ class WatchlistBase(BaseModel):
     group_name: str = "default"
 
 class WatchlistCreate(WatchlistBase):
-    user_id: int
+    pass
 
 class WatchlistInDB(WatchlistBase):
     id: int
@@ -266,6 +266,10 @@ class StockRealtimeQuote(Base):
     pb_ratio = Column(Float)
     circulating_market_value = Column(Float)
     update_time = Column(DateTime)
+    
+    __table_args__ = (
+        UniqueConstraint('code', 'trade_date', name='uq_stock_realtime_quote_code_date'),
+    )
 
 class StockNoticeReport(Base):
     __tablename__ = "stock_notice_report"

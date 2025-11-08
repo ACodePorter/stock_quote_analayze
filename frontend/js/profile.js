@@ -9,6 +9,7 @@ const ProfilePage = {
         try {
             await CommonUtils.auth.init();
             this.bindTabs();
+            this.bindActions();
             await this.loadDashboard();
         } catch (error) {
             console.error('个人中心初始化失败:', error);
@@ -29,6 +30,233 @@ const ProfilePage = {
                 });
             });
         });
+    },
+
+    bindActions() {
+        const addPositionBtn = document.querySelector('.add-position-btn');
+        if (addPositionBtn) {
+            addPositionBtn.addEventListener('click', () => {
+                this.showTradeModal();
+            });
+        }
+
+        // 绑定交易表单事件
+        this.bindTradeModal();
+    },
+
+    bindTradeModal() {
+        const modal = document.getElementById('tradeModal');
+        const form = document.getElementById('tradeForm');
+        const closeBtn = document.getElementById('tradeModalClose');
+        const cancelBtn = document.getElementById('tradeCancelBtn');
+
+        if (!modal || !form) return;
+
+        // 关闭按钮
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => this.hideTradeModal());
+        }
+
+        // 取消按钮
+        if (cancelBtn) {
+            cancelBtn.addEventListener('click', () => this.hideTradeModal());
+        }
+
+        // 点击遮罩关闭
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                this.hideTradeModal();
+            }
+        });
+
+        // 表单提交
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.handleTradeSubmit();
+        });
+
+        // 股票代码输入时自动获取股票名称
+        const stockCodeInput = document.getElementById('stockCode');
+        if (stockCodeInput) {
+            stockCodeInput.addEventListener('blur', () => {
+                this.fetchStockName(stockCodeInput.value.trim());
+            });
+        }
+    },
+
+    showTradeModal(code = '', name = '', side = 'buy') {
+        const modal = document.getElementById('tradeModal');
+        const titleEl = document.getElementById('tradeModalTitle');
+        const codeInput = document.getElementById('stockCode');
+        const nameInput = document.getElementById('stockName');
+        const sideSelect = document.getElementById('tradeSide');
+        const quantityInput = document.getElementById('quantity');
+        const priceInput = document.getElementById('price');
+        const remarkInput = document.getElementById('remark');
+
+        if (!modal) return;
+
+        // 设置标题
+        if (titleEl) {
+            titleEl.textContent = code ? `${side === 'buy' ? '买入' : '卖出'} ${name || code}` : '新增持仓';
+        }
+
+        // 填充表单
+        if (codeInput) codeInput.value = code;
+        if (nameInput) nameInput.value = name;
+        if (sideSelect) sideSelect.value = side;
+        if (quantityInput) quantityInput.value = '100';
+        if (priceInput) priceInput.value = '';
+        if (remarkInput) remarkInput.value = '';
+
+        // 如果已有代码，禁用代码输入
+        if (codeInput) {
+            codeInput.disabled = !!code;
+        }
+
+        // 显示模态框
+        modal.style.display = 'flex';
+    },
+
+    hideTradeModal() {
+        const modal = document.getElementById('tradeModal');
+        const form = document.getElementById('tradeForm');
+        const codeInput = document.getElementById('stockCode');
+
+        if (modal) {
+            modal.style.display = 'none';
+        }
+
+        if (form) {
+            form.reset();
+        }
+
+        // 恢复代码输入框
+        if (codeInput) {
+            codeInput.disabled = false;
+        }
+    },
+
+    async fetchStockName(code) {
+        if (!code) return;
+
+        const nameInput = document.getElementById('stockName');
+        if (!nameInput || nameInput.value.trim()) return; // 如果已有名称则不自动获取
+
+        try {
+            // 尝试从本地缓存获取
+            const cached = localStorage.getItem('stockBasicInfo');
+            if (cached) {
+                const stocks = JSON.parse(cached);
+                const stock = stocks.find(s => String(s.code) === code);
+                if (stock && stock.name) {
+                    nameInput.value = stock.name;
+                    return;
+                }
+            }
+
+            // 从API获取
+            const response = await fetch(`${API_BASE_URL}/api/stock/list?query=${encodeURIComponent(code)}&limit=1`);
+            const data = await response.json();
+            if (data.success && data.data && data.data.length > 0) {
+                const stock = data.data[0];
+                if (stock.code === code && stock.name) {
+                    nameInput.value = stock.name;
+                }
+            }
+        } catch (error) {
+            console.error('获取股票名称失败:', error);
+        }
+    },
+
+    async handleTradeSubmit() {
+        if (!CommonUtils.checkLoginAndHandleExpiry()) {
+            return;
+        }
+
+        const codeInput = document.getElementById('stockCode');
+        const nameInput = document.getElementById('stockName');
+        const sideSelect = document.getElementById('tradeSide');
+        const quantityInput = document.getElementById('quantity');
+        const priceInput = document.getElementById('price');
+        const remarkInput = document.getElementById('remark');
+        const submitBtn = document.getElementById('tradeSubmitBtn');
+
+        if (!codeInput || !sideSelect || !quantityInput) {
+            CommonUtils.showToast('表单数据不完整', 'error');
+            return;
+        }
+
+        const stockCode = codeInput.value.trim().toUpperCase();
+        const stockName = nameInput.value.trim();
+        const side = sideSelect.value;
+        const quantity = parseInt(quantityInput.value, 10);
+        const priceValue = priceInput.value.trim();
+        const remark = remarkInput.value.trim();
+
+        // 验证
+        if (!stockCode) {
+            CommonUtils.showToast('请输入股票代码', 'error');
+            codeInput.focus();
+            return;
+        }
+
+        if (!quantity || quantity <= 0) {
+            CommonUtils.showToast('请输入正确的交易数量', 'error');
+            quantityInput.focus();
+            return;
+        }
+
+        if (quantity % 100 !== 0) {
+            CommonUtils.showToast('交易数量必须是100的整数倍', 'error');
+            quantityInput.focus();
+            return;
+        }
+
+        let price = null;
+        if (priceValue) {
+            const parsed = parseFloat(priceValue);
+            if (Number.isNaN(parsed) || parsed <= 0) {
+                CommonUtils.showToast('请输入正确的价格', 'error');
+                priceInput.focus();
+                return;
+            }
+            price = parsed;
+        }
+
+        // 禁用提交按钮
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.textContent = '提交中...';
+        }
+
+        try {
+            const payload = {
+                stock_code: stockCode,
+                stock_name: stockName || stockCode,
+                side,
+                quantity,
+            };
+
+            if (price !== null) {
+                payload.price = price;
+            }
+
+            if (remark) {
+                payload.remark = remark;
+            }
+
+            const label = side === 'sell' ? '卖出' : '买入';
+            await this.submitSimTradeOrder(payload, `${label}指令已提交`);
+            this.hideTradeModal();
+        } catch (error) {
+            console.error('交易提交失败:', error);
+        } finally {
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = '确认交易';
+            }
+        }
     },
 
     async loadDashboard() {
@@ -182,39 +410,8 @@ const ProfilePage = {
         }).join('');
     },
 
-    async quickTrade(code, name, side) {
-        const label = side === 'sell' ? '卖出' : '买入';
-        const quantityInput = prompt(`请输入${label}股数`, '100');
-        if (!quantityInput) return;
-
-        const quantity = parseInt(quantityInput, 10);
-        if (!quantity || quantity <= 0) {
-            CommonUtils.showToast('请输入正确的股数', 'error');
-            return;
-        }
-
-        const priceInput = prompt('请输入成交价格，留空则使用最新价', '');
-        let price = null;
-        if (priceInput && priceInput.trim()) {
-            const parsed = parseFloat(priceInput.trim());
-            if (Number.isNaN(parsed) || parsed <= 0) {
-                CommonUtils.showToast('请输入正确的价格', 'error');
-                return;
-            }
-            price = parsed;
-        }
-
+    async submitSimTradeOrder(payload, successMessage) {
         try {
-            const payload = {
-                stock_code: code,
-                stock_name: name,
-                side,
-                quantity,
-            };
-            if (price !== null) {
-                payload.price = price;
-            }
-
             const response = await authFetch(`${API_BASE_URL}/api/simtrade/orders`, {
                 method: 'POST',
                 headers: {
@@ -229,13 +426,27 @@ const ProfilePage = {
                 throw new Error(result.detail || result.message || '下单失败');
             }
 
-            CommonUtils.showToast(`${label}指令已提交`, 'success');
+            CommonUtils.showToast(successMessage, 'success');
             this.state.dashboard = result;
             this.renderDashboard();
         } catch (error) {
             console.error('模拟交易下单失败:', error);
             CommonUtils.showToast(error.message || '模拟交易下单失败', 'error');
         }
+    },
+
+    async quickTrade(code, name, side) {
+        if (!CommonUtils.checkLoginAndHandleExpiry()) {
+            return;
+        }
+        this.showTradeModal(code, name, side);
+    },
+
+    async createNewPosition() {
+        if (!CommonUtils.checkLoginAndHandleExpiry()) {
+            return;
+        }
+        this.showTradeModal();
     },
 
     updateProfileStats(positions, orders) {
@@ -381,4 +592,7 @@ const ProfilePage = {
 
 document.addEventListener('DOMContentLoaded', () => {
     ProfilePage.init();
-}); 
+});
+
+// 导出到全局作用域，以便 onclick 事件可以访问
+window.ProfilePage = ProfilePage; 
