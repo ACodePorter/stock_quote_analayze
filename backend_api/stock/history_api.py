@@ -296,10 +296,14 @@ def export_stock_history(
                 has_notes_data = False
         
         # 根据格式选择导出方式
-        if format.lower() == "excel":
+        fmt = format.lower()
+        if fmt == "excel":
             return export_to_excel(rows, include_notes, has_notes_data, code)
-        else:
+        if fmt == "text":
+            return export_to_text(rows, include_notes, has_notes_data, code)
+        if fmt == "csv":
             return export_to_csv(rows, include_notes, has_notes_data, code)
+        raise HTTPException(status_code=400, detail=f"不支持的导出格式: {format}")
         
     except HTTPException:
         raise
@@ -308,8 +312,8 @@ def export_stock_history(
         print(f"[export_stock_history] {error_msg}")
         raise HTTPException(status_code=500, detail=error_msg)
 
-def export_to_csv(rows, include_notes, has_notes_data, code):
-    """导出为CSV格式"""
+def prepare_export_rows(rows, include_notes, has_notes_data):
+    """根据导出配置格式化行数据"""
     # 添加数据格式化函数
     def format_volume(volume):
         """格式化成交量为万手"""
@@ -338,16 +342,7 @@ def export_to_csv(rows, include_notes, has_notes_data, code):
         if value is None:
             return '-'
         return f"{float(value):.2f}"
-    
-    # 创建CSV内容
-    output = io.StringIO()
-    
-    # 添加BOM头，解决Excel打开中文乱码问题
-    output.write('\ufeff')
-    
-    writer = csv.writer(output)
-    
-    # 根据是否有备注数据设置不同的CSV头
+
     if include_notes and has_notes_data:
         headers = [
             "股票代码", "股票名称", "日期", "开盘", "收盘", "最高", "最低",
@@ -360,33 +355,49 @@ def export_to_csv(rows, include_notes, has_notes_data, code):
             "成交量(万手)", "成交额(亿)", "涨跌幅%", "涨跌额", "换手率%",
             "累计升跌%", "5天升跌%", "10天升跌%", "60天升跌%", "备注"
         ]
-    
-    writer.writerow(headers)
-    
-    # 写入数据
+
+    data_rows = []
     for row in rows:
         if include_notes and has_notes_data:
-            # 包含备注的数据 - 格式化数值
-            writer.writerow([
-                row[0], row[1], row[2], format_price(row[3]), format_price(row[4]), 
+            data_rows.append([
+                row[0], row[1], row[2], format_price(row[3]), format_price(row[4]),
                 format_price(row[5]), format_price(row[6]),
-                format_volume(row[7]), format_amount(row[8]), 
+                format_volume(row[7]), format_amount(row[8]),
                 format_percent(row[9]), format_price(row[10]), format_percent(row[11]),
-                format_percent(row[12]), format_percent(row[13]), 
-                format_percent(row[14]), format_percent(row[15]), 
+                format_percent(row[12]), format_percent(row[13]),
+                format_percent(row[14]), format_percent(row[15]),
                 row[16], row[17], row[18]
             ])
         else:
-            # 不包含备注的数据 - 格式化数值
-            writer.writerow([
-                row[0], row[1], row[2], format_price(row[3]), format_price(row[4]), 
+            data_rows.append([
+                row[0], row[1], row[2], format_price(row[3]), format_price(row[4]),
                 format_price(row[5]), format_price(row[6]),
-                format_volume(row[7]), format_amount(row[8]), 
+                format_volume(row[7]), format_amount(row[8]),
                 format_percent(row[9]), format_price(row[10]), format_percent(row[11]),
-                format_percent(row[12]), format_percent(row[13]), 
-                format_percent(row[14]), format_percent(row[15]), 
+                format_percent(row[12]), format_percent(row[13]),
+                format_percent(row[14]), format_percent(row[15]),
                 row[16]
             ])
+
+    return headers, data_rows
+
+def export_to_csv(rows, include_notes, has_notes_data, code):
+    """导出为CSV格式"""
+    headers, data_rows = prepare_export_rows(rows, include_notes, has_notes_data)
+    
+    # 创建CSV内容
+    output = io.StringIO()
+    
+    # 添加BOM头，解决Excel打开中文乱码问题
+    output.write('\ufeff')
+    
+    writer = csv.writer(output)
+    
+    # 根据是否有备注数据设置不同的CSV头
+    writer.writerow(headers)
+    
+    # 写入数据
+    writer.writerows(data_rows)
     
     output.seek(0)
     
@@ -396,6 +407,27 @@ def export_to_csv(rows, include_notes, has_notes_data, code):
     return StreamingResponse(
         iter([output.getvalue()]),
         media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{filename}"}
+    )
+
+def export_to_text(rows, include_notes, has_notes_data, code):
+    """导出为制表符分隔的文本格式"""
+    headers, data_rows = prepare_export_rows(rows, include_notes, has_notes_data)
+
+    output = io.StringIO()
+    # 添加BOM，确保 Windows 记事本等工具显示正常
+    output.write('\ufeff')
+    output.write('\t'.join(headers) + '\n')
+
+    for row in data_rows:
+        output.write('\t'.join(str(value) for value in row) + '\n')
+
+    output.seek(0)
+    filename = f"{code}_historical_quotes_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/plain; charset=utf-8",
         headers={"Content-Disposition": f"attachment; filename*=UTF-8''{filename}"}
     )
 

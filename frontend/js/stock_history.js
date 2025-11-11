@@ -88,9 +88,16 @@ class StockHistoryPage {
     loadStockFromUrl() {
         const urlParams = new URLSearchParams(window.location.search);
         const stockCode = urlParams.get('code');
+        const stockCodeInput = document.getElementById('stockCodeInput');
         
         if (stockCode) {
             this.currentStockCode = stockCode;
+            if (stockCodeInput) {
+                stockCodeInput.value = stockCode;
+            }
+            this.searchHistory();
+        } else if (stockCodeInput && stockCodeInput.value.trim()) {
+            this.currentStockCode = stockCodeInput.value.trim();
             this.searchHistory();
         }
     }
@@ -104,6 +111,10 @@ class StockHistoryPage {
         const startDate = document.getElementById('startDate').value;
         const endDate = document.getElementById('endDate').value;
         const includeNotes = document.getElementById('includeNotes').checked;
+        const stockCodeInput = document.getElementById('stockCodeInput');
+        if (stockCodeInput) {
+            this.currentStockCode = stockCodeInput.value.trim();
+        }
         
         if (!this.currentStockCode) {
             alert('请先选择股票');
@@ -234,6 +245,8 @@ class StockHistoryPage {
         const startDate = document.getElementById('startDate').value;
         const endDate = document.getElementById('endDate').value;
         const includeNotes = document.getElementById('includeNotes').checked;
+        const exportFormatSelect = document.getElementById('exportFormat');
+        const exportFormat = exportFormatSelect ? exportFormatSelect.value : 'excel';
         
         if (!this.currentStockCode) {
             alert('请先选择股票');
@@ -241,7 +254,7 @@ class StockHistoryPage {
             }
         
         try {
-            const url = `${API_BASE_URL}/api/stock/history/export?code=${this.currentStockCode}&start_date=${startDate}&end_date=${endDate}&include_notes=${includeNotes}`;
+            const url = `${API_BASE_URL}/api/stock/history/export?code=${this.currentStockCode}&start_date=${startDate}&end_date=${endDate}&include_notes=${includeNotes}&format=${exportFormat}`;
             
             // 使用authFetch获取带认证的下载链接
             const response = await authFetch(url);
@@ -259,7 +272,9 @@ class StockHistoryPage {
             const downloadUrl = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = downloadUrl;
-            link.download = `${this.currentStockCode}_历史行情_${new Date().toISOString().slice(0, 10)}.csv`;
+            const extensionMap = { excel: 'xlsx', csv: 'csv', text: 'txt' };
+            const fileExtension = extensionMap[exportFormat] || 'xlsx';
+            link.download = `${this.currentStockCode}_历史行情_${new Date().toISOString().slice(0, 10)}.${fileExtension}`;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
