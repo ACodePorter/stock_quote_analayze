@@ -342,7 +342,7 @@ def prepare_export_rows(rows, include_notes, has_notes_data):
         if value is None:
             return '-'
         return f"{float(value):.2f}"
-
+    
     if include_notes and has_notes_data:
         headers = [
             "股票代码", "股票名称", "日期", "开盘", "收盘", "最高", "最低",
@@ -355,27 +355,27 @@ def prepare_export_rows(rows, include_notes, has_notes_data):
             "成交量(万手)", "成交额(亿)", "涨跌幅%", "涨跌额", "换手率%",
             "累计升跌%", "5天升跌%", "10天升跌%", "60天升跌%", "备注"
         ]
-
+    
     data_rows = []
     for row in rows:
         if include_notes and has_notes_data:
             data_rows.append([
-                row[0], row[1], row[2], format_price(row[3]), format_price(row[4]),
+                row[0], row[1], row[2], format_price(row[3]), format_price(row[4]), 
                 format_price(row[5]), format_price(row[6]),
-                format_volume(row[7]), format_amount(row[8]),
+                format_volume(row[7]), format_amount(row[8]), 
                 format_percent(row[9]), format_price(row[10]), format_percent(row[11]),
-                format_percent(row[12]), format_percent(row[13]),
-                format_percent(row[14]), format_percent(row[15]),
+                format_percent(row[12]), format_percent(row[13]), 
+                format_percent(row[14]), format_percent(row[15]), 
                 row[16], row[17], row[18]
             ])
         else:
             data_rows.append([
-                row[0], row[1], row[2], format_price(row[3]), format_price(row[4]),
+                row[0], row[1], row[2], format_price(row[3]), format_price(row[4]), 
                 format_price(row[5]), format_price(row[6]),
-                format_volume(row[7]), format_amount(row[8]),
+                format_volume(row[7]), format_amount(row[8]), 
                 format_percent(row[9]), format_price(row[10]), format_percent(row[11]),
-                format_percent(row[12]), format_percent(row[13]),
-                format_percent(row[14]), format_percent(row[15]),
+                format_percent(row[12]), format_percent(row[13]), 
+                format_percent(row[14]), format_percent(row[15]), 
                 row[16]
             ])
 

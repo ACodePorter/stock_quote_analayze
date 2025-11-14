@@ -146,8 +146,9 @@ class StockHistoryPage {
             tbody.innerHTML = '<tr><td colspan="14" style="text-align: center; padding: 20px;">暂无数据</td></tr>';
             return;
         }
-        
-        items.forEach(item => {
+
+        for (let i = 0; i < items.length; i++) {
+            const item = items[i];
             const row = document.createElement('tr');
             
             // 设置涨跌样式
@@ -157,16 +158,23 @@ class StockHistoryPage {
                 row.classList.add('row-down');
             }
             
+            // 计算成交额变化：参考10天涨跌%的处理方式，直接在模板字符串中判断
+            // 数据是从新到旧排列的，索引i的行和索引i+1的行（前一个交易日）比较
+            const nextItem = items[i + 1];
+            const currentAmount = item.amount !== null && item.amount !== undefined ? Number(item.amount) : null;
+            const nextAmount = nextItem && nextItem.amount !== null && nextItem.amount !== undefined ? Number(nextItem.amount) : null;
+            const amountChange = (currentAmount !== null && nextAmount !== null) ? (currentAmount - nextAmount) : null;
+            
             row.innerHTML = `
-                <td>${item.code}</td>
+                <!--td>${item.code}</td-->
                 <td>${item.name}</td>
                 <td>${item.date}</td>
                 <td>${this.formatNumber(item.open)}</td>
                 <td class="${item.change_percent > 0 ? 'cell-up' : item.change_percent < 0 ? 'cell-down' : ''}">${this.formatNumber(item.close)}</td>
-                <td>${this.formatVolume(item.volume)}</td>
-                <td>${this.formatAmount(item.amount)}</td>
-                <td class="${item.change_percent > 0 ? 'cell-up' : item.change_percent < 0 ? 'cell-down' : ''}">${this.formatPercent(item.change_percent)}</td>
                 <td class="${item.change > 0 ? 'cell-up' : item.change < 0 ? 'cell-down' : ''}">${this.formatNumber(item.change)}</td>
+                <td class="${amountChange !== null ? (amountChange > 0 ? 'cell-up' : amountChange < 0 ? 'cell-down' : '') : ''}">${this.formatAmount(item.amount)}</td>
+                <td class="${item.change_percent > 0 ? 'cell-up' : item.change_percent < 0 ? 'cell-down' : ''}">${this.formatPercent(item.change_percent)}</td>
+                <td>${this.formatVolume(item.volume)}</td>
                 <td>${this.formatPercent(item.turnover_rate)}</td>
                 <td class="${item.five_day_change_percent > 0 ? 'cell-up' : item.five_day_change_percent < 0 ? 'cell-down' : ''}">${this.formatPercent(item.five_day_change_percent)}</td>
                 <td class="${item.ten_day_change_percent > 0 ? 'cell-up' : item.ten_day_change_percent < 0 ? 'cell-down' : ''}">${this.formatPercent(item.ten_day_change_percent)}</td>
@@ -175,7 +183,7 @@ class StockHistoryPage {
             `;
             
             tbody.appendChild(row);
-        });
+        }
         
         // 更新股票信息
         if (items.length > 0) {

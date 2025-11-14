@@ -50,14 +50,10 @@ def collect_akshare_index_realtime():
 def collect_tushare_historical():
     try:
         today = datetime.now()
-        if today.weekday() == 5:  # 周六
-            today = today - timedelta(days=1)
-        elif today.weekday() == 6:  # 周日
-            today = today - timedelta(days=2)
-        elif today.weekday() == 0:  # 周一
-            today = today - timedelta(days=3)
-        else:  # 周二到周五
-            today = today - timedelta(days=1)
+        # 如果是周六、周日则不采集，工作日采集当天
+        if today.weekday() in (5, 6):  # 5=周六，6=周日
+            logging.info("[定时任务] 今天是周末，不执行 Tushare 历史行情采集。")
+            return
         today = today.strftime('%Y%m%d')
         logging.info(f"[定时任务] Tushare 历史行情采集开始，日期: {today}")
         tushare_hist_collector.collect_historical_quotes(today)
@@ -159,8 +155,8 @@ scheduler.add_job(
     id='akshare_realtime',
     
 )
-# 每天采集前一天历史行情（收盘后）
-scheduler.add_job(collect_tushare_historical, 'cron', hour='10', minute='25', id='tushare_historical')
+# 每天收盘后，采集当天历史行情
+scheduler.add_job(collect_tushare_historical, 'cron', hour='16', minute='32', id='tushare_historical')
 
 # 每隔5分钟采集一次Tushare实时行情----由于tushare对普通会员，一小时只能调用1次，所以暂时不启用
 #scheduler.add_job(collect_tushare_realtime, 'interval', minutes=5, id='tushare_realtime')
