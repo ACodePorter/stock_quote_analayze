@@ -9,6 +9,7 @@ from backend_core.database.db import SessionLocal
 from sqlalchemy import text
 from .five_day_change_calculator import FiveDayChangeCalculator
 from .extended_change_calculator import ExtendedChangeCalculator
+from .thirty_day_change_calculator import ThirtyDayChangeCalculator
 
 class HistoricalQuoteCollector(TushareCollector):
     
@@ -47,6 +48,7 @@ class HistoricalQuoteCollector(TushareCollector):
                 five_day_change_percent REAL,
                 ten_day_change_percent REAL,
                 sixty_day_change_percent REAL,
+                thirty_day_change_percent REAL,
                 collected_source TEXT,
                 collected_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 PRIMARY KEY (code, date)
@@ -290,6 +292,52 @@ class HistoricalQuoteCollector(TushareCollector):
                         session.commit()
                     except Exception as log_error:
                         self.logger.error(f"记录扩展涨跌幅计算失败日志时出错: {log_error}")
+                
+                # 扩展涨跌幅计算完成后，再计算30日涨跌幅
+                try:
+                    self.logger.info("开始自动计算30日涨跌幅...")
+                    target_date = datetime.datetime.strptime(date_str, "%Y%m%d").strftime("%Y-%m-%d")
+                    thirty_calculator = ThirtyDayChangeCalculator(session)
+                    thirty_result = thirty_calculator.calculate_for_date(target_date)
+
+                    self.logger.info(
+                        "30日涨跌幅计算完成: 总计 %d, 成功 %d, 失败 %d",
+                        thirty_result['total'],
+                        thirty_result['success'],
+                        thirty_result['failed']
+                    )
+
+                    session.execute(text('''
+                        INSERT INTO historical_collect_operation_logs
+                        (operation_type, operation_desc, affected_rows, status, error_message)
+                        VALUES (:operation_type, :operation_desc, :affected_rows, :status, :error_message)
+                    '''), {
+                        'operation_type': 'thirty_day_change_calculation',
+                        'operation_desc': f'计算日期: {target_date}\n总计股票: {thirty_result["total"]}\n成功计算: {thirty_result["success"]}\n失败计算: {thirty_result["failed"]}',
+                        'affected_rows': thirty_result['success'],
+                        'status': 'success' if thirty_result['failed'] == 0 else 'partial_success',
+                        'error_message': '\n'.join(thirty_result['details']) if thirty_result['failed'] > 0 else None
+                    })
+                    session.commit()
+
+                except Exception as calc_error:
+                    self.logger.error(f"自动计算30日涨跌幅失败: {calc_error}")
+                    try:
+                        target_date = datetime.datetime.strptime(date_str, "%Y%m%d").strftime("%Y-%m-%d")
+                        session.execute(text('''
+                            INSERT INTO historical_collect_operation_logs 
+                            (operation_type, operation_desc, affected_rows, status, error_message)
+                            VALUES (:operation_type, :operation_desc, :affected_rows, :status, :error_message)
+                        '''), {
+                            'operation_type': 'thirty_day_change_calculation',
+                            'operation_desc': f'计算日期: {target_date}',
+                            'affected_rows': 0,
+                            'status': 'error',
+                            'error_message': str(calc_error)
+                        })
+                        session.commit()
+                    except Exception as log_error:
+                        self.logger.error(f"记录30日涨跌幅计算失败日志时出错: {log_error}")
             
             return True
         except Exception as e:

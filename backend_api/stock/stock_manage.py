@@ -11,7 +11,7 @@ from threading import Lock
 import datetime
 import pandas as pd
 import math
-from models import StockRealtimeQuote
+from models import StockRealtimeQuote, StockBasicInfo
 
 # 简单内存缓存实现,缓存600秒。
 class DataFrameCache:
@@ -42,6 +42,65 @@ def safe_float(value):
         return float(value)
     except (ValueError, TypeError):
         return None
+
+def normalize_code(raw_code: str):
+    if raw_code is None:
+        return None
+    code = str(raw_code).strip()
+    if '.' in code:
+        code = code.split('.')[0]
+    return code
+
+def get_cached_spot_df():
+    try:
+        df = stock_spot_cache.get()
+        if df is None:
+            df = ak.stock_zh_a_spot_em()
+            if df is not None:
+                stock_spot_cache.set(df)
+        if df is not None and hasattr(df, 'copy'):
+            return df.copy()
+    except Exception as e:
+        print(f"⚠️ 获取AkShare行情失败: {e}")
+    return None
+
+def prepare_spot_dataframe(df: pd.DataFrame) -> pd.DataFrame:
+    if df is None or df.empty:
+        return pd.DataFrame()
+    rename_map = {
+        '代码': 'code',
+        '名称': 'name',
+        '最新价': 'current',
+        '涨跌额': 'change',
+        '涨跌幅': 'change_percent',
+        '成交量': 'volume',
+        '成交额': 'turnover',
+        '换手率': 'rate',
+    }
+    available_cols = [col for col in rename_map.keys() if col in df.columns]
+    if not available_cols:
+        return pd.DataFrame()
+    df_prepared = df[available_cols].rename(columns=rename_map)
+    df_prepared['code'] = df_prepared['code'].apply(normalize_code)
+    
+    def to_float(series):
+        return pd.to_numeric(series, errors='coerce')
+    
+    df_prepared['current'] = to_float(df_prepared.get('current'))
+    df_prepared['change'] = to_float(df_prepared.get('change'))
+    df_prepared['change_percent'] = pd.to_numeric(
+        df_prepared.get('change_percent', '').astype(str).str.replace('%', ''), errors='coerce'
+    )
+    df_prepared['volume'] = to_float(df_prepared.get('volume'))
+    df_prepared['turnover'] = to_float(df_prepared.get('turnover'))
+    df_prepared['rate'] = pd.to_numeric(
+        df_prepared.get('rate', '').astype(str).str.replace('%', ''), errors='coerce'
+    )
+    
+    for col in ['open', 'pre_close', 'high', 'low', 'pe_dynamic', 'pb', 'market_cap', 'circulating_market_cap']:
+        if col not in df_prepared.columns:
+            df_prepared[col] = None
+    return df_prepared
 
 @router.post("/quote")
 async def get_stock_quote(request: Request):
@@ -260,7 +319,6 @@ async def get_quote_board(limit: int = Query(10, description="返回前N个涨�
             WHERE change_percent IS NOT NULL AND change_percent != 0 AND trade_date = '{latest_trade_date}'
             ORDER BY code
         """, db.bind)
-        db.close()
         
         # 按涨幅降序排列
         df = df.sort_values(by='change_percent', ascending=False)
@@ -268,11 +326,25 @@ async def get_quote_board(limit: int = Query(10, description="返回前N个涨�
         # 取前limit个
         df_limit = df.head(limit)
         
+        # 准备名称映射，避免名称字段为空
+        name_map = {}
+        if not df_limit.empty:
+            code_list = [str(code) for code in df_limit['code'].tolist() if code]
+            if code_list:
+                name_rows = db.query(StockBasicInfo.code, StockBasicInfo.name).filter(
+                    StockBasicInfo.code.in_(code_list)
+                ).all()
+                name_map = {str(row.code): row.name for row in name_rows if row.name}
+        
         data = []
         for _, row in df_limit.iterrows():
+            code = str(row['code'])
+            display_name = row['name']
+            if not display_name or str(display_name).lower() == 'null':
+                display_name = name_map.get(code) or ''
             data.append({
-                'code': row['code'],
-                'name': row['name'],
+                'code': code,
+                'name': display_name,
                 'current': row['current_price'],
                 'change_percent': row['change_percent'],
                 'open': row['open'],
@@ -283,6 +355,7 @@ async def get_quote_board(limit: int = Query(10, description="返回前N个涨�
                 'turnover': row['amount'],
             })
         print(f"✅(DB) 成功获取 {len(data)} 条A股涨幅榜数据（已去重）")
+        db.close()
         return JSONResponse({'success': True, 'data': data})
     except Exception as e:
         print(f"❌ 获取A股涨幅榜数据失败: {str(e)}")
@@ -307,27 +380,29 @@ def get_quote_board_list(
         # 1. 获取最新交易日期的实时行情数据
         db = next(get_db())
         
-        # 首先获取最新的交易日期
-        latest_date_result = pd.read_sql_query("""
-            SELECT MAX(trade_date) as latest_date 
-            FROM stock_realtime_quote 
-            WHERE change_percent IS NOT NULL
-        """, db.bind)
-        
-        if latest_date_result.empty or latest_date_result.iloc[0]['latest_date'] is None:
+        try:
+            latest_date_result = pd.read_sql_query("""
+                SELECT MAX(trade_date) as latest_date 
+                FROM stock_realtime_quote 
+                WHERE change_percent IS NOT NULL
+            """, db.bind)
+            
+            if latest_date_result.empty or latest_date_result.iloc[0]['latest_date'] is None:
+                latest_trade_date = None
+                df = pd.DataFrame()
+            else:
+                latest_trade_date = latest_date_result.iloc[0]['latest_date']
+                if latest_trade_date is not None and len(str(latest_trade_date)) > 10:
+                    latest_trade_date = str(latest_trade_date)[:10]
+                print(f"📅 使用最新交易日期: {latest_trade_date}")
+              
+                df = pd.read_sql_query(f"""
+                    SELECT * FROM stock_realtime_quote 
+                    WHERE change_percent IS NOT NULL AND trade_date = '{latest_trade_date}'
+                    ORDER BY code
+                """, db.bind)
+        finally:
             db.close()
-            return JSONResponse({'success': False, 'message': '暂无行情数据'}, status_code=404)
-        
-        latest_trade_date = latest_date_result.iloc[0]['latest_date']
-        print(f"📅 使用最新交易日期: {latest_trade_date}")
-        
-        # 获取最新交易日期的数据
-        df = pd.read_sql_query(f"""
-            SELECT * FROM stock_realtime_quote 
-            WHERE change_percent IS NOT NULL AND trade_date = '{latest_trade_date}'
-            ORDER BY code
-        """, db.bind)
-        db.close()
 
         # 3. 市场类型过滤
         if market != 'all':
@@ -385,11 +460,13 @@ def get_quote_board_list(
             'circulating_market_value': 'circulating_market_cap'
         }
         
-        # Select and rename columns
-        df_selected = df[list(field_rename_map.keys())].rename(columns=field_rename_map)
+        if df.empty:
+            df_selected = pd.DataFrame(columns=field_rename_map.values())
+        else:
+            df_selected = df[list(field_rename_map.keys())].rename(columns=field_rename_map)
 
         # Calculate 'change' if possible
-        if 'current' in df_selected.columns and 'pre_close' in df_selected.columns:
+        if not df_selected.empty and 'current' in df_selected.columns and 'pre_close' in df_selected.columns:
             # 确保数据类型为数值型，处理可能的字符串或None值
             current_numeric = pd.to_numeric(df_selected['current'], errors='coerce')
             pre_close_numeric = pd.to_numeric(df_selected['pre_close'], errors='coerce')
@@ -397,16 +474,66 @@ def get_quote_board_list(
         else:
             df_selected['change'] = None
 
-        # 6. 分页
         total = len(df_selected)
+        fallback_used = False
+        if total < page_size:
+            spot_df = get_cached_spot_df()
+            df_from_spot = prepare_spot_dataframe(spot_df)
+            if not df_from_spot.empty:
+                df_selected = df_from_spot
+                total = len(df_selected)
+                fallback_used = True
+                print(f"⚠️ 本地行情数据不足，使用AkShare行情填充，共 {total} 条")
+                
+                if market != 'all':
+                    if market == 'sh':
+                        df_selected = df_selected[df_selected['code'].str.startswith('6')]
+                    elif market == 'sz':
+                        df_selected = df_selected[df_selected['code'].str.startswith('0') | df_selected['code'].str.startswith('3')]
+                    elif market == 'cy':
+                        df_selected = df_selected[df_selected['code'].str.startswith('3')]
+                    elif market == 'bj':
+                        df_selected = df_selected[df_selected['code'].str.startswith('8') | df_selected['code'].str.startswith('4')]
+                
+                fallback_sort_map = {
+                    'rise': ('change_percent', False),
+                    'fall': ('change_percent', True),
+                    'volume': ('volume', False),
+                    'turnover_rate': ('rate', False)
+                }
+                sort_col, ascending = fallback_sort_map.get(ranking_type, ('change_percent', False))
+                if sort_col in df_selected.columns:
+                    df_selected = df_selected.sort_values(by=sort_col, ascending=ascending)
+                total = len(df_selected)
+
         start = (page - 1) * page_size
         end = start + page_size
-        df_page = df_selected.iloc[start:end]
+        df_page = df_selected.iloc[start:end].copy()
+        
+        # 名称兜底（仅对本地数据）
+        if not fallback_used and not df_page.empty and 'code' in df_page.columns:
+            code_list = [str(code) for code in df_page['code'].tolist() if code]
+            if code_list:
+                db_lookup = next(get_db())
+                try:
+                    name_rows = db_lookup.query(StockBasicInfo.code, StockBasicInfo.name).filter(
+                        StockBasicInfo.code.in_(code_list)
+                    ).all()
+                finally:
+                    db_lookup.close()
+                name_map = {str(row.code): row.name for row in name_rows if row.name}
+                def resolve_name(row):
+                    current_name = row.get('name')
+                    if current_name and str(current_name).strip().lower() != 'null':
+                        return current_name
+                    return name_map.get(str(row.get('code'))) or current_name or ''
+                df_page['name'] = df_page.apply(resolve_name, axis=1)
         
         data = df_page.to_dict(orient='records')
         data = clean_nan(data)
         
         print(f"✅ 成功获取 {len(data)} 条A股排行数据 (总数: {total})")
+        db.close()
         return JSONResponse({'success': True, 'data': data, 'total': total, 'page': page, 'page_size': page_size})
         
     except Exception as e:

@@ -41,6 +41,11 @@ class StockHistoryPage {
             this.calculateTenDayChange();
         });
         
+        // 计算30天涨跌按钮
+        document.getElementById('calculateThirtyDayBtn').addEventListener('click', () => {
+            this.calculateThirtyDayChange();
+        });
+        
         // 计算60天涨跌按钮
         document.getElementById('calculateSixtyDayBtn').addEventListener('click', () => {
             this.calculateSixtyDayChange();
@@ -178,6 +183,7 @@ class StockHistoryPage {
                 <td>${this.formatPercent(item.turnover_rate)}</td>
                 <td class="${item.five_day_change_percent > 0 ? 'cell-up' : item.five_day_change_percent < 0 ? 'cell-down' : ''}">${this.formatPercent(item.five_day_change_percent)}</td>
                 <td class="${item.ten_day_change_percent > 0 ? 'cell-up' : item.ten_day_change_percent < 0 ? 'cell-down' : ''}">${this.formatPercent(item.ten_day_change_percent)}</td>
+                <td class="${item.thirty_day_change_percent > 0 ? 'cell-up' : item.thirty_day_change_percent < 0 ? 'cell-down' : ''}">${this.formatPercent(item.thirty_day_change_percent)}</td>
                 <td class="${item.sixty_day_change_percent > 0 ? 'cell-up' : item.sixty_day_change_percent < 0 ? 'cell-down' : ''}">${this.formatPercent(item.sixty_day_change_percent)}</td>
                 <td class="notes-cell ${(item.user_notes || item.remarks) ? 'has-notes' : ''}" onclick="stockHistoryPage.editNote('${item.code}', '${item.date}', '${item.user_notes || item.remarks || ''}', '${item.strategy_type || ''}', '${item.risk_level || ''}')">${item.user_notes || item.remarks || '点击添加'}</td>
             `;
@@ -421,6 +427,68 @@ class StockHistoryPage {
             alert('计算失败: ' + error.message);
         } finally {
             // 恢复按钮状态
+            calculateBtn.disabled = false;
+            calculateBtn.textContent = originalText;
+        }
+    }
+
+    async calculateThirtyDayChange() {
+        // 检查用户登录状态
+        const userInfo = CommonUtils.auth.getUserInfo();
+        if (!userInfo || !userInfo.id) {
+            CommonUtils.showToast('请先登录后再计算涨跌幅', 'warning');
+            window.location.href = 'login.html';
+            return;
+        }
+
+        const startDate = document.getElementById('startDate').value;
+        const endDate = document.getElementById('endDate').value;
+
+        if (!this.currentStockCode) {
+            alert('请先选择股票');
+            return;
+        }
+
+        if (!startDate || !endDate) {
+            alert('请选择开始日期和结束日期');
+            return;
+        }
+
+        const calculateBtn = document.getElementById('calculateThirtyDayBtn');
+        const originalText = calculateBtn.textContent;
+        calculateBtn.disabled = true;
+        calculateBtn.textContent = '计算中...';
+
+        try {
+            const extendedEndDate = this.addBusinessDays(endDate, 30);
+
+            const response = await authFetch(`${API_BASE_URL}/api/stock/history/calculate_thirty_day_change`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    stock_code: this.currentStockCode,
+                    start_date: startDate,
+                    end_date: endDate,
+                    extended_end_date: extendedEndDate
+                })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || '计算失败');
+            }
+
+            const result = await response.json();
+            alert(`计算完成！\n${result.message}\n更新记录数: ${result.updated_count}\n注意：结束日期已自动延长30个工作日以确保完整计算`);
+
+            this.searchHistory();
+
+        } catch (error) {
+            console.error('计算30天涨跌失败:', error);
+            alert('计算失败: ' + error.message);
+        } finally {
             calculateBtn.disabled = false;
             calculateBtn.textContent = originalText;
         }

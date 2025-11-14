@@ -633,7 +633,7 @@ async def get_historical_quotes(
                 SELECT 
                     h.code, h.name, h.date, h.open, h.close, h.high, h.low, 
                     h.volume, h.amount, h.change_percent, h.change, h.turnover_rate,
-                    h.cumulative_change_percent, h.five_day_change_percent, h.ten_day_change_percent, h.sixty_day_change_percent, h.remarks,
+                    h.cumulative_change_percent, h.five_day_change_percent, h.ten_day_change_percent, h.thirty_day_change_percent, h.sixty_day_change_percent, h.remarks,
                     COALESCE(tn.notes, '') as user_notes,
                     COALESCE(tn.strategy_type, '') as strategy_type,
                     COALESCE(tn.risk_level, '') as risk_level,
@@ -648,7 +648,7 @@ async def get_historical_quotes(
                 SELECT 
                     code, name, date, open, close, high, low, 
                     volume, amount, change_percent, change, turnover_rate,
-                    cumulative_change_percent, five_day_change_percent, ten_day_change_percent, sixty_day_change_percent, remarks
+                    cumulative_change_percent, five_day_change_percent, ten_day_change_percent, thirty_day_change_percent, sixty_day_change_percent, remarks
                 FROM historical_quotes
             """
         
@@ -703,19 +703,20 @@ async def get_historical_quotes(
                 "cumulative_change_percent": safe_float(row[12]),
                 "five_day_change_percent": safe_float(row[13]),
                 "ten_day_change_percent": safe_float(row[14]),
-                "sixty_day_change_percent": safe_float(row[15]),
-                "remarks": row[16] if row[16] else ""
+                "thirty_day_change_percent": safe_float(row[15]),
+                "sixty_day_change_percent": safe_float(row[16]),
+                "remarks": row[17] if row[17] else ""
             }
             
             # 如果包含备注，添加备注相关字段
-            if include_notes and len(row) > 17:
+            if include_notes and len(row) > 18:
                 item.update({
-                    "user_notes": row[17] if row[17] else "",
-                    "strategy_type": row[18] if row[18] else "",
-                    "risk_level": row[19] if row[19] else "",
-                    "notes_creator": row[20] if row[20] else "",
-                    "notes_created_at": safe_datetime(row[21]),
-                    "notes_updated_at": safe_datetime(row[22])
+                    "user_notes": row[18] if row[18] else "",
+                    "strategy_type": row[19] if row[19] else "",
+                    "risk_level": row[20] if row[20] else "",
+                    "notes_creator": row[21] if row[21] else "",
+                    "notes_created_at": safe_datetime(row[22]),
+                    "notes_updated_at": safe_datetime(row[23])
                 })
             
             items.append(item)

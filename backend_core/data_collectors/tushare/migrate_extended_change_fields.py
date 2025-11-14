@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-数据库迁移脚本 - 为historical_quotes表添加10天和60天涨幅字段
+数据库迁移脚本 - 为historical_quotes表添加10天、30天和60天涨幅字段
 """
 
 import logging
@@ -12,18 +12,18 @@ logger = logging.getLogger(__name__)
 
 def migrate_historical_quotes_table():
     """
-    为historical_quotes表添加10天和60天涨幅字段
+    为historical_quotes表添加10天、30天和60天涨幅字段
     """
     session = SessionLocal()
     try:
-        logger.info("开始迁移historical_quotes表，添加10天和60天涨幅字段...")
+        logger.info("开始迁移historical_quotes表，添加10天、30天和60天涨跌幅字段...")
         
         # 检查字段是否已存在
         result = session.execute(text("""
             SELECT column_name 
             FROM information_schema.columns 
             WHERE table_name = 'historical_quotes' 
-            AND column_name IN ('ten_day_change_percent', 'sixty_day_change_percent')
+            AND column_name IN ('ten_day_change_percent', 'thirty_day_change_percent', 'sixty_day_change_percent')
         """))
         
         existing_columns = [row[0] for row in result.fetchall()]
@@ -38,6 +38,17 @@ def migrate_historical_quotes_table():
             logger.info("ten_day_change_percent字段添加成功")
         else:
             logger.info("ten_day_change_percent字段已存在，跳过")
+        
+        # 添加30天涨幅字段
+        if 'thirty_day_change_percent' not in existing_columns:
+            logger.info("添加thirty_day_change_percent字段...")
+            session.execute(text("""
+                ALTER TABLE historical_quotes 
+                ADD COLUMN thirty_day_change_percent REAL
+            """))
+            logger.info("thirty_day_change_percent字段添加成功")
+        else:
+            logger.info("thirty_day_change_percent字段已存在，跳过")
         
         # 添加60天涨幅字段
         if 'sixty_day_change_percent' not in existing_columns:
@@ -76,7 +87,7 @@ def migrate_historical_quotes_table():
             SELECT column_name 
             FROM information_schema.columns 
             WHERE table_name = 'historical_quotes' 
-            AND column_name IN ('five_day_change_percent', 'ten_day_change_percent', 'sixty_day_change_percent')
+            AND column_name IN ('five_day_change_percent', 'ten_day_change_percent', 'thirty_day_change_percent', 'sixty_day_change_percent')
             ORDER BY column_name
         """))
         

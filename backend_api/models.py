@@ -387,6 +387,7 @@ class HistoricalQuotes(Base):
     cumulative_change_percent = Column(Float)  # 累计升跌%
     five_day_change_percent = Column(Float)    # 5天升跌%
     ten_day_change_percent = Column(Float)     # 10天升跌%
+    thirty_day_change_percent = Column(Float)  # 30天升跌%
     sixty_day_change_percent = Column(Float)   # 60天升跌%
     remarks = Column(String)                   # 备注
 

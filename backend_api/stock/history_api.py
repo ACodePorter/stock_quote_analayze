@@ -63,7 +63,7 @@ def get_stock_history(
             SELECT 
                 h.code, h.name, h.date, h.open, h.close, h.high, h.low, 
                 h.volume, h.amount, h.change_percent, h.change, h.turnover_rate,
-                h.cumulative_change_percent, h.five_day_change_percent, h.ten_day_change_percent, h.sixty_day_change_percent, h.remarks,
+                h.cumulative_change_percent, h.five_day_change_percent, h.ten_day_change_percent, h.thirty_day_change_percent, h.sixty_day_change_percent, h.remarks,
                 COALESCE(tn.notes, '') as user_notes,
                 COALESCE(tn.strategy_type, '') as strategy_type,
                 COALESCE(tn.risk_level, '') as risk_level,
@@ -80,7 +80,7 @@ def get_stock_history(
             SELECT 
                 code, name, date, open, close, high, low, 
                 volume, amount, change_percent, change, turnover_rate,
-                cumulative_change_percent, five_day_change_percent, ten_day_change_percent, sixty_day_change_percent, remarks
+                cumulative_change_percent, five_day_change_percent, ten_day_change_percent, thirty_day_change_percent, sixty_day_change_percent, remarks
             FROM historical_quotes 
             WHERE code = :code
         """
@@ -120,19 +120,20 @@ def get_stock_history(
             "cumulative_change_percent": row[12],
             "five_day_change_percent": row[13],
             "ten_day_change_percent": row[14],
-            "sixty_day_change_percent": row[15],
-            "remarks": row[16]
+            "thirty_day_change_percent": row[15],
+            "sixty_day_change_percent": row[16],
+            "remarks": row[17]
         }
         
         # 如果包含备注，添加备注相关字段
-        if include_notes and len(row) > 17:
+        if include_notes and len(row) > 18:
             item.update({
-                "user_notes": row[17],
-                "strategy_type": row[18],
-                "risk_level": row[19],
-                "notes_creator": row[20],
-                "notes_created_at": row[21],
-                "notes_updated_at": row[22]
+                "user_notes": row[18],
+                "strategy_type": row[19],
+                "risk_level": row[20],
+                "notes_creator": row[21],
+                "notes_created_at": row[22],
+                "notes_updated_at": row[23]
             })
         
 
@@ -222,6 +223,7 @@ def export_stock_history(
                 COALESCE(hq.cumulative_change_percent, 0) as cumulative_change_percent, 
                 COALESCE(hq.five_day_change_percent, 0) as five_day_change_percent,
                 COALESCE(hq.ten_day_change_percent, 0) as ten_day_change_percent,
+                COALESCE(hq.thirty_day_change_percent, 0) as thirty_day_change_percent,
                 COALESCE(hq.sixty_day_change_percent, 0) as sixty_day_change_percent,
                 COALESCE(tn.notes, '') as user_notes,
                 COALESCE(tn.strategy_type, '') as strategy_type,
@@ -239,6 +241,7 @@ def export_stock_history(
                 COALESCE(cumulative_change_percent, 0) as cumulative_change_percent, 
                 COALESCE(five_day_change_percent, 0) as five_day_change_percent,
                 COALESCE(ten_day_change_percent, 0) as ten_day_change_percent,
+                COALESCE(thirty_day_change_percent, 0) as thirty_day_change_percent,
                 COALESCE(sixty_day_change_percent, 0) as sixty_day_change_percent,
                 '' as user_notes,
                 '' as strategy_type,
@@ -347,13 +350,13 @@ def prepare_export_rows(rows, include_notes, has_notes_data):
         headers = [
             "股票代码", "股票名称", "日期", "开盘", "收盘", "最高", "最低",
             "成交量(万手)", "成交额(亿)", "涨跌幅%", "涨跌额", "换手率%",
-            "累计升跌%", "5天升跌%", "10天升跌%", "60天升跌%", "用户备注", "策略类型", "风险等级"
+            "累计升跌%", "5天升跌%", "10天升跌%", "30天升跌%", "60天升跌%", "用户备注", "策略类型", "风险等级"
         ]
     else:
         headers = [
             "股票代码", "股票名称", "日期", "开盘", "收盘", "最高", "最低",
             "成交量(万手)", "成交额(亿)", "涨跌幅%", "涨跌额", "换手率%",
-            "累计升跌%", "5天升跌%", "10天升跌%", "60天升跌%", "备注"
+            "累计升跌%", "5天升跌%", "10天升跌%", "30天升跌%", "60天升跌%", "备注"
         ]
     
     data_rows = []
@@ -365,8 +368,8 @@ def prepare_export_rows(rows, include_notes, has_notes_data):
                 format_volume(row[7]), format_amount(row[8]), 
                 format_percent(row[9]), format_price(row[10]), format_percent(row[11]),
                 format_percent(row[12]), format_percent(row[13]), 
-                format_percent(row[14]), format_percent(row[15]), 
-                row[16], row[17], row[18]
+                format_percent(row[14]), format_percent(row[15]), format_percent(row[16]),
+                row[17], row[18], row[19]
             ])
         else:
             data_rows.append([
@@ -375,8 +378,8 @@ def prepare_export_rows(rows, include_notes, has_notes_data):
                 format_volume(row[7]), format_amount(row[8]), 
                 format_percent(row[9]), format_price(row[10]), format_percent(row[11]),
                 format_percent(row[12]), format_percent(row[13]), 
-                format_percent(row[14]), format_percent(row[15]), 
-                row[16]
+                format_percent(row[14]), format_percent(row[15]), format_percent(row[16]),
+                row[17]
             ])
 
     return headers, data_rows
@@ -470,13 +473,13 @@ def export_to_excel(rows, include_notes, has_notes_data, code):
         headers = [
             "股票代码", "股票名称", "日期", "开盘", "收盘", "最高", "最低",
             "成交量(万手)", "成交额(亿)", "涨跌幅%", "涨跌额", "换手率%",
-            "累计升跌%", "5天升跌%", "10天升跌%", "60天升跌%", "用户备注", "策略类型", "风险等级"
+            "累计升跌%", "5天升跌%", "10天升跌%", "30天升跌%", "60天升跌%", "用户备注", "策略类型", "风险等级"
         ]
     else:
         headers = [
             "股票代码", "股票名称", "日期", "开盘", "收盘", "最高", "最低",
             "成交量(万手)", "成交额(亿)", "涨跌幅%", "涨跌额", "换手率%",
-            "累计升跌%", "5天升跌%", "10天升跌%", "60天升跌%", "备注"
+            "累计升跌%", "5天升跌%", "10天升跌%", "30天升跌%", "60天升跌%", "备注"
         ]
     
     # 写入表头
@@ -525,7 +528,7 @@ def export_to_excel(rows, include_notes, has_notes_data, code):
         ws.cell(row=row_idx, column=12, value=safe_float(row[11]))  # 换手率%
         
         # 各期涨跌%（需要颜色格式）
-        for col_offset, pct_val in enumerate([row[12], row[13], row[14], row[15]], 13):
+        for col_offset, pct_val in enumerate([row[12], row[13], row[14], row[15], row[16]], 13):
             pct_cell = ws.cell(row=row_idx, column=col_offset, value=safe_float(pct_val))
             pct_value = safe_float(pct_val)
             if pct_value is not None:
@@ -536,11 +539,11 @@ def export_to_excel(rows, include_notes, has_notes_data, code):
         
         # 备注相关字段
         if include_notes and has_notes_data:
-            ws.cell(row=row_idx, column=17, value=row[16])  # 用户备注
-            ws.cell(row=row_idx, column=18, value=row[17])  # 策略类型
-            ws.cell(row=row_idx, column=19, value=row[18])  # 风险等级
+            ws.cell(row=row_idx, column=18, value=row[17])  # 用户备注
+            ws.cell(row=row_idx, column=19, value=row[18])  # 策略类型
+            ws.cell(row=row_idx, column=20, value=row[19])  # 风险等级
         else:
-            ws.cell(row=row_idx, column=17, value=row[16])  # 备注
+            ws.cell(row=row_idx, column=18, value=row[17])  # 备注
     
     # 调整列宽
     for col in range(1, len(headers) + 1):
@@ -778,6 +781,90 @@ def calculate_ten_day_change(
         db.rollback()
         error_msg = f"计算10天涨跌%失败: {str(e)}"
         print(f"[calculate_ten_day_change] {error_msg}")
+        raise HTTPException(status_code=500, detail=error_msg)
+
+@router.post("/calculate_thirty_day_change")
+def calculate_thirty_day_change(
+    request: CalculateFiveDayChangeRequest,
+    db: Session = Depends(get_db)
+):
+    """计算指定日期范围内股票的30天涨跌%"""
+    try:
+        start_date_fmt = format_date_yyyymmdd(request.start_date)
+        end_date_fmt = format_date_yyyymmdd(request.end_date)
+
+        if not start_date_fmt or not end_date_fmt:
+            raise HTTPException(status_code=400, detail="日期格式无效")
+
+        print(f"[calculate_thirty_day_change] 开始计算股票 {request.stock_code} 在 {start_date_fmt} 到 {end_date_fmt} 期间的30天涨跌%")
+
+        extended_start_date = _get_date_before_business_days(start_date_fmt, 30)
+        query_end_date = format_date_yyyymmdd(request.extended_end_date) if request.extended_end_date else end_date_fmt
+
+        extended_query = """
+            SELECT date, close
+            FROM historical_quotes 
+            WHERE code = :stock_code 
+            AND date >= :extended_start_date 
+            AND date <= :end_date
+            ORDER BY date ASC
+        """
+
+        result = db.execute(text(extended_query), {
+            "stock_code": request.stock_code,
+            "extended_start_date": extended_start_date,
+            "end_date": query_end_date
+        })
+
+        quotes = result.fetchall()
+
+        if len(quotes) < 31:
+            raise HTTPException(status_code=400, detail="数据不足31天，无法计算30天涨跌%")
+
+        updated_count = 0
+        for i in range(30, len(quotes)):
+            current_quote = quotes[i]
+            prev_quote = quotes[i - 30]
+
+            if current_quote.date >= start_date_fmt and current_quote.date <= end_date_fmt:
+                if current_quote.close and prev_quote.close and prev_quote.close > 0:
+                    thirty_day_change = ((current_quote.close - prev_quote.close) / prev_quote.close) * 100
+                    thirty_day_change = round(thirty_day_change, 2)
+
+                    update_query = """
+                        UPDATE historical_quotes 
+                        SET thirty_day_change_percent = :thirty_day_change
+                        WHERE code = :stock_code AND date = :date
+                    """
+
+                    db.execute(text(update_query), {
+                        "thirty_day_change": thirty_day_change,
+                        "stock_code": request.stock_code,
+                        "date": current_quote.date
+                    })
+
+                    updated_count += 1
+
+        db.commit()
+
+        message = f"股票 {request.stock_code} 在 {start_date_fmt} 到 {end_date_fmt} 期间的30天涨跌%计算完成"
+        print(f"[calculate_thirty_day_change] {message}, 更新了 {updated_count} 条记录")
+
+        return {
+            "message": message,
+            "stock_code": request.stock_code,
+            "start_date": start_date_fmt,
+            "end_date": end_date_fmt,
+            "updated_count": updated_count,
+            "total_records": len(quotes)
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        error_msg = f"计算30天涨跌%失败: {str(e)}"
+        print(f"[calculate_thirty_day_change] {error_msg}")
         raise HTTPException(status_code=500, detail=error_msg)
 
 @router.post("/calculate_sixty_day_change")
