@@ -29,8 +29,14 @@ def main():
         xq_df = ak.stock_individual_basic_info_xq(symbol="SH601127")
         print("雪球个股信息获取成功，内容如下：")
         print(xq_df)
+    except KeyError as e:
+        if 'data' in str(e):
+            print("从雪球获取个股信息失败：API 返回数据格式异常，可能需要有效的 token 或 API 访问权限")
+            print(f"详细错误：{e}")
+        else:
+            print(f"从雪球获取个股信息失败：{e}")
     except Exception as e:
-        print("从雪球获取个股信息失败：", e)
+        print(f"从雪球获取个股信息失败：{e}")
 
 
     #stock_zh_index_spot_sina_df = ak.stock_zh_index_spot_sina()
@@ -49,22 +55,62 @@ def main():
     # print(industry_board_index_daily_df)
 
 
-    stock_board_industry_summary_ths_df = ak.stock_board_industry_summary_ths()
-    print("同花顺-板块-行业板块-一览表，内容如下：")
-    print(stock_board_industry_summary_ths_df)
+    # stock_board_industry_summary_ths_df = ak.stock_board_industry_summary_ths()
+    # print("同花顺-板块-行业板块-一览表，内容如下：")
+    # print(stock_board_industry_summary_ths_df)
 
-    df = ak.stock_board_industry_name_em()
-    print("行业板块名称数据获取成功，内容如下：")
-    print(df)
+    # df = ak.stock_board_industry_name_em()
+    # print("行业板块名称数据获取成功，内容如下：")
+    # print(df)
 
 
-    dat = yf.Ticker("SH601127")
-    print(dat.info)
-    print(dat.calendar)
-    print(dat.analyst_price_targets)
-    print(dat.quarterly_income_stmt)
-    print(dat.history(period='1mo'))
-    print(dat.option_chain(dat.options[0]).calls)
+    # dat = yf.Ticker("SH601127")
+    # print(dat.info)
+    # print(dat.calendar)
+    # print(dat.analyst_price_targets)
+    # print(dat.quarterly_income_stmt)
+    # print(dat.history(period='1mo'))
+    # print(dat.option_chain(dat.options[0]).calls)
+
+    # stock_hk_spot_em_df = ak.stock_hk_spot()
+    # print("港股实时行情数据获取成功，内容如下：")
+    # print(stock_hk_spot_em_df)
+
+    # 测试从雪球获取港股个股信息
+    try:
+        stock_individual_basic_info_hk_xq_df = ak.stock_individual_basic_info_hk_xq(symbol="00700", token=None, timeout=None)
+        print("港股个股信息获取成功，内容如下：")
+        print(stock_individual_basic_info_hk_xq_df)
+    except KeyError as e:
+        if 'data' in str(e):
+            print("从雪球获取港股个股信息失败：API 返回数据格式异常")
+            print("可能的原因：")
+            print("1. 需要有效的雪球 token（xq_a_token）")
+            print("2. token 已过期，需要重新登录获取")
+            print("3. API 访问权限受限")
+            print(f"详细错误：{e}")
+            print("\n提示：如需使用此功能，请先获取有效的雪球 token 并配置到 akshare 中")
+        else:
+            print(f"从雪球获取港股个股信息失败：{e}")
+    except Exception as e:
+        print(f"从雪球获取港股个股信息失败：{e}")
+
+
+    stock_hk_hist_df = ak.stock_hk_hist(symbol="00700", period='daily', start_date="19700101",end_date="22220101",adjust="")    
+    print("港股历史行情数据获取成功，内容如下：")
+    print(stock_hk_hist_df)
+
+    stock_hk_daily_hfq_df = ak.stock_hk_daily(symbol="00539", adjust="")
+    print("港股每日复权行情数据获取成功，内容如下：")
+    print(stock_hk_daily_hfq_df)
+
+    # stock_hk_spot_df = ak.stock_hk_spot()
+    # print("港股实时行情数据获取成功，内容如下：")
+    # print(stock_hk_spot_df)
+
+    stock_hk_spot_em_df = ak.stock_hk_spot_em()
+    print("港股实时行情数据获取成功，内容如下：")
+    print(stock_hk_spot_em_df)
 
 if __name__ == "__main__":
     main()
