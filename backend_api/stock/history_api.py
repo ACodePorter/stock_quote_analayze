@@ -288,7 +288,7 @@ def export_stock_history(
                     notes_check_query = """
                         SELECT COUNT(*) FROM trading_notes 
                         WHERE stock_code = :code 
-                        AND (user_notes IS NOT NULL AND user_notes != '')
+                        AND (notes IS NOT NULL AND notes != '')
                     """
                     notes_count = db.execute(text(notes_check_query), {"code": code}).scalar()
                     has_notes_data = notes_count > 0

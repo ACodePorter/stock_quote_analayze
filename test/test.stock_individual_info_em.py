@@ -104,9 +104,9 @@ def main():
     print("港股每日复权行情数据获取成功，内容如下：")
     print(stock_hk_daily_hfq_df)
 
-    # stock_hk_spot_df = ak.stock_hk_spot()
-    # print("港股实时行情数据获取成功，内容如下：")
-    # print(stock_hk_spot_df)
+    stock_hk_spot_df = ak.stock_hk_spot()
+    print("港股实时行情数据获取成功，内容如下：")
+    print(stock_hk_spot_df)
 
     stock_hk_spot_em_df = ak.stock_hk_spot_em()
     print("港股实时行情数据获取成功，内容如下：")

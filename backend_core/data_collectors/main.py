@@ -10,6 +10,8 @@ from backend_core.config.config import DATA_COLLECTORS
 from backend_core.data_collectors.akshare.realtime_index_spot_ak import RealtimeIndexSpotAkCollector
 from backend_core.data_collectors.akshare.realtime_stock_industry_board_ak import RealtimeStockIndustryBoardCollector
 from backend_core.data_collectors.akshare.realtime_stock_notice_report_ak import AkshareStockNoticeReportCollector
+from backend_core.data_collectors.akshare.hk_realtime import HKRealtimeQuoteCollector
+from backend_core.data_collectors.akshare.hk_historical import HKHistoricalQuoteCollector
 from apscheduler.schedulers.background import BackgroundScheduler
 from backend_core.data_collectors.akshare.watchlist_history_collector import collect_watchlist_history
 from backend_core.data_collectors.news_collector import NewsCollector
@@ -27,6 +29,9 @@ index_collector = RealtimeIndexSpotAkCollector()
 industry_board_collector = RealtimeStockIndustryBoardCollector()
 notice_collector = AkshareStockNoticeReportCollector(DATA_COLLECTORS.get('akshare', {}))
 news_collector = NewsCollector()
+# 港股采集器
+hk_realtime_collector = HKRealtimeQuoteCollector(DATA_COLLECTORS.get('akshare', {}))
+hk_historical_collector = HKHistoricalQuoteCollector(DATA_COLLECTORS.get('akshare', {}))
 
 scheduler = BlockingScheduler()
 
@@ -144,6 +149,36 @@ def cleanup_old_news():
     except Exception as e:
         logging.error(f"[定时任务] 旧新闻清理异常: {e}")
 
+def collect_hk_realtime():
+    """港股实时行情采集任务"""
+    try:
+        logging.info("[定时任务] 港股实时行情采集开始...")
+        success = hk_realtime_collector.collect_quotes()
+        if success:
+            logging.info("[定时任务] 港股实时行情采集完成")
+        else:
+            logging.warning("[定时任务] 港股实时行情采集失败")
+    except Exception as e:
+        logging.error(f"[定时任务] 港股实时行情采集异常: {e}")
+
+def collect_hk_historical():
+    """港股历史行情采集任务"""
+    try:
+        today = datetime.now()
+        # 如果是周六、周日则不采集，工作日采集当天
+        if today.weekday() in (5, 6):  # 5=周六，6=周日
+            logging.info("[定时任务] 今天是周末，不执行港股历史行情采集。")
+            return
+        today = today.strftime('%Y%m%d')
+        logging.info(f"[定时任务] 港股历史行情采集开始，日期: {today}")
+        success = hk_historical_collector.collect_historical_quotes(today)
+        if success:
+            logging.info("[定时任务] 港股历史行情采集完成")
+        else:
+            logging.warning("[定时任务] 港股历史行情采集失败")
+    except Exception as e:
+        logging.error(f"[定时任务] 港股历史行情采集异常: {e}")
+
 # 定时任务配置
 # 每个交易日上午9:00-11:30、下午13:30-15:30每30分钟采集一次A股实时行情
 scheduler.add_job(
@@ -151,7 +186,7 @@ scheduler.add_job(
     'cron',
     day_of_week='mon-fri',
     hour='9-11,13-16',
-    minute='23,53',
+    minute='3,33',
     id='akshare_realtime',
     
 )
@@ -233,6 +268,27 @@ scheduler.add_job(
     hour=2,
     minute=0,
     id='old_news_cleanup',
+)
+
+# 港股实时行情采集任务，工作日交易时段内每30分钟采集一次
+# 港股交易时间：工作日 9:30-12:00, 13:00-16:00
+scheduler.add_job(
+    collect_hk_realtime,
+    'cron',
+    day_of_week='mon-fri',
+    hour='9-12,13-16',
+    minute='27,57',
+    id='hk_realtime',
+)
+
+# 港股历史行情采集任务，每天收盘后执行
+scheduler.add_job(
+    collect_hk_historical,
+    'cron',
+    day_of_week='mon-fri',
+    hour=16,
+    minute=59,
+    id='hk_historical',
 )
 
 if __name__ == "__main__":
