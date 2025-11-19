@@ -287,7 +287,7 @@ scheduler.add_job(
     'cron',
     day_of_week='mon-fri',
     hour=16,
-    minute=59,
+    minute=47,
     id='hk_historical',
 )
 
