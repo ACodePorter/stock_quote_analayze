@@ -15,7 +15,7 @@ import math
 from models import (
     Watchlist, WatchlistGroup,
     WatchlistCreate, WatchlistInDB, WatchlistGroupCreate,
-    WatchlistGroupInDB, User, StockRealtimeQuote
+    WatchlistGroupInDB, User, StockRealtimeQuote, StockRealtimeQuoteHK
 )
 from database import get_db
 from auth import get_current_user
@@ -62,33 +62,89 @@ async def get_watchlist(
 
         today = datetime.now().strftime('%Y-%m-%d')
         today_pattern = f"{today}%"
-        quotes_today = db.query(StockRealtimeQuote).filter(
+        
+        # 1. 先从A股实时行情表查询
+        quotes_today_a = db.query(StockRealtimeQuote).filter(
             StockRealtimeQuote.code.in_(unique_codes),
             StockRealtimeQuote.trade_date.like(today_pattern)
         ).all()
-        print(f"[watchlist] 当日行情数量: {len(quotes_today)}")
+        print(f"[watchlist] A股当日行情数量: {len(quotes_today_a)}")
 
-        quotes = quotes_today
-        target_trade_date = today
+        quotes_a = quotes_today_a
+        target_trade_date_a = today
 
-        if not quotes:
-            latest_trade_date = db.query(func.max(StockRealtimeQuote.trade_date)).scalar()
-            if latest_trade_date:
-                quotes = db.query(StockRealtimeQuote).filter(
+        if not quotes_a:
+            latest_trade_date_a = db.query(func.max(StockRealtimeQuote.trade_date)).scalar()
+            if latest_trade_date_a:
+                quotes_a = db.query(StockRealtimeQuote).filter(
                     StockRealtimeQuote.code.in_(unique_codes),
-                    StockRealtimeQuote.trade_date == latest_trade_date
+                    StockRealtimeQuote.trade_date == latest_trade_date_a
                 ).all()
-                target_trade_date = latest_trade_date
-                print(f"[watchlist] 当日无数据，回退至最新交易日 {latest_trade_date}，行情数量: {len(quotes)}")
-            else:
-                print("[watchlist] 暂无行情数据，但仍返回自选股记录（行情字段为空）")
+                target_trade_date_a = latest_trade_date_a
+                print(f"[watchlist] A股当日无数据，回退至最新交易日 {latest_trade_date_a}，行情数量: {len(quotes_a)}")
 
-        print(f"[watchlist] 使用交易日期: {target_trade_date}，行情数量: {len(quotes)}")
-        quote_map = {q.code: q for q in quotes}
+        # 2. 从港股实时行情表查询
+        quotes_today_hk = db.query(StockRealtimeQuoteHK).filter(
+            StockRealtimeQuoteHK.code.in_(unique_codes),
+            StockRealtimeQuoteHK.trade_date.like(today_pattern)
+        ).all()
+        print(f"[watchlist] 港股当日行情数量: {len(quotes_today_hk)}")
+
+        quotes_hk = quotes_today_hk
+        target_trade_date_hk = today
+
+        if not quotes_hk:
+            latest_trade_date_hk = db.query(func.max(StockRealtimeQuoteHK.trade_date)).scalar()
+            if latest_trade_date_hk:
+                quotes_hk = db.query(StockRealtimeQuoteHK).filter(
+                    StockRealtimeQuoteHK.code.in_(unique_codes),
+                    StockRealtimeQuoteHK.trade_date == latest_trade_date_hk
+                ).all()
+                target_trade_date_hk = latest_trade_date_hk
+                print(f"[watchlist] 港股当日无数据，回退至最新交易日 {latest_trade_date_hk}，行情数量: {len(quotes_hk)}")
+
+        # 3. 合并行情数据：A股优先，港股作为补充
+        quote_map_a = {q.code: q for q in quotes_a}
+        quote_map_hk = {q.code: q for q in quotes_hk}
+        
+        # 找出在A股中不存在的代码，从港股中补充
+        codes_not_in_a = set(unique_codes) - set(quote_map_a.keys())
+        print(f"[watchlist] A股中不存在的代码数量: {len(codes_not_in_a)}")
 
         for row in watchlist_rows:
             code = row.stock_code
-            q = quote_map.get(code)
+            q = quote_map_a.get(code)  # 优先使用A股数据
+            
+            # 如果A股数据不存在，尝试从港股获取
+            if not q:
+                q_hk = quote_map_hk.get(code)
+                if q_hk:
+                    print(f"[watchlist] {code} 从港股表获取行情数据")
+                    # 使用港股数据，字段映射
+                    watchlist.append({
+                        'code': code,
+                        'name': names.get(code, '') or row.stock_name or code,
+                        'group_name': row.group_name or 'default',
+                        'watchlist_id': row.id,
+                        'current_price': safe_float(getattr(q_hk, 'current_price', None)),
+                        'change_percent': safe_float(getattr(q_hk, 'change_percent', None)),
+                        'volume': safe_float(getattr(q_hk, 'volume', None)),
+                        'amount': safe_float(getattr(q_hk, 'amount', None)),
+                        'high': safe_float(getattr(q_hk, 'high', None)),
+                        'low': safe_float(getattr(q_hk, 'low', None)),
+                        'open': safe_float(getattr(q_hk, 'open', None)),
+                        'pre_close': safe_float(getattr(q_hk, 'pre_close', None)),
+                        'change_amount': safe_float(getattr(q_hk, 'change_amount', None)),  # 港股有change_amount字段
+                        'turnover_rate': None,  # 港股表没有此字段
+                        'pe_dynamic': None,  # 港股表没有此字段
+                        'total_market_value': None,  # 港股表没有此字段
+                        'pb_ratio': None,  # 港股表没有此字段
+                        'circulating_market_value': None,  # 港股表没有此字段
+                        'update_time': getattr(q_hk, 'update_time', None).isoformat() if q_hk and getattr(q_hk, 'update_time', None) else None
+                    })
+                    continue
+            
+            # 使用A股数据或空数据
             if not q:
                 print(f"[watchlist] {code} 无行情数据，但仍返回自选股记录")
             watchlist.append({
@@ -109,63 +165,6 @@ async def get_watchlist(
                     if q and safe_float(getattr(q, 'current_price', None)) is not None and safe_float(getattr(q, 'pre_close', None)) is not None
                     else None
                 ),
-                'turnover_rate': safe_float(getattr(q, 'turnover_rate', None)) if q else None,
-                'pe_dynamic': safe_float(getattr(q, 'pe_dynamic', None)) if q else None,
-                'total_market_value': safe_float(getattr(q, 'total_market_value', None)) if q else None,
-                'pb_ratio': safe_float(getattr(q, 'pb_ratio', None)) if q else None,
-                'circulating_market_value': safe_float(getattr(q, 'circulating_market_value', None)) if q else None,
-                'update_time': getattr(q, 'update_time', None).isoformat() if q and getattr(q, 'update_time', None) else None
-            })
-        print(f"[watchlist] 最终返回watchlist条数: {len(watchlist)}")
-        if watchlist:
-            print(f"[watchlist] 返回示例: {watchlist[0]}")
-        return JSONResponse({'success': True, 'data': watchlist})
-    except Exception as e:
-        print(f"[watchlist] 异常: {str(e)}")
-        return JSONResponse({'success': False, 'message': str(e)}, status_code=500)
-
-        quotes = quotes_today
-        target_trade_date = today_str
-
-        if not quotes:
-            latest_trade_date = db.query(func.max(StockRealtimeQuote.trade_date)).scalar()
-            if latest_trade_date:
-                quotes = db.query(StockRealtimeQuote).filter(
-                    StockRealtimeQuote.code.in_(unique_codes),
-                    StockRealtimeQuote.trade_date == latest_trade_date
-                ).all()
-                target_trade_date = latest_trade_date
-                print(f"[watchlist] 当日无数据，回退至最新交易日 {latest_trade_date}，行情数量: {len(quotes)}")
-            else:
-                print("[watchlist] 暂无行情数据，但仍返回自选股记录（行情字段为空）")
-
-        print(f"[watchlist] 使用交易日期: {target_trade_date}，行情数量: {len(quotes)}")
-        quote_map = {q.code: q for q in quotes}
-
-        for row in watchlist_rows:
-            code = row.stock_code
-            q = quote_map.get(code)
-            if not q:
-                print(f"[watchlist] {code} 无行情数据，但仍返回自选股记录")
-            # 即使没有行情数据，也返回自选股记录
-            watchlist.append({
-                'code': code,
-                'name': names.get(code, '') or row.stock_name or code,
-                'group_name': row.group_name or 'default',
-                'watchlist_id': row.id,
-                'current_price': safe_float(getattr(q, 'current_price', None)) if q else None,
-                'change_percent': safe_float(getattr(q, 'change_percent', None)) if q else None,
-                'volume': safe_float(getattr(q, 'volume', None)) if q else None,
-                'amount': safe_float(getattr(q, 'amount', None)) if q else None,
-                'high': safe_float(getattr(q, 'high', None)) if q else None,
-                'low': safe_float(getattr(q, 'low', None)) if q else None,
-                'open': safe_float(getattr(q, 'open', None)) if q else None,
-                'pre_close': safe_float(getattr(q, 'pre_close', None)) if q else None,
-                'change_amount': (
-                    safe_float(getattr(q, 'current_price', None)) - safe_float(getattr(q, 'pre_close', None))
-                    if q and safe_float(getattr(q, 'current_price', None)) is not None and safe_float(getattr(q, 'pre_close', None)) is not None
-                    else None
-                ),                
                 'turnover_rate': safe_float(getattr(q, 'turnover_rate', None)) if q else None,
                 'pe_dynamic': safe_float(getattr(q, 'pe_dynamic', None)) if q else None,
                 'total_market_value': safe_float(getattr(q, 'total_market_value', None)) if q else None,

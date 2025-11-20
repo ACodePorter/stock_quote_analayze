@@ -8,6 +8,53 @@
     padding-bottom: 60px; /* 为ICP备案留出空间 */
 }
 
+/* 市场标签页切换区域 */
+.market-tabs-section {
+    padding: 20px 0 0 0;
+    background: #ffffff;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.market-tabs {
+    display: flex;
+    gap: 0;
+    margin-top: 1rem;
+    border-bottom: 2px solid #e0e0e0;
+}
+
+.market-tab {
+    padding: 12px 24px;
+    font-size: 1rem;
+    font-weight: 500;
+    color: var(--color-text-secondary);
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-bottom: -2px;
+}
+
+.market-tab:hover {
+    color: var(--color-primary);
+    background: rgba(25, 118, 210, 0.05);
+}
+
+.market-tab.active {
+    color: var(--color-primary);
+    border-bottom-color: var(--color-primary);
+    font-weight: 600;
+}
+
+/* 市场标签页内容 */
+.market-tab-content {
+    display: none;
+}
+
+.market-tab-content.active {
+    display: block;
+}
+
 /* 市场总览样式 */
 .market-overview {
     padding: 20px 0;

@@ -322,7 +322,7 @@ const MarketsPage = {
     },
 
 // 加载排行榜数据
-async loadRankingData(page = 1) {
+async loadRankingData(page = 1, keyword = null) {
     const typeMap = {
         rise: 'rise',
         fall: 'fall',
@@ -330,12 +330,23 @@ async loadRankingData(page = 1) {
         turnover: 'turnover_rate'
     };
     const rankingType = typeMap[this.currentRankingType] || 'rise';
-    let market = document.querySelector('.filter-select').value;
+    let market = document.querySelector('.filter-select')?.value || 'all';
     if (market === 'cy') market = 'cy';
     this.currentPage = page;
     const pageSize = this.pageSize;
+    
+    // 获取搜索关键词（如果未传入）
+    if (!keyword) {
+        const searchInput = document.getElementById('marketSearchInput');
+        keyword = searchInput ? searchInput.value.trim() : null;
+    }
+    
     try {
-        const url = `${API_BASE_URL}/api/stock/quote_board_list?ranking_type=${rankingType}&market=${market}&page=${page}&page_size=${pageSize}`;
+        let url = `${API_BASE_URL}/api/stock/quote_board_list?ranking_type=${rankingType}&market=${market}&page=${page}&page_size=${pageSize}`;
+        if (keyword) {
+            url += `&keyword=${encodeURIComponent(keyword)}`;
+        }
+        
         const resp = await fetch(url);
         const result = await resp.json();
         if (result.success) {
@@ -351,7 +362,7 @@ async loadRankingData(page = 1) {
                 turnover: item.turnover,
                 rate: item.rate
             }));
-            this.renderRankingTable(data);
+            this.renderRankingTable(data, keyword);
             this.renderPagination();
         } else {
             this.renderRankingTable([]);
@@ -366,7 +377,7 @@ async loadRankingData(page = 1) {
 },
 
     // 渲染排行榜表格
-    renderRankingTable(data) {
+    renderRankingTable(data, searchKeyword = null) {
         const tbody = document.getElementById('rankingsTableBody');
         if (!tbody) return;
 
@@ -404,6 +415,33 @@ async loadRankingData(page = 1) {
         
         // 渲染完成后，更新所有自选股按钮的状态
         this.updateAllWatchlistButtons();
+        
+        // 如果有搜索关键词，定位到第一条匹配的记录
+        if (searchKeyword && data.length > 0) {
+            this.highlightAndScrollToStock(data[0].code);
+        }
+    },
+    
+    // 高亮并滚动到指定股票
+    highlightAndScrollToStock(stockCode) {
+        const row = document.querySelector(`#rankingsTableBody tr[data-code="${stockCode}"]`);
+        if (row) {
+            // 移除之前的高亮
+            document.querySelectorAll('#rankingsTableBody tr.highlight').forEach(r => {
+                r.classList.remove('highlight');
+            });
+            
+            // 添加高亮
+            row.classList.add('highlight');
+            
+            // 滚动到该行
+            row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            
+            // 3秒后移除高亮
+            setTimeout(() => {
+                row.classList.remove('highlight');
+            }, 3000);
+        }
     },
 
     // 加载板块数据
@@ -1120,7 +1158,7 @@ function addToWatchlist(code, event) {
 
 
 // DOM加载完成后初始化
-// 查询到股票代码后直接跳转到股票详情页
+// 查询到股票代码后定位到表格列表中相应记录
 document.addEventListener('DOMContentLoaded', function() {
     MarketsPage.init();
     // 查询输入框和按钮只绑定一次
@@ -1131,32 +1169,24 @@ document.addEventListener('DOMContentLoaded', function() {
             function doSearch() {
                 const query = searchInput.value.trim();
                 if (!query) {
-                    alert('请输入股票代码或名称');
+                    CommonUtils.showToast('请输入股票代码或名称', 'warning');
                     return;
                 }
                 // 只在涨跌排行tab激活时生效
                 const rankingsTab = document.getElementById('rankings');
-                if (!rankingsTab.classList.contains('active')) {
-                    alert('请先切换到“涨跌排行”标签页');
+                if (!rankingsTab || !rankingsTab.classList.contains('active')) {
+                    CommonUtils.showToast('请先切换到"涨跌排行"标签页', 'warning');
                     return;
                 }
-                fetch(`${API_BASE_URL}/api/stock/list?query=${encodeURIComponent(query)}`)
-                    .then(res => res.json())
-                    .then(data => {
-                        if (data.success && data.data && data.data.length > 0) {
-                            const code = data.data[0].code;
-                            const name = data.data[0].name;
-                            // 直接跳转到股票详情页
-                            goToStock(code, name);
-                        } else {
-                            alert('未找到相关股票');
-                        }
-                    })
-                    .catch(() => alert('查询失败，请稍后重试'));
+                // 调用loadRankingData进行查询，查询结果会显示在表格中并定位到相应记录
+                MarketsPage.loadRankingData(1, query);
             }
             searchBtn.onclick = doSearch;
             searchInput.onkeydown = function(e) {
-                if (e.key === 'Enter') doSearch();
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    doSearch();
+                }
             };
         }
     }, 300); // 延迟绑定，确保DOM渲染完成

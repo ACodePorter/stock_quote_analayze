@@ -170,6 +170,15 @@ class StockHistoryPage {
             const nextAmount = nextItem && nextItem.amount !== null && nextItem.amount !== undefined ? Number(nextItem.amount) : null;
             const amountChange = (currentAmount !== null && nextAmount !== null) ? (currentAmount - nextAmount) : null;
             
+            // 成交额列的样式：优先使用成交额变化，如果无法计算（如最后一行），则参考收盘列逻辑使用涨跌幅
+            let amountCellClass = '';
+            if (amountChange !== null) {
+                amountCellClass = amountChange > 0 ? 'cell-up' : amountChange < 0 ? 'cell-down' : '';
+            } else {
+                // 无法计算成交额变化时（如最后一行），参考收盘列的处理逻辑
+                amountCellClass = item.change_percent > 0 ? 'cell-up' : item.change_percent < 0 ? 'cell-down' : '';
+            }
+            
             row.innerHTML = `
                 <!--td>${item.code}</td-->
                 <td>${item.name}</td>
@@ -177,7 +186,7 @@ class StockHistoryPage {
                 <td>${this.formatNumber(item.open)}</td>
                 <td class="${item.change_percent > 0 ? 'cell-up' : item.change_percent < 0 ? 'cell-down' : ''}">${this.formatNumber(item.close)}</td>
                 <td class="${item.change > 0 ? 'cell-up' : item.change < 0 ? 'cell-down' : ''}">${this.formatNumber(item.change)}</td>
-                <td class="${amountChange !== null ? (amountChange > 0 ? 'cell-up' : amountChange < 0 ? 'cell-down' : '') : ''}">${this.formatAmount(item.amount)}</td>
+                <td class="${amountCellClass}">${this.formatAmount(item.amount)}</td>
                 <td class="${item.change_percent > 0 ? 'cell-up' : item.change_percent < 0 ? 'cell-down' : ''}">${this.formatPercent(item.change_percent)}</td>
                 <td>${this.formatVolume(item.volume)}</td>
                 <td>${this.formatPercent(item.turnover_rate)}</td>
@@ -341,7 +350,8 @@ class StockHistoryPage {
                 body: JSON.stringify({
                     stock_code: this.currentStockCode,
                     start_date: startDate,
-                    end_date: extendedEndDate
+                    end_date: endDate,
+                    extended_end_date: extendedEndDate
                 })
             });
 
@@ -407,7 +417,8 @@ class StockHistoryPage {
                 body: JSON.stringify({
                     stock_code: this.currentStockCode,
                     start_date: startDate,
-                    end_date: extendedEndDate
+                    end_date: endDate,
+                    extended_end_date: extendedEndDate
                 })
             });
 

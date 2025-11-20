@@ -3,6 +3,7 @@ from fastapi.responses import JSONResponse
 import akshare as ak
 from database import get_db
 from sqlalchemy.orm import Session
+from sqlalchemy import text, func
 from fastapi import Depends
 import traceback
 import numpy as np
@@ -11,7 +12,7 @@ from threading import Lock
 import datetime
 import pandas as pd
 import math
-from models import StockRealtimeQuote, StockBasicInfo
+from models import StockRealtimeQuote, StockBasicInfo, StockRealtimeQuoteHK
 
 # 简单内存缓存实现,缓存600秒。
 class DataFrameCache:
@@ -123,15 +124,24 @@ async def get_stock_quote(request: Request):
         db_session_gen = get_db()
         db = next(db_session_gen)
         try:
-            quotes_today = db.query(StockRealtimeQuote).filter(
+            # 1. 先查询A股表
+            quotes_today_a = db.query(StockRealtimeQuote).filter(
                 StockRealtimeQuote.code.in_(codes),
                 StockRealtimeQuote.trade_date.like(today_pattern)
             ).all()
-            quote_map = {q.code: q for q in quotes_today}
+            quote_map_a = {q.code: q for q in quotes_today_a}
+
+            # 2. 查询港股表
+            quotes_today_hk = db.query(StockRealtimeQuoteHK).filter(
+                StockRealtimeQuoteHK.code.in_(codes),
+                StockRealtimeQuoteHK.trade_date.like(today_pattern)
+            ).all()
+            quote_map_hk = {q.code: q for q in quotes_today_hk}
 
             remaining_codes = []
             for code in codes:
-                stock_quote = quote_map.get(code)
+                # 优先使用A股数据
+                stock_quote = quote_map_a.get(code)
                 if stock_quote:
                     result.append({
                         "code": stock_quote.code,
@@ -145,14 +155,29 @@ async def get_stock_quote(request: Request):
                         "pre_close": safe_float(stock_quote.pre_close),
                     })
                 else:
-                    remaining_codes.append(code)
+                    # A股没有，尝试港股
+                    stock_quote_hk = quote_map_hk.get(code)
+                    if stock_quote_hk:
+                        result.append({
+                            "code": stock_quote_hk.code,
+                            "current_price": safe_float(stock_quote_hk.current_price),
+                            "change_percent": safe_float(stock_quote_hk.change_percent),
+                            "volume": safe_float(stock_quote_hk.volume),
+                            "turnover": safe_float(stock_quote_hk.amount),
+                            "high": safe_float(stock_quote_hk.high),
+                            "low": safe_float(stock_quote_hk.low),
+                            "open": safe_float(stock_quote_hk.open),
+                            "pre_close": safe_float(stock_quote_hk.pre_close),
+                        })
+                    else:
+                        remaining_codes.append(code)
 
             api_failed_codes = []
             if remaining_codes and today.weekday() not in (5, 6):
                 for code in remaining_codes:
                     try:
                         df = ak.stock_bid_ask_em(symbol=code)
-                        if df.empty:
+                        if df is None or df.empty:
                             api_failed_codes.append(code)
                             continue
                         data_dict = dict(zip(df['item'], df['value']))
@@ -230,6 +255,7 @@ async def get_stock_quote(request: Request):
             # 对于仍未获取成功的代码，从数据库取最近一次记录
             if api_failed_codes:
                 for code in api_failed_codes:
+                    # 先查A股表
                     stock_quote = db.query(StockRealtimeQuote).filter(
                         StockRealtimeQuote.code == code
                     ).order_by(StockRealtimeQuote.trade_date.desc()).first()
@@ -245,6 +271,23 @@ async def get_stock_quote(request: Request):
                             "open": safe_float(stock_quote.open),
                             "pre_close": safe_float(stock_quote.pre_close),
                         })
+                    else:
+                        # A股没有，查港股表
+                        stock_quote_hk = db.query(StockRealtimeQuoteHK).filter(
+                            StockRealtimeQuoteHK.code == code
+                        ).order_by(StockRealtimeQuoteHK.trade_date.desc()).first()
+                        if stock_quote_hk:
+                            result.append({
+                                "code": stock_quote_hk.code,
+                                "current_price": safe_float(stock_quote_hk.current_price),
+                                "change_percent": safe_float(stock_quote_hk.change_percent),
+                                "volume": safe_float(stock_quote_hk.volume),
+                                "turnover": safe_float(stock_quote_hk.amount),
+                                "high": safe_float(stock_quote_hk.high),
+                                "low": safe_float(stock_quote_hk.low),
+                                "open": safe_float(stock_quote_hk.open),
+                                "pre_close": safe_float(stock_quote_hk.pre_close),
+                            })
         finally:
             db.close()
         print(f"[stock_quote] 返回数据: {result}")
@@ -268,24 +311,76 @@ async def get_all_stocks_basic_info(db: Session = Depends(get_db)):
         print(f"[stock_basic_info_all] 查询异常: {e}\n{traceback.format_exc()}")
         return JSONResponse({'success': False, 'message': str(e)}, status_code=500)
 
-# 获取股票列表
+# 获取股票列表（支持A股和港股）
 @router.get("/list")
 async def get_stocks_list(request: Request, db: Session = Depends(get_db)):
     query = request.query_params.get('query', '').strip()
     limit = int(request.query_params.get('limit', 15))
     print(f"[stock_list] 收到请求: query={query}, limit={limit}")
     try:
-        # SQLAlchemy 查询
-        from models import StockBasicInfo
-        q = db.query(StockBasicInfo)
+        from models import StockBasicInfo, StockBasicInfoHK, StockRealtimeQuoteHK
+        result = []
+        seen_codes = set()  # 用于去重
+        
+        # 1. 先查询A股基础信息表
+        q_a = db.query(StockBasicInfo)
         if query:
-            q = q.filter(
+            q_a = q_a.filter(
                 (StockBasicInfo.code.like(f"%{query}%")) |
                 (StockBasicInfo.name.like(f"%{query}%"))
             )
-        stocks = q.limit(limit).all()
-        result = [{'code': str(s.code), 'name': s.name} for s in stocks]
-        print(f"[stock_list] 返回数据: {result}")
+        stocks_a = q_a.limit(limit).all()
+        for s in stocks_a:
+            code_str = str(s.code)
+            if code_str not in seen_codes:
+                result.append({'code': code_str, 'name': s.name})
+                seen_codes.add(code_str)
+        
+        # 2. 如果A股结果不足，查询港股基础信息表
+        if len(result) < limit:
+            remaining_limit = limit - len(result)
+            try:
+                q_hk = db.query(StockBasicInfoHK)
+                if query:
+                    q_hk = q_hk.filter(
+                        (StockBasicInfoHK.code.like(f"%{query}%")) |
+                        (StockBasicInfoHK.name.like(f"%{query}%"))
+                    )
+                stocks_hk = q_hk.limit(remaining_limit).all()
+                for s in stocks_hk:
+                    code_str = str(s.code)
+                    if code_str not in seen_codes:
+                        result.append({'code': code_str, 'name': s.name})
+                        seen_codes.add(code_str)
+            except Exception as e_hk:
+                print(f"[stock_list] 查询港股基础信息表失败: {e_hk}")
+        
+        # 3. 如果结果仍不足，从港股实时行情表查询（作为后备）
+        if len(result) < limit:
+            remaining_limit = limit - len(result)
+            try:
+                # 获取最新交易日期
+                latest_date = db.query(func.max(StockRealtimeQuoteHK.trade_date)).scalar()
+                if latest_date:
+                    q_hk_quote = db.query(StockRealtimeQuoteHK.code, StockRealtimeQuoteHK.name).filter(
+                        StockRealtimeQuoteHK.trade_date == latest_date
+                    )
+                    if query:
+                        q_hk_quote = q_hk_quote.filter(
+                            (StockRealtimeQuoteHK.code.like(f"%{query}%")) |
+                            (StockRealtimeQuoteHK.name.like(f"%{query}%")) |
+                            (StockRealtimeQuoteHK.english_name.like(f"%{query}%"))
+                        )
+                    stocks_hk_quote = q_hk_quote.distinct().limit(remaining_limit).all()
+                    for row in stocks_hk_quote:
+                        code_str = str(row.code)
+                        if code_str not in seen_codes:
+                            result.append({'code': code_str, 'name': row.name or code_str})
+                            seen_codes.add(code_str)
+            except Exception as e_hk_quote:
+                print(f"[stock_list] 查询港股实时行情表失败: {e_hk_quote}")
+        
+        print(f"[stock_list] 返回数据: {result}, 总数: {len(result)}")
         return JSONResponse({'success': True, 'data': result, 'total': len(result)})
     except Exception as e:
         print(f"[stock_list] 查询异常: {e}\n{traceback.format_exc()}")
@@ -369,13 +464,14 @@ def get_quote_board_list(
     ranking_type: str = Query('rise', description="排行类型: rise(涨幅榜), fall(跌幅榜), volume(成交量榜), turnover_rate(换手率榜)"),
     market: str = Query('all', description="市场类型: all(全部市场), sh(上交所), sz(深交所), bj(北交所), cy(创业板)"),
     page: int = Query(1, description="页码，从1开始"),
-    page_size: int = Query(20, description="每页条数，默认20")
+    page_size: int = Query(20, description="每页条数，默认20"),
+    keyword: str = Query(None, description="搜索关键词（股票代码或名称）")
 ):
     """
     获取A股最新行情，支持多种排行类型、市场过滤和分页 (数据源: stock_realtime_quote)
     """
     try:
-        print(f"📊 获取A股行情排行 (from DB): type={ranking_type}, market={market}, page={page}, page_size={page_size}")
+        print(f"📊 获取A股行情排行 (from DB): type={ranking_type}, market={market}, page={page}, page_size={page_size}, keyword={keyword}")
         
         # 1. 获取最新交易日期的实时行情数据
         db = next(get_db())
@@ -396,11 +492,23 @@ def get_quote_board_list(
                     latest_trade_date = str(latest_trade_date)[:10]
                 print(f"📅 使用最新交易日期: {latest_trade_date}")
               
-                df = pd.read_sql_query(f"""
-                    SELECT * FROM stock_realtime_quote 
-                    WHERE change_percent IS NOT NULL AND trade_date = '{latest_trade_date}'
-                    ORDER BY code
-                """, db.bind)
+                # 构建查询SQL - 使用text()包装SQL语句
+                if keyword and keyword.strip():
+                    keyword_clean = keyword.strip().replace("'", "''")  # 防止SQL注入
+                    sql_query = text(f"""
+                        SELECT * FROM stock_realtime_quote 
+                        WHERE change_percent IS NOT NULL AND trade_date = '{latest_trade_date}'
+                        AND (code LIKE '%{keyword_clean}%' OR name LIKE '%{keyword_clean}%')
+                        ORDER BY code
+                    """)
+                else:
+                    sql_query = text(f"""
+                        SELECT * FROM stock_realtime_quote 
+                        WHERE change_percent IS NOT NULL AND trade_date = '{latest_trade_date}'
+                        ORDER BY code
+                    """)
+                
+                df = pd.read_sql_query(sql_query, db.bind)
         finally:
             db.close()
 

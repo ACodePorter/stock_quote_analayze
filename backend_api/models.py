@@ -71,6 +71,13 @@ class StockBasicInfo(Base):
     #created_at = Column(DateTime, default=datetime.now)
     #updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
+class StockBasicInfoHK(Base):
+    __tablename__ = "stock_basic_info_hk"
+    
+    code = Column(String, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    create_date = Column(DateTime)
+
 # Pydantic 模型（用于API请求和响应）
 class UserBase(BaseModel):
     username: str
@@ -271,6 +278,27 @@ class StockRealtimeQuote(Base):
         UniqueConstraint('code', 'trade_date', name='uq_stock_realtime_quote_code_date'),
     )
 
+class StockRealtimeQuoteHK(Base):
+    __tablename__ = "stock_realtime_quote_hk"
+    code = Column(String, primary_key=True)
+    trade_date = Column(String, primary_key=True)
+    name = Column(String)
+    english_name = Column(String)
+    current_price = Column(Float)
+    change_percent = Column(Float)
+    change_amount = Column(Float)
+    volume = Column(Float)
+    amount = Column(Float)
+    high = Column(Float)
+    low = Column(Float)
+    open = Column(Float)
+    pre_close = Column(Float)
+    update_time = Column(DateTime)
+    
+    __table_args__ = (
+        UniqueConstraint('code', 'trade_date', name='uq_stock_realtime_quote_hk_code_date'),
+    )
+
 class StockNoticeReport(Base):
     __tablename__ = "stock_notice_report"
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -390,6 +418,31 @@ class HistoricalQuotes(Base):
     thirty_day_change_percent = Column(Float)  # 30天升跌%
     sixty_day_change_percent = Column(Float)   # 60天升跌%
     remarks = Column(String)                   # 备注
+
+class HistoricalQuotesHK(Base):
+    __tablename__ = 'historical_quotes_hk'
+    code = Column(String, primary_key=True)
+    ts_code = Column(String)
+    name = Column(String)
+    english_name = Column(String)
+    date = Column(String, primary_key=True)  # 港股使用TEXT类型
+    open = Column(Float)
+    high = Column(Float)
+    low = Column(Float)
+    close = Column(Float)
+    pre_close = Column(Float)
+    volume = Column(Float)
+    amount = Column(Float)
+    change_amount = Column(Float)  # 港股使用change_amount
+    amplitude = Column(Float)
+    turnover_rate = Column(Float)
+    change_percent = Column(Float)
+    five_day_change_percent = Column(Float)
+    ten_day_change_percent = Column(Float)
+    sixty_day_change_percent = Column(Float)
+    thirty_day_change_percent = Column(Float)
+    collected_source = Column(String)
+    collected_date = Column(DateTime, default=datetime.now)
 
 class TradingNotes(Base):
     __tablename__ = 'trading_notes'

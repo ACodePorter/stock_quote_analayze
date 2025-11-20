@@ -36,6 +36,7 @@ from user_manage import router as user_manage_router
 from app_complete import router as system_router
 from auth_routes import router as auth_router
 from stock.stock_manage import router as stock_router
+from stock.hk_stock_manage import router as hk_stock_router
 from stock.history_api import router as history_router
 from stock.stock_fund_flow import router as stock_fund_flow_router
 from stock.stock_news import router as stock_news_router
@@ -106,6 +107,7 @@ app.include_router(system_router)  # 添加系统路由
 app.include_router(market_router)  # 添加行情路由
 app.include_router(data_collection_router)  # 添加数据采集路由
 app.include_router(stock_router)
+app.include_router(hk_stock_router)  # 添加港股行情路由
 app.include_router(history_router)
 app.include_router(stock_fund_flow_router)
 app.include_router(stock_news_router)
