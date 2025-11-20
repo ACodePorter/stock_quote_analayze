@@ -38,7 +38,7 @@ def is_hk_stock(db: Session, stock_code: str) -> bool:
         return False
     
     code_str = str(stock_code).strip()
-    logger.debug(f"[is_hk_stock] 检查股票代码: {code_str}, 长度: {len(code_str)}")
+    logger.info(f"[is_hk_stock] 检查股票代码: {code_str}, 长度: {len(code_str)}")
     
     # 方法1：查询 stock_basic_info_hk 表
     try:
@@ -52,14 +52,6 @@ def is_hk_stock(db: Session, stock_code: str) -> bool:
     except Exception as e:
         logger.warning(f"[is_hk_stock] 查询 stock_basic_info_hk 表时出错: {e}")
     
-    # 方法2：通过代码格式判断（备用方案）
-    # 港股代码通常是5位数字，以0开头（如 00700, 00111）
-    # 也支持4位数字以0开头的情况（如 0111）
-    if isinstance(code_str, str) and code_str.isdigit():
-        # 检查是否为4-5位数字且以0开头
-        if (len(code_str) == 5 or len(code_str) == 4) and code_str.startswith('0'):
-            logger.info(f"[is_hk_stock] 通过代码格式判断 {code_str} 为港股（{len(code_str)}位数字，以0开头，但 stock_basic_info_hk 表中无记录）")
-            return True
     
     logger.debug(f"[is_hk_stock] {code_str} 不是港股")
     return False
@@ -230,13 +222,13 @@ def collect_watchlist_history():
     fail_count = 0
     for stock_code in set(codes):
         if has_collected(db, stock_code):
-            logger.debug(f"[collect_watchlist_history] 股票 {stock_code} 已采集过，跳过")
+            logger.info(f"[collect_watchlist_history] 股票 {stock_code} 已采集过，跳过")
             continue
         try:
             end_date = (datetime.now() - timedelta(days=1)).strftime('%Y%m%d')
             
             # 判断是否为港股
-            logger.debug(f"[collect_watchlist_history] 开始判断股票 {stock_code} 是否为港股")
+            logger.info(f"[collect_watchlist_history] 开始判断股票 {stock_code} 是否为港股")
             is_hk = is_hk_stock(db, stock_code)
             logger.info(f"[collect_watchlist_history] 股票 {stock_code} 判断结果: {'港股' if is_hk else 'A股'}")
             
