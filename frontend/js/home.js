@@ -49,35 +49,47 @@ async function loadRealData() {
 // 加载市场指数数据
 async function loadMarketIndices() {
     try {
-        console.log('加载指数数据...');
+        console.log('加载指数数据，API地址:', `${API_BASE_URL}/api/market/indices`);
         const response = await authFetch(`${API_BASE_URL}/api/market/indices`);
-        const result = await response.json();
+        console.log('API响应状态:', response.status, response.statusText);
         
-        if (result.success && result.data) {
+        if (!response.ok) {
+            throw new Error(`API返回错误状态: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        console.log('API返回结果:', result);
+        
+        if (result.success && result.data && result.data.length > 0) {
+            console.log('成功获取指数数据，数量:', result.data.length);
             updateIndexDisplay(result.data);
             console.log('指数数据加载成功');
         } else {
-            throw new Error('API返回错误');
+            console.warn('API返回数据为空或格式不正确:', result);
+            throw new Error('API返回数据为空');
         }
     } catch (error) {
         console.error('指数数据加载失败:', error);
         // 使用模拟数据作为后备
         const fallbackData = [
-            { code: '000001', name: '上证指数', current: 3234.56, change: 12.34, change_percent: 0.38, volume: 12456789 },
-            { code: '399001', name: '深证成指', current: 11456.78, change: -23.45, change_percent: -0.20, volume: 8567123 },
-            { code: '399006', name: '创业板指', current: 2345.67, change: 5.67, change_percent: 0.24, volume: 5678901 },
-            { code: '000300', name: '沪深300', current: 4567.89, change: -8.90, change_percent: -0.19, volume: 9876543 }
+            { code: '000001', name: '上证指数', current: 3234.56, change: 12.34, change_percent: 0.38, volume: 12456789, timestamp: new Date().toISOString() },
+            { code: '399001', name: '深证成指', current: 11456.78, change: -23.45, change_percent: -0.20, volume: 8567123, timestamp: new Date().toISOString() },
+            { code: '399006', name: '创业板指', current: 2345.67, change: 5.67, change_percent: 0.24, volume: 5678901, timestamp: new Date().toISOString() },
+            { code: '000300', name: '沪深300', current: 4567.89, change: -8.90, change_percent: -0.19, volume: 9876543, timestamp: new Date().toISOString() }
         ];
+        console.log('使用模拟指数数据作为后备');
         updateIndexDisplay(fallbackData);
-        console.log('使用模拟指数数据');
     }
 }
 
 // 更新指数显示
 function updateIndexDisplay(indicesData) {
+    console.log('更新指数显示，收到数据:', indicesData);
     indicesData.forEach(function(index) {
+        console.log('处理指数:', index.code, index.name);
         const card = document.querySelector('[data-index-code="' + index.code + '"]');
         if (card) {
+            console.log('找到卡片:', index.code);
             const valueEl = card.querySelector('.index-value');
             const changeEl = card.querySelector('.index-change');
             const volumeEl = card.querySelector('.index-volume');
@@ -85,6 +97,9 @@ function updateIndexDisplay(indicesData) {
             
             if (valueEl) {
                 valueEl.textContent = (typeof index.current === 'number' && !isNaN(index.current)) ? index.current.toFixed(2) : '--';
+                console.log('更新指数值:', index.code, index.current);
+            } else {
+                console.warn('未找到指数值元素:', index.code);
             }
             
             if (changeEl) {
@@ -94,17 +109,31 @@ function updateIndexDisplay(indicesData) {
                 const percentStr = change_percent >= 0 ? '+' + change_percent.toFixed(2) + '%' : change_percent.toFixed(2) + '%';
                 changeEl.innerHTML = changeStr + ' (' + percentStr + ')';
                 changeEl.className = 'index-change ' + (change > 0 ? 'positive' : change < 0 ? 'negative' : '');
+                console.log('更新涨跌幅:', index.code, change, change_percent);
+            } else {
+                console.warn('未找到涨跌幅元素:', index.code);
             }
             
             if (volumeEl) {
                 const volume = (typeof index.volume === 'number' && !isNaN(index.volume)) ? index.volume : 0;
                 volumeEl.textContent = '成交量: ' + (volume / 1e8).toFixed(2) + '亿';
+                console.log('更新成交量:', index.code, volume);
+            } else {
+                console.warn('未找到成交量元素:', index.code);
             }
             
             if (timeEl) {
                 const updateTime = index.timestamp ? new Date(index.timestamp).toLocaleTimeString() : new Date().toLocaleTimeString();
                 timeEl.textContent = '更新时间: ' + updateTime;
+                console.log('更新更新时间:', index.code, updateTime);
+            } else {
+                console.warn('未找到更新时间元素:', index.code);
             }
+        } else {
+            console.error('未找到指数卡片，代码:', index.code, '，尝试的选择器:', '[data-index-code="' + index.code + '"]');
+            // 尝试查找所有卡片，用于调试
+            const allCards = document.querySelectorAll('.index-card');
+            console.log('页面中所有指数卡片:', Array.from(allCards).map(c => c.getAttribute('data-index-code')));
         }
     });
 }

@@ -110,44 +110,20 @@ class AkshareRealtimeQuoteCollector(AKShareCollector):
             try:
                 df = self._retry_on_failure(ak.stock_zh_a_spot_em)
             except Exception as e:
-                self.logger.warning(f"调用 stock_zh_a_spot_em 失败，切换到沪/深/京A接口: {e}")
-                dfs = []
+                self.logger.warning(f"东方财富数据接口（stock_zh_a_spot_em）调用失败: {e}，将尝试切换至新浪接口")
                 try:
-                    df_sh = self._retry_on_failure(ak.stock_sh_a_spot_em)
-                    if df_sh is not None and hasattr(df_sh, 'empty') and not df_sh.empty:
-                        dfs.append(df_sh)
-                except Exception as e1:
-                    self.logger.error(f"调用 stock_sh_a_spot_em 失败: {e1}")
-                try:
-                    df_sz = self._retry_on_failure(ak.stock_sz_a_spot_em)
-                    if df_sz is not None and hasattr(df_sz, 'empty') and not df_sz.empty:
-                        dfs.append(df_sz)
-                except Exception as e2:
-                    self.logger.error(f"调用 stock_sz_a_spot_em 失败: {e2}")
-                try:
-                    df_bj = self._retry_on_failure(ak.stock_bj_a_spot_em)
-                    if df_bj is not None and hasattr(df_bj, 'empty') and not df_bj.empty:
-                        dfs.append(df_bj)
-                except Exception as e3:
-                    self.logger.error(f"调用 stock_bj_a_spot_em 失败: {e3}")
-                if dfs:
-                    df = pd.concat(dfs, ignore_index=True)
-                else:
-                    # 增加新浪行情数据补充
-                    try:
-                        self.logger.warning("东方财富数据全部失败，尝试调用新浪数据源 stock_zh_a_spot ...")
-                        # 定义一个数据采集来源标志
-                        data_source = "sina"
-                        df_sina = self._retry_on_failure(ak.stock_zh_a_spot)
-                        if df_sina is not None and hasattr(df_sina, 'empty') and not df_sina.empty:
-                            df = df_sina
-                            self.logger.info(f"新浪行情接口采集到 {len(df)} 条股票数据")
-                        else:
-                            self.logger.error("新浪数据源 stock_zh_a_spot 采集数据为空")
-                            df = None
-                    except Exception as e4:
-                        self.logger.error(f"调用新浪数据源 stock_zh_a_spot 也失败: {e4}")
+                    # 直接尝试新浪行情数据源
+                    data_source = "sina"
+                    df_sina = self._retry_on_failure(ak.stock_zh_a_spot)
+                    if df_sina is not None and hasattr(df_sina, 'empty') and not df_sina.empty:
+                        df = df_sina
+                        self.logger.info(f"新浪行情接口采集到 {len(df)} 条股票数据")
+                    else:
+                        self.logger.error("新浪数据源（stock_zh_a_spot）采集数据为空")
                         df = None
+                except Exception as e4:
+                    self.logger.error(f"调用新浪数据源（stock_zh_a_spot）失败: {e4}")
+                    df = None
 
             if df is None or (hasattr(df, 'empty') and df.empty):
                 self.logger.error("akshare主数据源采集到的实时行情数据为空")

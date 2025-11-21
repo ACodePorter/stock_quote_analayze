@@ -388,6 +388,68 @@
     <script src="js/config.js"></script>
     <script src="js/common.js"></script>
     <script src="components/header.js"></script>
-    <script src="js/stock.js"></script>
+    <script>
+        // 根据股票类型动态加载对应的JS文件
+        (async function() {
+            // 从URL获取股票代码
+            const urlParams = new URLSearchParams(window.location.search);
+            const code = urlParams.get('code');
+            
+            if (!code) {
+                console.error('缺少股票代码参数');
+                return;
+            }
+            
+            try {
+                // 调用判断接口
+                const response = await fetch(`${API_BASE_URL}/api/stock/check_type?code=${code}`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    // 根据is_hk字段加载对应的JS文件
+                    const jsFile = result.is_hk ? 'js/stock_hk.js' : 'js/stock.js';
+                    console.log(`股票类型: ${result.is_hk ? '港股' : 'A股'}，加载文件: ${jsFile}`);
+                    
+                    // 动态加载JS文件
+                    const script = document.createElement('script');
+                    script.src = jsFile;
+                    script.onload = function() {
+                        console.log(`${jsFile} 加载完成`);
+                        // JS文件加载完成后，初始化StockPage
+                        if (typeof StockPage !== 'undefined' && StockPage.init) {
+                            StockPage.init();
+                        }
+                    };
+                    script.onerror = function() {
+                        console.error(`加载 ${jsFile} 失败`);
+                        CommonUtils.showToast('加载股票页面脚本失败', 'error');
+                    };
+                    document.body.appendChild(script);
+                } else {
+                    console.error('判断股票类型失败:', result.message);
+                    // 默认加载A股JS
+                    const script = document.createElement('script');
+                    script.src = 'js/stock.js';
+                    script.onload = function() {
+                        if (typeof StockPage !== 'undefined' && StockPage.init) {
+                            StockPage.init();
+                        }
+                    };
+                    document.body.appendChild(script);
+                }
+            } catch (error) {
+                console.error('判断股票类型异常:', error);
+                // 异常时默认加载A股JS
+                const script = document.createElement('script');
+                script.src = 'js/stock.js';
+                script.onload = function() {
+                    if (typeof StockPage !== 'undefined' && StockPage.init) {
+                        StockPage.init();
+                    }
+                };
+                document.body.appendChild(script);
+            }
+        })();
+    </script>
 </body>
 </html> 

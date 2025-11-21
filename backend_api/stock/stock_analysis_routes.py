@@ -24,11 +24,11 @@ async def get_stock_analysis(
         包含技术指标、价格预测、交易建议、关键价位的分析结果
     """
     try:
-        # 验证股票代码格式
-        if not stock_code or len(stock_code) != 6:
+        # 验证股票代码格式（A股6位，港股5位）
+        if not stock_code or (len(stock_code) != 6 and len(stock_code) != 5):
             return JSONResponse(
                 status_code=400,
-                content={"success": False, "message": "股票代码格式错误"}
+                content={"success": False, "message": "股票代码格式错误（A股6位，港股5位）"}
             )
         
         # 创建分析服务

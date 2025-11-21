@@ -6,7 +6,7 @@ import logging
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from database import get_db
-from models import HistoricalQuotes, StockRealtimeQuote
+from models import HistoricalQuotes, StockRealtimeQuote, HistoricalQuotesHK, StockRealtimeQuoteHK, StockBasicInfoHK, StockBasicInfo
 
 logger = logging.getLogger(__name__)
 
@@ -701,6 +701,24 @@ class StockAnalysisService:
     def __init__(self):
         self.db = next(get_db())
     
+    def _is_hk_stock(self, stock_code: str) -> bool:
+        """判断是否为港股"""
+        try:
+            # 先查询港股表
+            hk_stock = self.db.query(StockBasicInfoHK).filter(StockBasicInfoHK.code == stock_code).first()
+            if hk_stock:
+                return True
+            # 再查询A股表
+            a_stock = self.db.query(StockBasicInfo).filter(StockBasicInfo.code == stock_code).first()
+            if a_stock:
+                return False
+            # 如果两个表都没有，根据代码长度判断（港股5位，A股6位）
+            return len(stock_code) == 5
+        except Exception as e:
+            logger.warning(f"判断股票类型失败: {str(e)}")
+            # 默认根据代码长度判断
+            return len(stock_code) == 5
+    
     def get_stock_analysis(self, stock_code: str) -> Dict:
         """获取股票智能分析结果"""
         try:
@@ -747,17 +765,30 @@ class StockAnalysisService:
             return {"error": f"分析失败: {str(e)}"}
     
     def _get_historical_data(self, stock_code: str, days: int = 60) -> List[Dict]:
-        """获取历史数据"""
+        """获取历史数据（支持A股和港股）"""
         try:
-            # 查询最近60天的历史数据
-            query = text("""
-                SELECT code, name, date, open, high, low, close, volume, amount, 
-                       change_percent, change, turnover_rate
-                FROM historical_quotes 
-                WHERE code = :code 
-                ORDER BY date DESC 
-                LIMIT :days
-            """)
+            is_hk = self._is_hk_stock(stock_code)
+            
+            if is_hk:
+                # 港股：从historical_quotes_hk表查询
+                query = text("""
+                    SELECT code, name, date, open, high, low, close, volume, amount, 
+                           change_percent, change_amount, turnover_rate
+                    FROM historical_quotes_hk 
+                    WHERE code = :code 
+                    ORDER BY date DESC 
+                    LIMIT :days
+                """)
+            else:
+                # A股：从historical_quotes表查询
+                query = text("""
+                    SELECT code, name, date, open, high, low, close, volume, amount, 
+                           change_percent, change, turnover_rate
+                    FROM historical_quotes 
+                    WHERE code = :code 
+                    ORDER BY date DESC 
+                    LIMIT :days
+                """)
             
             result = self.db.execute(query, {"code": stock_code, "days": days})
             rows = result.fetchall()
@@ -776,7 +807,7 @@ class StockAnalysisService:
                     "volume": float(row[7]) if row[7] else 0.0,
                     "amount": float(row[8]) if row[8] else 0.0,
                     "change_percent": float(row[9]) if row[9] else 0.0,
-                    "change": float(row[10]) if row[10] else 0.0,
+                    "change": float(row[10]) if row[10] else 0.0,  # 港股用change_amount，A股用change
                     "turnover_rate": float(row[11]) if row[11] else 0.0
                 })
             
@@ -788,38 +819,65 @@ class StockAnalysisService:
             return []
     
     def _get_current_price(self, stock_code: str) -> Optional[float]:
-        """获取当前价格"""
+        """获取当前价格（支持A股和港股）"""
         try:
-            # 优先从实时行情API获取最新价格
-            import akshare as ak
+            is_hk = self._is_hk_stock(stock_code)
             
-            try:
-                df_bid_ask = ak.stock_bid_ask_em(symbol=stock_code)
-                if not df_bid_ask.empty:
-                    bid_ask_dict = dict(zip(df_bid_ask['item'], df_bid_ask['value']))
-                    current_price = bid_ask_dict.get("最新")
-                    if current_price:
-                        return float(current_price)
-            except Exception as e:
-                logger.warning(f"从实时API获取价格失败: {str(e)}")
+            if is_hk:
+                # 港股：从stock_realtime_quote_hk表获取
+                latest_date_result = pd.read_sql_query("""
+                    SELECT MAX(trade_date) as latest_date 
+                    FROM stock_realtime_quote_hk 
+                    WHERE change_percent IS NOT NULL
+                """, self.db.bind)
+                
+                stock = None
+                if not latest_date_result.empty and latest_date_result.iloc[0]['latest_date'] is not None:
+                    latest_trade_date = latest_date_result.iloc[0]['latest_date']
+                    if isinstance(latest_trade_date, str):
+                        latest_trade_date = latest_trade_date[:10]
+                    else:
+                        latest_trade_date = str(latest_trade_date)[:10]
+                    
+                    stock = self.db.query(StockRealtimeQuoteHK).filter(
+                        StockRealtimeQuoteHK.code == stock_code,
+                        StockRealtimeQuoteHK.trade_date == latest_trade_date
+                    ).first()
+                
+                if stock:
+                    return float(stock.current_price) if stock.current_price else None
+            else:
+                # A股：优先从实时行情API获取最新价格
+                import akshare as ak
+                
+                try:
+                    df_bid_ask = ak.stock_bid_ask_em(symbol=stock_code)
+                    if not df_bid_ask.empty:
+                        bid_ask_dict = dict(zip(df_bid_ask['item'], df_bid_ask['value']))
+                        current_price = bid_ask_dict.get("最新")
+                        if current_price:
+                            return float(current_price)
+                except Exception as e:
+                    logger.warning(f"从实时API获取价格失败: {str(e)}")
+                
+                # 如果实时API失败，从数据库获取
+                latest_date_result = pd.read_sql_query("""
+                    SELECT MAX(trade_date) as latest_date 
+                    FROM stock_realtime_quote 
+                    WHERE change_percent IS NOT NULL AND change_percent != 0
+                """, self.db.bind)
+                
+                stock = None
+                if not latest_date_result.empty and latest_date_result.iloc[0]['latest_date'] is not None:
+                    latest_trade_date = latest_date_result.iloc[0]['latest_date']
+                    stock = self.db.query(StockRealtimeQuote).filter(
+                        StockRealtimeQuote.code == stock_code,
+                        StockRealtimeQuote.trade_date == latest_trade_date
+                    ).first()
+                
+                if stock:
+                    return float(stock.current_price) if stock.current_price else None
             
-            # 如果实时API失败，从数据库获取
-            # 获取最新交易日期
-            latest_date_result = pd.read_sql_query("""
-                SELECT MAX(trade_date) as latest_date 
-                FROM stock_realtime_quote 
-                WHERE change_percent IS NOT NULL AND change_percent != 0
-            """, self.db.bind)
-            
-            stock = None
-            if not latest_date_result.empty and latest_date_result.iloc[0]['latest_date'] is not None:
-                latest_trade_date = latest_date_result.iloc[0]['latest_date']
-                stock = self.db.query(StockRealtimeQuote).filter(
-                    StockRealtimeQuote.code == stock_code,
-                    StockRealtimeQuote.trade_date == latest_trade_date
-                ).first()
-            if stock:
-                return float(stock.current_price) if stock.current_price else None
             return None
         except Exception as e:
             logger.error(f"获取当前价格失败: {str(e)}")

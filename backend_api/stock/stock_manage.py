@@ -12,7 +12,7 @@ from threading import Lock
 import datetime
 import pandas as pd
 import math
-from models import StockRealtimeQuote, StockBasicInfo, StockRealtimeQuoteHK
+from models import StockRealtimeQuote, StockBasicInfo, StockRealtimeQuoteHK, StockBasicInfoHK
 
 # 简单内存缓存实现,缓存600秒。
 class DataFrameCache:
@@ -35,6 +35,36 @@ class DataFrameCache:
 stock_spot_cache = DataFrameCache(expire_seconds=600)
 
 router = APIRouter(prefix="/api/stock", tags=["stock"])
+
+def is_hk_stock(code: str, db: Session) -> bool:
+    """
+    判断股票代码是否为港股
+    先查询 stock_basic_info_hk 表，如果不存在，再查询 stock_basic_info 表
+    
+    Args:
+        code: 股票代码
+        db: 数据库会话
+        
+    Returns:
+        bool: True表示港股，False表示A股
+    """
+    if not code:
+        return False
+    
+    code_str = str(code).strip()
+    
+    # 先查询港股表
+    hk_stock = db.query(StockBasicInfoHK).filter(StockBasicInfoHK.code == code_str).first()
+    if hk_stock:
+        return True
+    
+    # 再查询A股表
+    a_stock = db.query(StockBasicInfo).filter(StockBasicInfo.code == code_str).first()
+    if a_stock:
+        return False
+    
+    # 如果两个表都没有，默认返回False（A股）
+    return False
 
 def safe_float(value):
     try:
@@ -652,14 +682,22 @@ def get_quote_board_list(
 
 # 根据股票代码获取实时行情
 @router.get("/realtime_quote_by_code")
-async def get_realtime_quote_by_code(code: str = Query(None, description="股票代码")):
+async def get_realtime_quote_by_code(code: str = Query(None, description="股票代码"), db: Session = Depends(get_db)):
     print(f"[realtime_quote_by_code] 输入参数: code={code}")
     if not code:
         print("[realtime_quote_by_code] 缺少参数")
         return JSONResponse({"success": False, "message": "缺少股票代码参数code"}, status_code=400)
     try:
+        # 先判断股票类型
+        if is_hk_stock(code, db):
+            print(f"[realtime_quote_by_code] 检测到港股代码: {code}，调用港股接口")
+            # 导入港股接口函数
+            from stock.hk_stock_manage import get_hk_realtime_quote_by_code
+            # 调用港股接口
+            return await get_hk_realtime_quote_by_code(code, db)
+        
+        # A股逻辑继续
         # 优先从数据库获取市盈率等财务指标数据
-        db = next(get_db())
         # 获取最新交易日期
         latest_date_result = pd.read_sql_query("""
             SELECT MAX(trade_date) as latest_date 
@@ -676,11 +714,14 @@ async def get_realtime_quote_by_code(code: str = Query(None, description="股票
             ).first()
         
         # 获取买卖盘数据
-        df_bid_ask = ak.stock_bid_ask_em(symbol=code)
-        if df_bid_ask.empty:
-            print(f"[realtime_quote_by_code] 未找到股票代码: {code}")
-            db.close()
-            return JSONResponse({"success": False, "message": f"未找到股票代码: {code}"}, status_code=404)
+        try:
+            df_bid_ask = ak.stock_bid_ask_em(symbol=code)
+            if df_bid_ask.empty:
+                print(f"[realtime_quote_by_code] 未找到股票代码: {code}")
+                return JSONResponse({"success": False, "message": f"未找到股票代码: {code}"}, status_code=404)
+        except Exception as e:
+            print(f"[realtime_quote_by_code] 获取买卖盘数据失败: {e}")
+            return JSONResponse({"success": False, "message": f"获取股票数据失败: {str(e)}"}, status_code=500)
         
         # 合并数据
         bid_ask_dict = dict(zip(df_bid_ask['item'], df_bid_ask['value']))
@@ -725,9 +766,6 @@ async def get_realtime_quote_by_code(code: str = Query(None, description="股票
                 print(f"[realtime_quote_by_code] 从akshare获取市盈率失败: {e}")
                 pe_dynamic = None
         
-        # 关闭数据库连接
-        db.close()
-        
         result = {
             "code": code,
             "current_price": fmt(bid_ask_dict.get("最新")),
@@ -747,6 +785,32 @@ async def get_realtime_quote_by_code(code: str = Query(None, description="股票
         return JSONResponse({"success": True, "data": result})
     except Exception as e:
         print(f"[realtime_quote_by_code] 异常: {e}")
+        return JSONResponse({"success": False, "message": str(e)}, status_code=500)
+
+# 股票类型判断接口
+@router.get("/check_type")
+async def check_stock_type(code: str = Query(None, description="股票代码"), db: Session = Depends(get_db)):
+    """
+    判断股票类型（A股或港股）
+    
+    Args:
+        code: 股票代码
+        
+    Returns:
+        {"success": True, "is_hk": True/False, "code": "股票代码"}
+    """
+    if not code:
+        return JSONResponse({"success": False, "message": "缺少股票代码参数code"}, status_code=400)
+    
+    try:
+        is_hk = is_hk_stock(code, db)
+        return JSONResponse({
+            "success": True,
+            "is_hk": is_hk,
+            "code": code
+        })
+    except Exception as e:
+        print(f"[check_type] 异常: {e}")
         return JSONResponse({"success": False, "message": str(e)}, status_code=500)
 
 # 获取指定股票代码的当日分时数据（分时线），非交易日返回最近一个交易日的分钟数据

@@ -74,9 +74,10 @@ def insert_historical_quotes(db: Session, stock_code: str, df):
     # 根据code从watchlist表获取股票名称
     stock_name = None
     try:
-        result = db.query(Watchlist.stock_name).filter(Watchlist.stock_code == stock_code).first()
+        # 使用 scalar() 方法直接获取单个值，避免返回 Row 对象
+        result = db.query(Watchlist.stock_name).filter(Watchlist.stock_code == stock_code).scalar()
         if result is not None:
-            stock_name = result[0] if isinstance(result, tuple) else result
+            stock_name = str(result)
     except Exception as e:
         logger.warning(f"获取股票 {stock_code} 名称失败: {e}")
     logger.debug(f"股票代码 {stock_code} 的名称: {stock_name}")
@@ -147,9 +148,10 @@ def insert_historical_quotes_hk(db: Session, stock_code: str, df):
     # 根据code从watchlist表获取股票名称
     stock_name = None
     try:
-        result = db.query(Watchlist.stock_name).filter(Watchlist.stock_code == stock_code).first()
+        # 使用 scalar() 方法直接获取单个值，避免返回 Row 对象
+        result = db.query(Watchlist.stock_name).filter(Watchlist.stock_code == stock_code).scalar()
         if result is not None:
-            stock_name = result[0] if isinstance(result, tuple) else result
+            stock_name = str(result)
     except Exception as e:
         logger.warning(f"获取港股 {stock_code} 名称失败: {e}")
     logger.debug(f"港股代码 {stock_code} 的名称: {stock_name}")
