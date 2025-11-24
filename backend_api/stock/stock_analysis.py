@@ -725,7 +725,33 @@ class StockAnalysisService:
             # 获取历史数据
             historical_data = self._get_historical_data(stock_code)
             if not historical_data:
-                return {"error": "无法获取历史数据"}
+                logger.warning(f"股票 {stock_code} 无法获取历史数据，返回空分析结果")
+                return {
+                    "success": False,
+                    "error": "无法获取历史数据",
+                    "data": {
+                        "technical_indicators": {},
+                        "price_prediction": {
+                            "target_price": 0.0,
+                            "change_percent": 0.0,
+                            "prediction_range": {"min": 0.0, "max": 0.0},
+                            "confidence": 0.0
+                        },
+                        "trading_recommendation": {
+                            "action": "hold",
+                            "reasons": ["数据不足，无法给出建议"],
+                            "risk_level": "high",
+                            "strength": 0
+                        },
+                        "key_levels": {
+                            "resistance_levels": [],
+                            "support_levels": [],
+                            "current_price": 0.0
+                        },
+                        "current_price": 0.0,
+                        "analysis_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    }
+                }
             
             # 获取当前价格
             current_price = self._get_current_price(stock_code)
@@ -796,26 +822,96 @@ class StockAnalysisService:
             # 转换为字典列表
             data = []
             for row in rows:
-                data.append({
-                    "code": row[0],
-                    "name": row[1],
-                    "date": row[2].strftime("%Y-%m-%d") if hasattr(row[2], 'strftime') else str(row[2]),
-                    "open": float(row[3]) if row[3] else 0.0,
-                    "high": float(row[4]) if row[4] else 0.0,
-                    "low": float(row[5]) if row[5] else 0.0,
-                    "close": float(row[6]) if row[6] else 0.0,
-                    "volume": float(row[7]) if row[7] else 0.0,
-                    "amount": float(row[8]) if row[8] else 0.0,
-                    "change_percent": float(row[9]) if row[9] else 0.0,
-                    "change": float(row[10]) if row[10] else 0.0,  # 港股用change_amount，A股用change
-                    "turnover_rate": float(row[11]) if row[11] else 0.0
-                })
+                try:
+                    # 处理日期格式
+                    date_val = row[2]
+                    if hasattr(date_val, 'strftime'):
+                        date_str = date_val.strftime("%Y-%m-%d")
+                    elif isinstance(date_val, str):
+                        date_str = date_val
+                    else:
+                        date_str = str(date_val)
+                    
+                    data.append({
+                        "code": row[0],
+                        "name": row[1],
+                        "date": date_str,
+                        "open": float(row[3]) if row[3] is not None else 0.0,
+                        "high": float(row[4]) if row[4] is not None else 0.0,
+                        "low": float(row[5]) if row[5] is not None else 0.0,
+                        "close": float(row[6]) if row[6] is not None else 0.0,
+                        "volume": float(row[7]) if row[7] is not None else 0.0,
+                        "amount": float(row[8]) if row[8] is not None else 0.0,
+                        "change_percent": float(row[9]) if row[9] is not None else 0.0,
+                        "change": float(row[10]) if row[10] is not None else 0.0,  # 港股用change_amount，A股用change
+                        "turnover_rate": float(row[11]) if row[11] is not None else 0.0
+                    })
+                except Exception as e:
+                    logger.warning(f"处理历史数据行时出错: {e}, row: {row}")
+                    continue
+            
+            # 如果数据库没有数据，尝试从akshare获取（仅对港股）
+            if not data and is_hk:
+                logger.info(f"数据库没有股票 {stock_code} 的历史数据，尝试从akshare获取")
+                try:
+                    import akshare as ak
+                    from datetime import datetime, timedelta
+                    
+                    # 计算日期范围（最近days天）
+                    end_date = datetime.now()
+                    start_date = end_date - timedelta(days=days * 2)  # 多取一些，因为要排除非交易日
+                    
+                    end_date_str = end_date.strftime("%Y%m%d")
+                    start_date_str = start_date.strftime("%Y%m%d")
+                    
+                    df = ak.stock_hk_hist(symbol=stock_code, period='daily', start_date=start_date_str, end_date=end_date_str, adjust='')
+                    
+                    if df is not None and not df.empty:
+                        # 转换DataFrame为字典列表
+                        for _, row_df in df.iterrows():
+                            try:
+                                date_val = row_df.get('日期', '')
+                                if isinstance(date_val, pd.Timestamp):
+                                    date_str = date_val.strftime("%Y-%m-%d")
+                                else:
+                                    date_str = str(date_val)
+                                    if len(date_str) == 8 and date_str.isdigit():
+                                        date_str = f"{date_str[:4]}-{date_str[4:6]}-{date_str[6:8]}"
+                                
+                                data.append({
+                                    "code": stock_code,
+                                    "name": "",  # akshare接口可能没有名称
+                                    "date": date_str,
+                                    "open": float(row_df.get('开盘', 0)) if pd.notna(row_df.get('开盘')) else 0.0,
+                                    "high": float(row_df.get('最高', 0)) if pd.notna(row_df.get('最高')) else 0.0,
+                                    "low": float(row_df.get('最低', 0)) if pd.notna(row_df.get('最低')) else 0.0,
+                                    "close": float(row_df.get('收盘', 0)) if pd.notna(row_df.get('收盘')) else 0.0,
+                                    "volume": float(row_df.get('成交量', 0)) if pd.notna(row_df.get('成交量')) else 0.0,
+                                    "amount": float(row_df.get('成交额', 0)) if pd.notna(row_df.get('成交额')) else 0.0,
+                                    "change_percent": float(row_df.get('涨跌幅', 0)) if pd.notna(row_df.get('涨跌幅')) else 0.0,
+                                    "change": float(row_df.get('涨跌额', 0)) if pd.notna(row_df.get('涨跌额')) else 0.0,
+                                    "turnover_rate": float(row_df.get('换手率', 0)) if pd.notna(row_df.get('换手率')) else 0.0
+                                })
+                            except Exception as e:
+                                logger.warning(f"处理akshare历史数据行时出错: {e}")
+                                continue
+                        
+                        # 限制返回数量
+                        data = data[:days]
+                        logger.info(f"从akshare获取到 {len(data)} 条历史数据")
+                except Exception as e:
+                    logger.warning(f"从akshare获取历史数据失败: {e}")
             
             # 按日期正序排列
-            return list(reversed(data))
+            if data:
+                return list(reversed(data))
+            else:
+                return []
             
         except Exception as e:
             logger.error(f"获取历史数据失败: {str(e)}")
+            import traceback
+            traceback.print_exc()
             return []
     
     def _get_current_price(self, stock_code: str) -> Optional[float]:

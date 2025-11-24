@@ -7,8 +7,8 @@
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <link rel="stylesheet" href="css/common.css">
     <link rel="stylesheet" href="css/stock.css">
-    <!-- <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script> -->
-    <script src="js/echarts.min.js"></script>
+    <!-- ECharts库 - 优先使用本地文件，失败时使用CDN -->
+    <script src="js/echarts.min.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js';"></script>
 </head>
 <body>
     <!-- 头部导航将由JavaScript动态加载 -->
@@ -389,6 +389,27 @@
     <script src="js/common.js"></script>
     <script src="components/header.js"></script>
     <script>
+        // 确保API_BASE_URL已定义（备用方案）
+        (function() {
+            if (typeof API_BASE_URL === 'undefined') {
+                const apiUrl = (typeof Config !== 'undefined' && Config && Config.getApiBaseUrl) 
+                    ? Config.getApiBaseUrl() 
+                    : 'http://192.168.31.237:5000';
+                window.API_BASE_URL = apiUrl;
+            }
+        })();
+        
+        // 确保echarts已加载（备用方案）
+        if (typeof echarts === 'undefined') {
+            console.warn('echarts未加载，尝试从CDN加载');
+            const echartsScript = document.createElement('script');
+            echartsScript.src = 'https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js';
+            echartsScript.onerror = function() {
+                console.error('echarts CDN加载也失败');
+            };
+            document.head.appendChild(echartsScript);
+        }
+        
         // 根据股票类型动态加载对应的JS文件
         (async function() {
             // 从URL获取股票代码
@@ -400,9 +421,16 @@
                 return;
             }
             
+            // 确保API_BASE_URL可用（使用全局变量）
+            const apiBaseUrl = (typeof API_BASE_URL !== 'undefined' && API_BASE_URL) 
+                ? API_BASE_URL 
+                : ((typeof window.API_BASE_URL !== 'undefined' && window.API_BASE_URL) 
+                    ? window.API_BASE_URL 
+                    : 'http://192.168.31.237:5000');
+            
             try {
                 // 调用判断接口
-                const response = await fetch(`${API_BASE_URL}/api/stock/check_type?code=${code}`);
+                const response = await fetch(`${apiBaseUrl}/api/stock/check_type?code=${code}`);
                 const result = await response.json();
                 
                 if (result.success) {

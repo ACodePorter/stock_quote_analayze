@@ -1034,73 +1034,160 @@ async def get_kline_min_hist(
         return JSONResponse({"success": False, "message": str(e)}, status_code=500)
     
 @router.get("/latest_financial")
-async def get_latest_financial(code: str = Query(..., description="股票代码")):
+async def get_latest_financial(code: str = Query(..., description="股票代码"), db: Session = Depends(get_db)):
     """
-    获取指定股票代码的最新报告期主要财务指标
+    获取指定股票代码的最新报告期主要财务指标（支持A股和港股）
     """
     try:
         print(f"[latest_financial] 请求参数: code={code}")
         import pandas as pd
-        df = ak.stock_financial_abstract(symbol=code)
-        print(f"[latest_financial] 获取到原始数据: {df.shape if df is not None else None}")
-        if df is None or df.empty:
-            print(f"[latest_financial] 未获取到财务数据")
-            return JSONResponse({"success": False, "message": "未获取到财务数据"}, status_code=404)
-        print(f"[latest_financial] DataFrame columns: {df.columns.tolist()}")
+        
+        # 判断是否为港股
+        is_hk = is_hk_stock(code, db)
+        print(f"[latest_financial] 股票类型: {'港股' if is_hk else 'A股'}")
+        
+        if is_hk:
+            # 港股：使用 stock_hk_financial_indicator_em 接口
+            try:
+                df = ak.stock_hk_financial_indicator_em(symbol=code)
+            except Exception as e:
+                print(f"[latest_financial] 港股调用akshare接口失败: {e}")
+                import traceback
+                traceback.print_exc()
+                return JSONResponse({"success": False, "message": f"获取港股财务数据失败: {str(e)}"}, status_code=500)
+            
+            print(f"[latest_financial] 港股获取到原始数据: {df.shape if df is not None else None}")
+            if df is None or df.empty:
+                print(f"[latest_financial] 港股未获取到财务数据")
+                return JSONResponse({"success": False, "message": "未获取到财务数据"}, status_code=404)
+            
+            if len(df) == 0:
+                print(f"[latest_financial] 港股DataFrame为空")
+                return JSONResponse({"success": False, "message": "未获取到财务数据"}, status_code=404)
+            
+            print(f"[latest_financial] 港股DataFrame columns: {df.columns.tolist()}")
+            
+            # 港股数据格式：单行多列，每个指标是一列
+            # 取第一行数据
+            try:
+                row_data = df.iloc[0]
+            except (IndexError, KeyError) as e:
+                print(f"[latest_financial] 港股获取行数据失败: {e}")
+                return JSONResponse({"success": False, "message": "未获取到财务数据"}, status_code=404)
+            
+            # 港股指标映射（列名 -> 结果key）
+            hk_indicator_map = {
+                "pe": ["市盈率"],
+                "pb": ["市净率"],
+                "roe": ["股东权益回报率(%)"],
+                "roa": ["总资产回报率(%)"],
+                "revenue": ["营业总收入"],
+                "profit": ["净利润"],
+                "eps": ["基本每股收益(元)"],
+                "bps": ["每股净资产(元)"]
+            }
+            
+            result = {
+                "report_date": None  # 港股接口不返回报告期
+            }
+            
+            for key, possible_cols in hk_indicator_map.items():
+                value = None
+                for col_name in possible_cols:
+                    try:
+                        if col_name not in df.columns:
+                            continue
+                        # 使用安全的访问方式
+                        val = row_data[col_name] if col_name in row_data.index else None
+                        if val is None:
+                            continue
+                        # 处理百分比字段（如ROE、ROA），去掉%号并转换为数值
+                        if isinstance(val, str) and '%' in val:
+                            val = val.replace('%', '').strip()
+                        # 检查是否为NaN或空值
+                        if pd.isna(val) or (isinstance(val, str) and val.strip() == ''):
+                            continue
+                        try:
+                            value = float(val)
+                            print(f"[latest_financial] 港股指标 {key} 匹配到列: {col_name}，值: {value}")
+                            break
+                        except (ValueError, TypeError) as e:
+                            print(f"[latest_financial] 港股指标 {key} 列 {col_name} 值转换失败: {val}, 错误: {e}")
+                            continue
+                    except Exception as e:
+                        print(f"[latest_financial] 港股指标 {key} 处理列 {col_name} 时出错: {e}")
+                        import traceback
+                        traceback.print_exc()
+                        continue
+                if value is None:
+                    print(f"[latest_financial] 港股指标 {key} 未匹配到任何列")
+                result[key] = value
+            
+            print(f"[latest_financial] 港股返回结果: {result}")
+            result = clean_nan(result)
+            return JSONResponse({"success": True, "data": result})
+        else:
+            # A股：使用 stock_financial_abstract 接口（原有逻辑）
+            df = ak.stock_financial_abstract(symbol=code)
+            print(f"[latest_financial] A股获取到原始数据: {df.shape if df is not None else None}")
+            if df is None or df.empty:
+                print(f"[latest_financial] A股未获取到财务数据")
+                return JSONResponse({"success": False, "message": "未获取到财务数据"}, status_code=404)
+            print(f"[latest_financial] A股DataFrame columns: {df.columns.tolist()}")
 
-        # 自动查找行名列
-        row_name_col = None
-        for possible in ['指标', '选项', '名称']:
-            if possible in df.columns:
-                row_name_col = possible
-                break
-        if row_name_col is None:
-            print(f"[latest_financial] 未找到指标行名列，所有列为: {df.columns.tolist()}")
-            return JSONResponse({"success": False, "message": "未找到指标行名列"}, status_code=500)
-
-        # 找到所有报告期列（一般为数字开头的列）
-        period_cols = [col for col in df.columns if str(col).isdigit()]
-        if not period_cols:
-            # 也可能是 '2024-03-31' 这种格式
-            period_cols = [col for col in df.columns if str(col).startswith('20')]
-        if not period_cols:
-            print(f"[latest_financial] 未找到报告期列，所有列为: {df.columns.tolist()}")
-            return JSONResponse({"success": False, "message": "未找到报告期列"}, status_code=500)
-        # 取最新报告期
-        period_cols_sorted = sorted(period_cols, reverse=True)
-        latest_date = period_cols_sorted[0]
-        print(f"[latest_financial] 最新报告期: {latest_date}")
- 
-        # 指标映射
-        indicator_map = {
-            "pe": ["市盈率", "市盈率-TTM", "市盈率(动)"],
-            "pb": ["市净率"],
-            "roe": ["净资产收益率", "净资产收益率(加权)", "净资产收益率(ROE)"],
-            "roa": ["资产收益率", "资产收益率(ROA)", "总资产报酬率(ROA)"],
-            "revenue": ["营业总收入", "营业收入"],
-            "profit": ["归母净利润", "净利润"],
-            "eps": ["每股收益", "基本每股收益", "每股收益(EPS)"],
-            "bps": ["每股净资产", "每股净资产(BPS)"]
-        }
-
-        result = {
-            "report_date": latest_date
-        }
-        for key, possible_names in indicator_map.items():
-            value = None
-            for name in possible_names:
-                row = df[df[row_name_col] == name]
-                if not row.empty:
-                    value = row[latest_date].values[0] if latest_date in row else row.iloc[0, -1]
-                    print(f"[latest_financial] 指标 {key} 匹配到: {name}，值: {value}")
+            # 自动查找行名列
+            row_name_col = None
+            for possible in ['指标', '选项', '名称']:
+                if possible in df.columns:
+                    row_name_col = possible
                     break
-            if value is None:
-                print(f"[latest_financial] 指标 {key} 未匹配到任何行")
-            result[key] = value
+            if row_name_col is None:
+                print(f"[latest_financial] A股未找到指标行名列，所有列为: {df.columns.tolist()}")
+                return JSONResponse({"success": False, "message": "未找到指标行名列"}, status_code=500)
 
-        print(f"[latest_financial] 返回结果: {result}")
-        result = clean_nan(result)
-        return JSONResponse({"success": True, "data": result})
+            # 找到所有报告期列（一般为数字开头的列）
+            period_cols = [col for col in df.columns if str(col).isdigit()]
+            if not period_cols:
+                # 也可能是 '2024-03-31' 这种格式
+                period_cols = [col for col in df.columns if str(col).startswith('20')]
+            if not period_cols:
+                print(f"[latest_financial] A股未找到报告期列，所有列为: {df.columns.tolist()}")
+                return JSONResponse({"success": False, "message": "未找到报告期列"}, status_code=500)
+            # 取最新报告期
+            period_cols_sorted = sorted(period_cols, reverse=True)
+            latest_date = period_cols_sorted[0]
+            print(f"[latest_financial] A股最新报告期: {latest_date}")
+     
+            # A股指标映射
+            indicator_map = {
+                "pe": ["市盈率", "市盈率-TTM", "市盈率(动)"],
+                "pb": ["市净率"],
+                "roe": ["净资产收益率", "净资产收益率(加权)", "净资产收益率(ROE)"],
+                "roa": ["资产收益率", "资产收益率(ROA)", "总资产报酬率(ROA)"],
+                "revenue": ["营业总收入", "营业收入"],
+                "profit": ["归母净利润", "净利润"],
+                "eps": ["每股收益", "基本每股收益", "每股收益(EPS)"],
+                "bps": ["每股净资产", "每股净资产(BPS)"]
+            }
+
+            result = {
+                "report_date": latest_date
+            }
+            for key, possible_names in indicator_map.items():
+                value = None
+                for name in possible_names:
+                    row = df[df[row_name_col] == name]
+                    if not row.empty:
+                        value = row[latest_date].values[0] if latest_date in row else row.iloc[0, -1]
+                        print(f"[latest_financial] A股指标 {key} 匹配到: {name}，值: {value}")
+                        break
+                if value is None:
+                    print(f"[latest_financial] A股指标 {key} 未匹配到任何行")
+                result[key] = value
+
+            print(f"[latest_financial] A股返回结果: {result}")
+            result = clean_nan(result)
+            return JSONResponse({"success": True, "data": result})
     except Exception as e:
         import traceback
         print(f"[latest_financial] 异常: {e}")
@@ -1110,44 +1197,128 @@ async def get_latest_financial(code: str = Query(..., description="股票代码"
 @router.get("/financial_indicator_list")
 async def get_financial_indicator_list(
     symbol: str = Query(..., description="股票代码"),
-    indicator: str = Query("按报告期", description="指标报告类型")
+    indicator: str = Query("按报告期", description="指标报告类型"),
+    db: Session = Depends(get_db)
 ):
     """
     获取指定股票代码和指标类型的主要财务指标列表（返回所有报告期）
+    支持A股和港股
     """
     try:
         print(f"[financial_indicator_list] symbol={symbol}, indicator={indicator}")
-        if indicator == "1":
-            indicator = "按报告期"
-        elif indicator == "2":
-            indicator = "按年度"
-        elif indicator == "3":
-            indicator = "按单季度"
+        
+        # 判断是否为港股
+        is_hk = is_hk_stock(symbol, db)
+        print(f"[financial_indicator_list] 股票类型: {'港股' if is_hk else 'A股'}")
+        
+        if is_hk:
+            # 港股：使用 stock_hk_financial_indicator_em 接口
+            # 注意：该接口只返回最新报告期的单行数据，没有历史数据
+            try:
+                df = ak.stock_hk_financial_indicator_em(symbol=symbol)
+            except Exception as e:
+                print(f"[financial_indicator_list] 港股调用akshare接口失败: {e}")
+                import traceback
+                traceback.print_exc()
+                return JSONResponse({"success": False, "message": f"获取港股财务数据失败: {str(e)}"}, status_code=500)
+            
+            print(f"[financial_indicator_list] 港股获取到原始数据: {df.shape if df is not None else None}")
+            if df is None or df.empty:
+                return JSONResponse({"success": False, "message": "未获取到财务数据"}, status_code=404)
+            
+            if len(df) == 0:
+                print(f"[financial_indicator_list] 港股DataFrame为空")
+                return JSONResponse({"success": False, "message": "未获取到财务数据"}, status_code=404)
+            
+            # 港股数据格式：单行多列，需要转换为与A股一致的格式
+            try:
+                row_data = df.iloc[0]
+            except (IndexError, KeyError) as e:
+                print(f"[financial_indicator_list] 港股获取行数据失败: {e}")
+                return JSONResponse({"success": False, "message": "未获取到财务数据"}, status_code=404)
+            
+            # 港股指标映射（列名 -> 结果字段名）
+            hk_indicator_map = {
+                "净资产收益率": "股东权益回报率(%)",
+                "资产收益率": "总资产回报率(%)",
+                "营业总收入": "营业总收入",
+                "净利润": "净利润",
+                "基本每股收益": "基本每股收益(元)",
+                "每股净资产": "每股净资产(元)"
+            }
+            
+            # 构建返回数据（港股只有一条记录，没有报告期）
+            result_data = {}
+            for result_key, col_name in hk_indicator_map.items():
+                try:
+                    if col_name not in df.columns:
+                        print(f"[financial_indicator_list] 港股指标 {result_key} 列 {col_name} 不存在")
+                        result_data[result_key] = None
+                        continue
+                    # 使用安全的访问方式
+                    val = row_data[col_name] if col_name in row_data.index else None
+                    if val is None:
+                        result_data[result_key] = None
+                        continue
+                    # 处理百分比字段
+                    if isinstance(val, str) and '%' in val:
+                        val = val.replace('%', '').strip()
+                    # 检查是否为NaN或空值
+                    if pd.isna(val) or (isinstance(val, str) and val.strip() == ''):
+                        result_data[result_key] = None
+                        continue
+                    try:
+                        result_data[result_key] = float(val)
+                    except (ValueError, TypeError) as e:
+                        print(f"[financial_indicator_list] 港股指标 {result_key} 列 {col_name} 值转换失败: {val}, 错误: {e}")
+                        result_data[result_key] = None
+                except Exception as e:
+                    print(f"[financial_indicator_list] 港股指标 {result_key} 处理列 {col_name} 时出错: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    result_data[result_key] = None
+            
+            # 港股没有报告期，使用当前日期作为报告期
+            result_data["报告期"] = datetime.datetime.now().strftime("%Y-%m-%d")
+            
+            # 返回单条记录列表（保持与A股接口格式一致）
+            data = [clean_nan(result_data)]
+            return JSONResponse({"success": True, "data": data})
         else:
-            indicator = "按报告期"
-        df = ak.stock_financial_abstract_ths(symbol=symbol, indicator=indicator)
-        print(f"[financial_indicator_list] 原始数据列: {df.columns.tolist()}")
-        if df is None or df.empty:
-            return JSONResponse({"success": False, "message": "未获取到财务数据"}, status_code=404)
+            # A股：使用 stock_financial_abstract_ths 接口（原有逻辑）
+            if indicator == "1":
+                indicator = "按报告期"
+            elif indicator == "2":
+                indicator = "按年度"
+            elif indicator == "3":
+                indicator = "按单季度"
+            else:
+                indicator = "按报告期"
+            df = ak.stock_financial_abstract_ths(symbol=symbol, indicator=indicator)
+            print(f"[financial_indicator_list] A股原始数据列: {df.columns.tolist()}")
+            if df is None or df.empty:
+                return JSONResponse({"success": False, "message": "未获取到财务数据"}, status_code=404)
 
-        # 你需要的指标
-        wanted_indicators = [
-            "报告期", "净资产收益率", "资产收益率", "营业总收入", "净利润",
-            "基本每股收益", "每股净资产"
-        ]
-        # 只保留需要的列，且存在于df中的
-        cols = [col for col in wanted_indicators if col in df.columns]
-        if not cols:
-            return JSONResponse({"success": False, "message": "未找到所需指标"}, status_code=404)
+            # A股需要的指标
+            wanted_indicators = [
+                "报告期", "净资产收益率", "资产收益率", "营业总收入", "净利润",
+                "基本每股收益", "每股净资产"
+            ]
+            # 只保留需要的列，且存在于df中的
+            cols = [col for col in wanted_indicators if col in df.columns]
+            if not cols:
+                return JSONResponse({"success": False, "message": "未找到所需指标"}, status_code=404)
 
-        # 按报告期升序排列（从旧到新，便于图表从左到右显示）
-        df = df.sort_values("报告期", ascending=True)
-        # 转为dict
-        data = df[cols].to_dict(orient="records")
-        data = clean_nan(data)
-        return JSONResponse({"success": True, "data": data})
+            # 按报告期升序排列（从旧到新，便于图表从左到右显示）
+            df = df.sort_values("报告期", ascending=True)
+            # 转为dict
+            data = df[cols].to_dict(orient="records")
+            data = clean_nan(data)
+            return JSONResponse({"success": True, "data": data})
     except Exception as e:
+        import traceback
         print(f"[financial_indicator_list] 异常: {e}")
+        print(traceback.format_exc())
         return JSONResponse({"success": False, "message": str(e)}, status_code=500)
 
 

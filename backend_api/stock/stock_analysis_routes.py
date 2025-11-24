@@ -37,7 +37,18 @@ async def get_stock_analysis(
         # 获取分析结果
         result = analysis_service.get_stock_analysis(stock_code)
         
-        if "error" in result:
+        # 如果返回结果中包含error，但同时也包含data，说明是数据不足的情况，应该返回200但success为False
+        if "error" in result and "data" in result:
+            return JSONResponse(
+                status_code=200,
+                content={
+                    "success": False,
+                    "message": result.get("error", "无法获取历史数据"),
+                    "data": result.get("data", {})
+                }
+            )
+        elif "error" in result:
+            # 真正的错误情况，返回500
             return JSONResponse(
                 status_code=500,
                 content={"success": False, "message": result["error"]}

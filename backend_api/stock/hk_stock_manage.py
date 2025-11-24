@@ -321,8 +321,8 @@ async def get_hk_realtime_quote_by_code(code: str = Query(None, description="股
                 "low": fmt(db_stock_data.low),
                 "volume": fmt(db_stock_data.volume),
                 "turnover": fmt(db_stock_data.amount),
-                "turnover_rate": None,  # 港股可能没有换手率
-                "pe_dynamic": None,  # 港股可能没有市盈率
+                "turnover_rate": None,  # 从历史行情表获取
+                "pe_dynamic": None,  # 从财务指标接口获取
                 "average_price": None,  # 需要计算
             }
             
@@ -333,6 +333,30 @@ async def get_hk_realtime_quote_by_code(code: str = Query(None, description="股
                     result["average_price"] = fmt(avg_price)
                 except Exception:
                     pass
+            
+            # 从历史行情表获取最新的换手率
+            try:
+                latest_history = db.query(HistoricalQuotesHK).filter(
+                    HistoricalQuotesHK.code == code,
+                    HistoricalQuotesHK.turnover_rate.isnot(None)
+                ).order_by(HistoricalQuotesHK.date.desc()).first()
+                if latest_history and latest_history.turnover_rate is not None:
+                    result["turnover_rate"] = fmt(latest_history.turnover_rate)
+                    print(f"[hk_realtime_quote_by_code] 从历史行情表获取换手率: {result['turnover_rate']}")
+            except Exception as e:
+                print(f"[hk_realtime_quote_by_code] 获取换手率失败: {e}")
+            
+            # 从财务指标接口获取市盈率
+            try:
+                import akshare as ak
+                financial_df = ak.stock_hk_financial_indicator_em(symbol=code)
+                if financial_df is not None and not financial_df.empty and '市盈率' in financial_df.columns:
+                    pe_value = financial_df.iloc[0]['市盈率']
+                    if pd.notna(pe_value):
+                        result["pe_dynamic"] = fmt(pe_value)
+                        print(f"[hk_realtime_quote_by_code] 从财务指标获取市盈率: {result['pe_dynamic']}")
+            except Exception as e:
+                print(f"[hk_realtime_quote_by_code] 获取市盈率失败: {e}")
             
             print(f"[hk_realtime_quote_by_code] 从数据库返回数据: {result}")
             return JSONResponse({"success": True, "data": result})
@@ -368,8 +392,8 @@ async def get_hk_realtime_quote_by_code(code: str = Query(None, description="股
                 "low": fmt(row.get('最低')),
                 "volume": fmt(row.get('成交量')),
                 "turnover": fmt(row.get('成交额')),
-                "turnover_rate": None,
-                "pe_dynamic": None,
+                "turnover_rate": None,  # 从历史行情表获取
+                "pe_dynamic": None,  # 从财务指标接口获取
                 "average_price": None,
             }
             
@@ -380,6 +404,29 @@ async def get_hk_realtime_quote_by_code(code: str = Query(None, description="股
                     result["average_price"] = fmt(avg_price)
                 except Exception:
                     pass
+            
+            # 从历史行情表获取最新的换手率
+            try:
+                latest_history = db.query(HistoricalQuotesHK).filter(
+                    HistoricalQuotesHK.code == code,
+                    HistoricalQuotesHK.turnover_rate.isnot(None)
+                ).order_by(HistoricalQuotesHK.date.desc()).first()
+                if latest_history and latest_history.turnover_rate is not None:
+                    result["turnover_rate"] = fmt(latest_history.turnover_rate)
+                    print(f"[hk_realtime_quote_by_code] 从历史行情表获取换手率: {result['turnover_rate']}")
+            except Exception as e:
+                print(f"[hk_realtime_quote_by_code] 获取换手率失败: {e}")
+            
+            # 从财务指标接口获取市盈率
+            try:
+                financial_df = ak.stock_hk_financial_indicator_em(symbol=code)
+                if financial_df is not None and not financial_df.empty and '市盈率' in financial_df.columns:
+                    pe_value = financial_df.iloc[0]['市盈率']
+                    if pd.notna(pe_value):
+                        result["pe_dynamic"] = fmt(pe_value)
+                        print(f"[hk_realtime_quote_by_code] 从财务指标获取市盈率: {result['pe_dynamic']}")
+            except Exception as e:
+                print(f"[hk_realtime_quote_by_code] 获取市盈率失败: {e}")
             
             print(f"[hk_realtime_quote_by_code] 从akshare返回数据: {result}")
             return JSONResponse({"success": True, "data": result})
@@ -545,8 +592,68 @@ async def get_hk_kline_hist(
         
         quotes = query.all()
         
+        # 如果数据库没有数据，尝试从akshare获取
         if not quotes:
-            return JSONResponse({"success": False, "message": f"未找到股票代码: {code} 的历史数据"}, status_code=404)
+            print(f"[hk_kline_hist] 数据库没有数据，尝试从akshare获取")
+            try:
+                import akshare as ak
+                from datetime import datetime
+                
+                # 转换日期格式：YYYY-MM-DD -> YYYYMMDD
+                start_date_str = start_date.replace("-", "")
+                end_date_str = end_date.replace("-", "")
+                
+                # 根据周期选择接口
+                if period == "daily":
+                    df = ak.stock_hk_hist(symbol=code, period='daily', start_date=start_date_str, end_date=end_date_str, adjust='')
+                elif period == "weekly":
+                    df = ak.stock_hk_hist(symbol=code, period='weekly', start_date=start_date_str, end_date=end_date_str, adjust='')
+                elif period == "monthly":
+                    df = ak.stock_hk_hist(symbol=code, period='monthly', start_date=start_date_str, end_date=end_date_str, adjust='')
+                else:
+                    df = ak.stock_hk_hist(symbol=code, period='daily', start_date=start_date_str, end_date=end_date_str, adjust='')
+                
+                if df is None or df.empty:
+                    return JSONResponse({"success": False, "message": f"未找到股票代码: {code} 的历史数据"}, status_code=404)
+                
+                # 转换DataFrame为返回格式
+                result = []
+                for _, row in df.iterrows():
+                    try:
+                        date_val = row.get('日期', '')
+                        date_str = str(date_val) if date_val is not None else ''
+                        # 处理日期格式：YYYYMMDD -> YYYY-MM-DD
+                        if len(date_str) == 8 and date_str.isdigit():
+                            date_str = f"{date_str[:4]}-{date_str[4:6]}-{date_str[6:8]}"
+                        elif len(date_str) == 10 and '-' in date_str:
+                            # 已经是 YYYY-MM-DD 格式
+                            pass
+                        elif isinstance(date_val, pd.Timestamp):
+                            date_str = date_val.strftime("%Y-%m-%d")
+                        
+                        result.append({
+                            "date": date_str,
+                            "open": float(row.get('开盘', 0)) if pd.notna(row.get('开盘')) else 0,
+                            "close": float(row.get('收盘', 0)) if pd.notna(row.get('收盘')) else 0,
+                            "high": float(row.get('最高', 0)) if pd.notna(row.get('最高')) else 0,
+                            "low": float(row.get('最低', 0)) if pd.notna(row.get('最低')) else 0,
+                            "volume": float(row.get('成交量', 0)) if pd.notna(row.get('成交量')) else 0,
+                            "amount": float(row.get('成交额', 0)) if pd.notna(row.get('成交额')) else 0,
+                        })
+                    except Exception as e:
+                        print(f"[hk_kline_hist] 处理行数据时出错: {e}, row: {row}")
+                        continue
+                
+                # 按日期降序排列
+                result.sort(key=lambda x: x['date'], reverse=True)
+                
+                print(f"[hk_kline_hist] 从akshare获取到{len(result)}条K线数据")
+                return JSONResponse({"success": True, "data": result})
+            except Exception as e:
+                print(f"[hk_kline_hist] 从akshare获取数据失败: {e}")
+                import traceback
+                traceback.print_exc()
+                return JSONResponse({"success": False, "message": f"未找到股票代码: {code} 的历史数据"}, status_code=404)
         
         result = []
         def fmt(val):
