@@ -6,6 +6,45 @@
     padding: 20px;
 }
 
+/* 策略标签页样式 */
+.strategy-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 24px;
+    border-bottom: 2px solid #e0e0e0;
+}
+
+.strategy-tab {
+    padding: 12px 24px;
+    background: transparent;
+    border: none;
+    border-bottom: 3px solid transparent;
+    color: #666;
+    font-size: 15px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s;
+    position: relative;
+    bottom: -2px;
+}
+
+.strategy-tab:hover {
+    color: #1976d2;
+}
+
+.strategy-tab.active {
+    color: #1976d2;
+    border-bottom-color: #1976d2;
+}
+
+.strategy-content {
+    display: none;
+}
+
+.strategy-content.active {
+    display: block;
+}
+
 .screening-header {
     margin-bottom: 24px;
 }

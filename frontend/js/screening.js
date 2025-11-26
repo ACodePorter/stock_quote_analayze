@@ -1,11 +1,41 @@
 // 选股页面功能模块
 const ScreeningPage = {
     API_BASE_URL: Config ? Config.getApiBaseUrl() : 'http://192.168.31.237:5000',
+    currentStrategy: 'cyb-midline', // 当前选中的策略
     
     // 初始化
     async init() {
         await this.loadHeader();
         this.bindEvents();
+        this.initStrategyTabs();
+    },
+    
+    // 初始化策略标签页
+    initStrategyTabs() {
+        const tabs = document.querySelectorAll('.strategy-tab');
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                const strategy = tab.dataset.strategy;
+                this.switchStrategy(strategy);
+            });
+        });
+    },
+    
+    // 切换策略标签页
+    switchStrategy(strategy) {
+        this.currentStrategy = strategy;
+        
+        // 更新标签页状态
+        document.querySelectorAll('.strategy-tab').forEach(t => {
+            t.classList.remove('active');
+        });
+        document.querySelector(`[data-strategy="${strategy}"]`).classList.add('active');
+        
+        // 更新内容区域显示
+        document.querySelectorAll('.strategy-content').forEach(c => {
+            c.classList.remove('active');
+        });
+        document.getElementById(`${strategy}-content`).classList.add('active');
     },
     
     // 加载头部导航
@@ -63,22 +93,41 @@ const ScreeningPage = {
     
     // 绑定事件
     bindEvents() {
-        const refreshBtn = document.getElementById('refreshBtn');
-        if (refreshBtn) {
-            refreshBtn.addEventListener('click', () => {
-                this.loadScreeningResults();
+        // 绑定所有刷新按钮
+        document.querySelectorAll('.refresh-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const strategy = btn.dataset.strategy;
+                this.loadScreeningResults(strategy);
             });
-        }
+        });
     },
     
     // 加载选股结果
-    async loadScreeningResults() {
-        const loadingIndicator = document.getElementById('loadingIndicator');
-        const errorMessage = document.getElementById('errorMessage');
-        const resultsTableBody = document.getElementById('resultsTableBody');
-        const resultsCount = document.getElementById('resultsCount');
-        const refreshBtn = document.getElementById('refreshBtn');
-        const searchDate = document.getElementById('searchDate');
+    async loadScreeningResults(strategy = null) {
+        if (!strategy) {
+            strategy = this.currentStrategy;
+        }
+        
+        let suffix;
+        if (strategy === 'cyb-midline') {
+            suffix = 'cyb';
+        } else if (strategy === 'parking-apron') {
+            suffix = 'parking';
+        } else if (strategy === 'backtrace-ma250') {
+            suffix = 'backtrace';
+        } else if (strategy === 'high-tight-flag') {
+            suffix = 'high-tight';
+        } else if (strategy === 'keep-increasing') {
+            suffix = 'keep-increasing';
+        } else {
+            suffix = 'cyb';
+        }
+        const loadingIndicator = document.getElementById(`loadingIndicator-${suffix}`);
+        const errorMessage = document.getElementById(`errorMessage-${suffix}`);
+        const resultsTableBody = document.getElementById(`resultsTableBody-${suffix}`);
+        const resultsCount = document.getElementById(`resultsCount-${suffix}`);
+        const refreshBtn = document.getElementById(`refreshBtn-${strategy}`);
+        const searchDate = document.getElementById(`searchDate-${suffix}`);
         
         // 显示加载状态
         if (loadingIndicator) {
@@ -95,7 +144,21 @@ const ScreeningPage = {
         try {
             // 获取API基础URL
             const apiBaseUrl = this.API_BASE_URL;
-            const url = `${apiBaseUrl}/api/screening/cyb-midline-strategy?months=4`;
+            let url;
+            
+            if (strategy === 'cyb-midline') {
+                url = `${apiBaseUrl}/api/screening/cyb-midline-strategy?months=4`;
+            } else if (strategy === 'parking-apron') {
+                url = `${apiBaseUrl}/api/screening/parking-apron-strategy`;
+            } else if (strategy === 'backtrace-ma250') {
+                url = `${apiBaseUrl}/api/screening/backtrace-ma250-strategy`;
+            } else if (strategy === 'high-tight-flag') {
+                url = `${apiBaseUrl}/api/screening/high-tight-flag-strategy`;
+            } else if (strategy === 'keep-increasing') {
+                url = `${apiBaseUrl}/api/screening/keep-increasing-strategy`;
+            } else {
+                throw new Error('未知的策略类型');
+            }
             
             // 使用authFetch或fetch
             const fetchFn = (typeof authFetch === 'function')
@@ -117,7 +180,7 @@ const ScreeningPage = {
             }
             
             if (result.success && result.data) {
-                this.renderResults(result.data, result.search_date);
+                this.renderResults(result.data, result.search_date, strategy);
                 if (searchDate) {
                     searchDate.textContent = `筛选时间: ${result.search_date}`;
                 }
@@ -131,8 +194,22 @@ const ScreeningPage = {
                 errorMessage.textContent = `加载失败: ${error.message}`;
                 errorMessage.style.display = 'block';
             }
+            let colSpan;
+            if (strategy === 'cyb-midline') {
+                colSpan = 12;
+            } else if (strategy === 'parking-apron') {
+                colSpan = 7;
+            } else if (strategy === 'backtrace-ma250') {
+                colSpan = 9;
+            } else if (strategy === 'high-tight-flag') {
+                colSpan = 7;
+            } else if (strategy === 'keep-increasing') {
+                colSpan = 8;
+            } else {
+                colSpan = 12;
+            }
             if (resultsTableBody) {
-                resultsTableBody.innerHTML = '<tr><td colspan="12" class="empty-state">加载失败，请稍后重试</td></tr>';
+                resultsTableBody.innerHTML = `<tr><td colspan="${colSpan}" class="empty-state">加载失败，请稍后重试</td></tr>`;
             }
             if (resultsCount) {
                 resultsCount.textContent = '共找到 0 只符合条件的股票';
@@ -149,16 +226,31 @@ const ScreeningPage = {
     },
     
     // 渲染结果
-    renderResults(data, searchDate) {
-        const resultsTableBody = document.getElementById('resultsTableBody');
-        const resultsCount = document.getElementById('resultsCount');
+    renderResults(data, searchDate, strategy = 'cyb-midline') {
+        const suffix = strategy === 'cyb-midline' ? 'cyb' : 'parking';
+        const resultsTableBody = document.getElementById(`resultsTableBody-${suffix}`);
+        const resultsCount = document.getElementById(`resultsCount-${suffix}`);
         
         if (!resultsTableBody) {
             return;
         }
         
         if (!data || data.length === 0) {
-            resultsTableBody.innerHTML = '<tr><td colspan="12" class="empty-state">未找到符合条件的股票</td></tr>';
+            let colSpan;
+            if (strategy === 'cyb-midline') {
+                colSpan = 12;
+            } else if (strategy === 'parking-apron') {
+                colSpan = 7;
+            } else if (strategy === 'backtrace-ma250') {
+                colSpan = 9;
+            } else if (strategy === 'high-tight-flag') {
+                colSpan = 7;
+            } else if (strategy === 'keep-increasing') {
+                colSpan = 8;
+            } else {
+                colSpan = 12;
+            }
+            resultsTableBody.innerHTML = `<tr><td colspan="${colSpan}" class="empty-state">未找到符合条件的股票</td></tr>`;
             if (resultsCount) {
                 resultsCount.textContent = '共找到 0 只符合条件的股票';
             }
@@ -177,27 +269,105 @@ const ScreeningPage = {
             const changeClass = changePercent > 0 ? 'price-positive' : (changePercent < 0 ? 'price-negative' : 'price-neutral');
             const changeSymbol = changePercent > 0 ? '+' : '';
             
-            html += `
-                <tr>
-                    <td><span class="stock-code">${stock.code}</span></td>
-                    <td><span class="stock-name">${stock.name}</span></td>
-                    <td>${stock.limit_up_date}</td>
-                    <td>${stock.limit_up_price.toFixed(2)}</td>
-                    <td>${stock.breakthrough_date}</td>
-                    <td>${stock.breakthrough_price.toFixed(2)}</td>
-                    <td>${stock.current_price.toFixed(2)}</td>
-                    <td class="${changeClass}">${changeSymbol}${changePercent.toFixed(2)}%</td>
-                    <td>${stock.ma5.toFixed(2)}</td>
-                    <td>${stock.ma10.toFixed(2)}</td>
-                    <td>${stock.ma20.toFixed(2)}</td>
-                    <td>
-                        <div class="action-links">
-                            <a href="stock_history.html?code=${stock.code}" class="action-link" target="_blank">历史</a>
-                            <a href="stock.html?code=${stock.code}&name=${encodeURIComponent(stock.name)}" class="action-link" target="_blank">详情</a>
-                        </div>
-                    </td>
-                </tr>
-            `;
+            if (strategy === 'cyb-midline') {
+                // 创业板中线选股策略表格
+                html += `
+                    <tr>
+                        <td><span class="stock-code">${stock.code}</span></td>
+                        <td><span class="stock-name">${stock.name}</span></td>
+                        <td>${stock.limit_up_date}</td>
+                        <td>${stock.limit_up_price.toFixed(2)}</td>
+                        <td>${stock.breakthrough_date}</td>
+                        <td>${stock.breakthrough_price.toFixed(2)}</td>
+                        <td>${stock.current_price.toFixed(2)}</td>
+                        <td class="${changeClass}">${changeSymbol}${changePercent.toFixed(2)}%</td>
+                        <td>${stock.ma5.toFixed(2)}</td>
+                        <td>${stock.ma10.toFixed(2)}</td>
+                        <td>${stock.ma20.toFixed(2)}</td>
+                        <td>
+                            <div class="action-links">
+                                <a href="stock_history.html?code=${stock.code}" class="action-link" target="_blank">历史</a>
+                                <a href="stock.html?code=${stock.code}&name=${encodeURIComponent(stock.name)}" class="action-link" target="_blank">详情</a>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            } else if (strategy === 'parking-apron') {
+                // 停机坪策略表格
+                html += `
+                    <tr>
+                        <td><span class="stock-code">${stock.code}</span></td>
+                        <td><span class="stock-name">${stock.name}</span></td>
+                        <td>${stock.limit_up_date || '--'}</td>
+                        <td>${stock.limit_up_price ? stock.limit_up_price.toFixed(2) : '--'}</td>
+                        <td>${stock.current_price ? stock.current_price.toFixed(2) : '--'}</td>
+                        <td class="${changeClass}">${changeSymbol}${changePercent.toFixed(2)}%</td>
+                        <td>
+                            <div class="action-links">
+                                <a href="stock_history.html?code=${stock.code}" class="action-link" target="_blank">历史</a>
+                                <a href="stock.html?code=${stock.code}&name=${encodeURIComponent(stock.name)}" class="action-link" target="_blank">详情</a>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            } else if (strategy === 'backtrace-ma250') {
+                // 回踩年线策略表格
+                html += `
+                    <tr>
+                        <td><span class="stock-code">${stock.code}</span></td>
+                        <td><span class="stock-name">${stock.name}</span></td>
+                        <td>${stock.highest_date || '--'}</td>
+                        <td>${stock.highest_price ? stock.highest_price.toFixed(2) : '--'}</td>
+                        <td>${stock.lowest_date || '--'}</td>
+                        <td>${stock.lowest_price ? stock.lowest_price.toFixed(2) : '--'}</td>
+                        <td>${stock.current_price ? stock.current_price.toFixed(2) : '--'}</td>
+                        <td class="${changeClass}">${changeSymbol}${changePercent.toFixed(2)}%</td>
+                        <td>
+                            <div class="action-links">
+                                <a href="stock_history.html?code=${stock.code}" class="action-link" target="_blank">历史</a>
+                                <a href="stock.html?code=${stock.code}&name=${encodeURIComponent(stock.name)}" class="action-link" target="_blank">详情</a>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            } else if (strategy === 'high-tight-flag') {
+                // 高而窄的旗形策略表格
+                html += `
+                    <tr>
+                        <td><span class="stock-code">${stock.code}</span></td>
+                        <td><span class="stock-name">${stock.name}</span></td>
+                        <td>${stock.current_price ? stock.current_price.toFixed(2) : '--'}</td>
+                        <td class="${changeClass}">${changeSymbol}${changePercent.toFixed(2)}%</td>
+                        <td>${stock.period_low ? stock.period_low.toFixed(2) : '--'}</td>
+                        <td>${stock.price_ratio ? stock.price_ratio.toFixed(2) : '--'}</td>
+                        <td>
+                            <div class="action-links">
+                                <a href="stock_history.html?code=${stock.code}" class="action-link" target="_blank">历史</a>
+                                <a href="stock.html?code=${stock.code}&name=${encodeURIComponent(stock.name)}" class="action-link" target="_blank">详情</a>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            } else if (strategy === 'keep-increasing') {
+                // 持续上涨（MA30向上）策略表格
+                html += `
+                    <tr>
+                        <td><span class="stock-code">${stock.code}</span></td>
+                        <td><span class="stock-name">${stock.name}</span></td>
+                        <td>${stock.current_price ? stock.current_price.toFixed(2) : '--'}</td>
+                        <td class="${changeClass}">${changeSymbol}${changePercent.toFixed(2)}%</td>
+                        <td>${stock.current_ma30 ? stock.current_ma30.toFixed(2) : '--'}</td>
+                        <td>${stock.ma30_before_30 ? stock.ma30_before_30.toFixed(2) : '--'}</td>
+                        <td>${stock.ma30_increase_ratio ? (stock.ma30_increase_ratio * 100).toFixed(2) + '%' : '--'}</td>
+                        <td>
+                            <div class="action-links">
+                                <a href="stock_history.html?code=${stock.code}" class="action-link" target="_blank">历史</a>
+                                <a href="stock.html?code=${stock.code}&name=${encodeURIComponent(stock.name)}" class="action-link" target="_blank">详情</a>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }
         });
         
         resultsTableBody.innerHTML = html;

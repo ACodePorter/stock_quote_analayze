@@ -657,7 +657,12 @@
                 aStockTab.classList.remove('active');
                 hkStockContent.classList.add('active');
                 aStockContent.classList.remove('active');
-                // 初始化港股页面
+                // 清空港股查询输入框
+                const hkSearchInput = document.getElementById('hkMarketSearchInput');
+                if (hkSearchInput) {
+                    hkSearchInput.value = '';
+                }
+                // 初始化港股页面，重新刷新港股行情
                 if (typeof HKMarketsPage !== 'undefined') {
                     HKMarketsPage.init();
                 }
