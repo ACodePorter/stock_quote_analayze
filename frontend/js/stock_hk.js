@@ -819,7 +819,25 @@ const StockPage = {
     updateStockInfo() {
         document.querySelector('.stock-name').textContent = this.stockName || '-';
         document.querySelector('.stock-code').textContent = this.stockCode || '-';
-        document.querySelector('.current-price').textContent = this.currentPrice ? Number(this.currentPrice).toFixed(2) : '-';
+        
+        // 更新当前价格，并根据与昨收价格比较设置颜色
+        const currentPriceElement = document.querySelector('.current-price');
+        currentPriceElement.textContent = this.currentPrice ? Number(this.currentPrice).toFixed(2) : '-';
+        // 根据当前价格和昨收价格比较设置颜色类
+        if (this.currentPrice !== null && this.currentPrice !== undefined && !isNaN(this.currentPrice) &&
+            this.pre_close !== null && this.pre_close !== undefined && !isNaN(this.pre_close)) {
+            const current = parseFloat(this.currentPrice);
+            const pre = parseFloat(this.pre_close);
+            if (current > pre) {
+                currentPriceElement.className = 'current-price positive';  // 比昨收高，红色
+            } else if (current < pre) {
+                currentPriceElement.className = 'current-price negative';  // 比昨收低，绿色
+            } else {
+                currentPriceElement.className = 'current-price';  // 相等，默认颜色
+            }
+        } else {
+            currentPriceElement.className = 'current-price';  // 数据无效，默认颜色
+        }
         
         const changeElement = document.querySelector('.price-change');
         const change = this.priceChange ? Number(this.priceChange) : 0;

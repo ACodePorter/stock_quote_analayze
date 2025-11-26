@@ -191,7 +191,7 @@ scheduler.add_job(
     
 )
 # 每天收盘后，采集当天历史行情
-scheduler.add_job(collect_tushare_historical, 'cron', hour='16', minute='32', id='tushare_historical')
+scheduler.add_job(collect_tushare_historical, 'cron', hour='16', minute='7', id='tushare_historical')
 
 # 每隔5分钟采集一次Tushare实时行情----由于tushare对普通会员，一小时只能调用1次，所以暂时不启用
 #scheduler.add_job(collect_tushare_realtime, 'interval', minutes=5, id='tushare_realtime')
@@ -277,7 +277,7 @@ scheduler.add_job(
     'cron',
     day_of_week='mon-fri',
     hour='9-12,13-16',
-    minute='27,57',
+    minute='11,57',
     id='hk_realtime',
 )
 
@@ -287,7 +287,7 @@ scheduler.add_job(
     'cron',
     day_of_week='mon-fri',
     hour=16,
-    minute=47,
+    minute=12,
     id='hk_historical',
 )
 

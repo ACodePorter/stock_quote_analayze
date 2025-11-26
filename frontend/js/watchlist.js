@@ -259,7 +259,7 @@ const WatchlistPage = {
                     <button class="remove-btn">×</button>
                 </div>
                 <div class="stock-price">
-                    <span class="current-price">${this.formatPrice(stock.price)}</span>
+                    <span class="current-price ${this.getPriceColorClass(stock.price, stock.pre_close)}">${this.formatPrice(stock.price)}</span>
                     <span class="price-change ${this.getChangeClass(stock.change)}">${this.formatChange(stock.change)}</span>
                     <span class="change-percent ${this.getChangeClass(stock.change)}">${this.formatPercent(stock.percent)}</span>
                 </div>
@@ -312,7 +312,7 @@ const WatchlistPage = {
                         <span class="stock-code">${stock.code}</span>
                     </div>
                 </td>
-                <td>${this.formatPrice(stock.price)}</td>
+                <td class="${this.getPriceColorClass(stock.price, stock.pre_close)}">${this.formatPrice(stock.price)}</td>
                 <td class="${this.getChangeClass(stock.change)}">${this.formatChange(stock.change)}</td>
                 <td class="${this.getChangeClass(stock.percent)}">${this.formatPercent(stock.percent)}</td>
                 <td>${this.formatPrice(stock.open)}</td>
@@ -542,6 +542,17 @@ const WatchlistPage = {
         if (value > 0) return 'positive';
         if (value < 0) return 'negative';
         return '';
+    },
+
+    // 根据当前价格和昨收价格比较，返回颜色类
+    getPriceColorClass(currentPrice, preClose) {
+        if (currentPrice === null || currentPrice === undefined || isNaN(currentPrice)) return '';
+        if (preClose === null || preClose === undefined || isNaN(preClose)) return '';
+        const current = parseFloat(currentPrice);
+        const pre = parseFloat(preClose);
+        if (current > pre) return 'positive';  // 比昨收高，红色
+        if (current < pre) return 'negative';  // 比昨收低，绿色
+        return '';  // 相等，默认颜色
     },
 
     // 格式化成交量
