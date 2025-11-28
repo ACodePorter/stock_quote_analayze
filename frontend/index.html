@@ -19,41 +19,93 @@
         <section class="market-overview">
             <div class="container">
                 <h2>市场概览</h2>
-                <div class="index-cards">
-                    <div class="index-card" data-index-code="000001">
-                        <div class="index-name">上证指数</div>
-                        <div class="index-value">0.00</div>
-                        <div class="index-change">加载中...</div>
-                        <div class="index-extra-info">
-                            <div class="index-volume">成交量: 加载中...</div>
-                            <div class="index-time">更新时间: 加载中...</div>
+                
+                <!-- 标签页导航 -->
+                <div class="market-tabs">
+                    <button class="market-tab active" data-tab="a-stock">A股</button>
+                    <button class="market-tab" data-tab="hk-stock">港股</button>
+                </div>
+                
+                <!-- A股标签页内容 -->
+                <div id="a-stock-content" class="market-tab-content active">
+                    <div class="index-cards">
+                        <div class="index-card" data-index-code="000001">
+                            <div class="index-name">上证指数</div>
+                            <div class="index-value">0.00</div>
+                            <div class="index-change">加载中...</div>
+                            <div class="index-extra-info">
+                                <div class="index-volume">成交量: 加载中...</div>
+                                <div class="index-time">更新时间: 加载中...</div>
+                            </div>
+                        </div>
+                        <div class="index-card" data-index-code="399001">
+                            <div class="index-name">深证成指</div>
+                            <div class="index-value">0.00</div>
+                            <div class="index-change">加载中...</div>
+                            <div class="index-extra-info">
+                                <div class="index-volume">成交量: 加载中...</div>
+                                <div class="index-time">更新时间: 加载中...</div>
+                            </div>
+                        </div>
+                        <div class="index-card" data-index-code="399006">
+                            <div class="index-name">创业板指</div>
+                            <div class="index-value">0.00</div>
+                            <div class="index-change">加载中...</div>
+                            <div class="index-extra-info">
+                                <div class="index-volume">成交量: 加载中...</div>
+                                <div class="index-time">更新时间: 加载中...</div>
+                            </div>
+                        </div>
+                        <div class="index-card" data-index-code="000300">
+                            <div class="index-name">沪深300</div>
+                            <div class="index-value">0.00</div>
+                            <div class="index-change">加载中...</div>
+                            <div class="index-extra-info">
+                                <div class="index-volume">成交量: 加载中...</div>
+                                <div class="index-time">更新时间: 加载中...</div>
+                            </div>
                         </div>
                     </div>
-                    <div class="index-card" data-index-code="399001">
-                        <div class="index-name">深证成指</div>
-                        <div class="index-value">0.00</div>
-                        <div class="index-change">加载中...</div>
-                        <div class="index-extra-info">
-                            <div class="index-volume">成交量: 加载中...</div>
-                            <div class="index-time">更新时间: 加载中...</div>
+                </div>
+                
+                <!-- 港股标签页内容 -->
+                <div id="hk-stock-content" class="market-tab-content">
+                    <div class="index-cards">
+                        <div class="index-card" data-index-code="HSI">
+                            <div class="index-name">恒生指数</div>
+                            <div class="index-value">0.00</div>
+                            <div class="index-change">加载中...</div>
+                            <div class="index-extra-info">
+                                <div class="index-volume">成交量: 加载中...</div>
+                                <div class="index-time">更新时间: 加载中...</div>
+                            </div>
                         </div>
-                    </div>
-                    <div class="index-card" data-index-code="399006">
-                        <div class="index-name">创业板指</div>
-                        <div class="index-value">0.00</div>
-                        <div class="index-change">加载中...</div>
-                        <div class="index-extra-info">
-                            <div class="index-volume">成交量: 加载中...</div>
-                            <div class="index-time">更新时间: 加载中...</div>
+                        <div class="index-card" data-index-code="HSTECH">
+                            <div class="index-name">恒生科技指数</div>
+                            <div class="index-value">0.00</div>
+                            <div class="index-change">加载中...</div>
+                            <div class="index-extra-info">
+                                <div class="index-volume">成交量: 加载中...</div>
+                                <div class="index-time">更新时间: 加载中...</div>
+                            </div>
                         </div>
-                    </div>
-                    <div class="index-card" data-index-code="000300">
-                        <div class="index-name">沪深300</div>
-                        <div class="index-value">0.00</div>
-                        <div class="index-change">加载中...</div>
-                        <div class="index-extra-info">
-                            <div class="index-volume">成交量: 加载中...</div>
-                            <div class="index-time">更新时间: 加载中...</div>
+                        <div class="index-card" data-index-code="HSCI">
+                            <div class="index-name">恒生综合指数</div>
+                            <div class="index-value">0.00</div>
+                            <div class="index-change">加载中...</div>
+                            <div class="index-extra-info">
+                                <div class="index-volume">成交量: 加载中...</div>
+                                <div class="index-time">更新时间: 加载中...</div>
+                            </div>
+                        </div>
+                        <div class="index-card" data-index-code="HSCEI">
+                            <div class="index-name">恒生中国企业指数</div>
+                            <div class="index-value">0.00</div>
+                            <div class="index-change">加载中...</div>
+                            <div class="index-extra-info">
+                                <div class="index-volume">成交量: 加载中...</div>
+                                <div class="index-time">更新时间: 加载中...</div>
+                            </div>
                         </div>
                     </div>
                 </div>

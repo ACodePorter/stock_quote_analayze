@@ -136,6 +136,160 @@ def get_industry_board(db: Session = Depends(get_db)):
             'traceback': tb
         }, status_code=500)
 
+# 获取港股指数数据
+@router.get("/hk-indices")
+def get_hk_market_indices():
+    """获取港股指数数据，优先使用akshare stock_hk_index_spot_em，失败则使用stock_hk_index_daily_sina"""
+    try:
+        import akshare as ak
+        
+        # 港股指数代码映射
+        hk_index_map = {
+            'HSI': {'name': '恒生指数', 'ak_code': 'HSI'},
+            'HSTECH': {'name': '恒生科技指数', 'ak_code': 'HSTECH'},
+            'HSCI': {'name': '恒生综合指数', 'ak_code': 'HSCI'},
+            'HSCEI': {'name': '恒生中国企业指数', 'ak_code': 'HSCEI'}
+        }
+        
+        indices_data = []
+        
+        # 优先尝试使用 stock_hk_index_spot_em
+        try:
+            print('[get_hk_market_indices] 尝试使用 stock_hk_index_spot_em 接口')
+            df = ak.stock_hk_index_spot_em()
+            
+            if df is not None and not df.empty:
+                print(f'[get_hk_market_indices] stock_hk_index_spot_em 返回数据形状: {df.shape}')
+                print(f'[get_hk_market_indices] stock_hk_index_spot_em 列名: {df.columns.tolist()}')
+                
+                # 遍历目标指数
+                for code, info in hk_index_map.items():
+                    try:
+                        # 尝试通过指数代码或名称匹配
+                        index_row = None
+                        
+                        # 先尝试通过代码匹配（可能列名是"代码"或"index_code"等）
+                        if '代码' in df.columns:
+                            index_row = df[df['代码'] == info['ak_code']]
+                        elif 'index_code' in df.columns:
+                            index_row = df[df['index_code'] == info['ak_code']]
+                        elif 'code' in df.columns:
+                            index_row = df[df['code'] == info['ak_code']]
+                        
+                        # 如果代码匹配失败，尝试通过名称匹配
+                        if (index_row is None or index_row.empty) and '名称' in df.columns:
+                            index_row = df[df['名称'].str.contains(info['name'], na=False)]
+                        elif (index_row is None or index_row.empty) and 'name' in df.columns:
+                            index_row = df[df['name'].str.contains(info['name'], na=False)]
+                        
+                        if index_row is not None and not index_row.empty:
+                            row = index_row.iloc[0]
+                            
+                            # 提取数据（列名可能不同，需要灵活处理）
+                            current = safe_float(row.get('最新价', row.get('current', row.get('price', None))))
+                            change = safe_float(row.get('涨跌额', row.get('change', row.get('change_amount', None))))
+                            change_percent = safe_float(row.get('涨跌幅', row.get('change_percent', row.get('pct_chg', None))))
+                            volume = safe_float(row.get('成交量', row.get('volume', row.get('vol', 0))))
+                            
+                            indices_data.append({
+                                'code': code,
+                                'name': info['name'],
+                                'current': current,
+                                'change': change,
+                                'change_percent': change_percent,
+                                'volume': volume,
+                                'timestamp': datetime.now().isoformat()
+                            })
+                            print(f'[get_hk_market_indices] 成功获取 {info["name"]} 数据')
+                        else:
+                            print(f'[get_hk_market_indices] 未找到 {info["name"]} 的数据')
+                    except Exception as e:
+                        print(f'[get_hk_market_indices] 处理 {info["name"]} 时出错: {str(e)}')
+                        import traceback
+                        traceback.print_exc()
+                        continue
+                
+                if indices_data:
+                    print(f'[get_hk_market_indices] 成功获取 {len(indices_data)} 个港股指数数据')
+                    return JSONResponse({'success': True, 'data': indices_data})
+            else:
+                print('[get_hk_market_indices] stock_hk_index_spot_em 返回空数据')
+                raise Exception('stock_hk_index_spot_em 返回空数据')
+        except Exception as e1:
+            print(f'[get_hk_market_indices] stock_hk_index_spot_em 接口调用失败: {str(e1)}')
+            import traceback
+            traceback.print_exc()
+            
+            # 失败则尝试使用 stock_hk_index_daily_sina
+            try:
+                print('[get_hk_market_indices] 尝试使用 stock_hk_index_daily_sina 接口')
+                
+                # 遍历目标指数，逐个获取
+                for code, info in hk_index_map.items():
+                    try:
+                        # stock_hk_index_daily_sina 需要传入指数代码
+                        df_sina = ak.stock_hk_index_daily_sina(symbol=info['ak_code'])
+                        
+                        if df_sina is not None and not df_sina.empty:
+                            # 获取最新一条数据
+                            latest_row = df_sina.iloc[-1]
+                            
+                            # 提取数据（列名可能是 date, open, close, high, low, volume 等）
+                            current = safe_float(latest_row.get('close', latest_row.get('收盘', None)))
+                            
+                            # 计算涨跌额和涨跌幅（需要前一日数据）
+                            if len(df_sina) >= 2:
+                                prev_row = df_sina.iloc[-2]
+                                prev_close = safe_float(prev_row.get('close', prev_row.get('收盘', None)))
+                                if current is not None and prev_close is not None and prev_close > 0:
+                                    change = current - prev_close
+                                    change_percent = (change / prev_close) * 100
+                                else:
+                                    change = None
+                                    change_percent = None
+                            else:
+                                change = None
+                                change_percent = None
+                            
+                            volume = safe_float(latest_row.get('volume', latest_row.get('成交量', 0)))
+                            
+                            indices_data.append({
+                                'code': code,
+                                'name': info['name'],
+                                'current': current,
+                                'change': change,
+                                'change_percent': change_percent,
+                                'volume': volume,
+                                'timestamp': datetime.now().isoformat()
+                            })
+                            print(f'[get_hk_market_indices] 通过sina接口成功获取 {info["name"]} 数据')
+                    except Exception as e2:
+                        print(f'[get_hk_market_indices] 通过sina接口获取 {info["name"]} 失败: {str(e2)}')
+                        continue
+                
+                if indices_data:
+                    print(f'[get_hk_market_indices] 通过sina接口成功获取 {len(indices_data)} 个港股指数数据')
+                    return JSONResponse({'success': True, 'data': indices_data})
+                else:
+                    raise Exception('所有接口都未能获取到数据')
+            except Exception as e2:
+                print(f'[get_hk_market_indices] stock_hk_index_daily_sina 接口调用失败: {str(e2)}')
+                import traceback
+                traceback.print_exc()
+                raise Exception(f'港股指数数据获取失败: {str(e2)}')
+        
+    except Exception as e:
+        import traceback
+        tb = traceback.format_exc()
+        print(f'[get_hk_market_indices] 获取港股指数数据异常: {str(e)}')
+        print(tb)
+        return JSONResponse({
+            'success': False,
+            'message': f'获取港股指数数据失败: {str(e)}',
+            'error': str(e),
+            'traceback': tb
+        }, status_code=500)
+
 # 获取行业板块内涨幅领先的股票
 @router.get("/industry_board/{board_code}/top_stocks")
 def get_industry_board_top_stocks(board_code: str, board_name: str = None, db: Session = Depends(get_db)):

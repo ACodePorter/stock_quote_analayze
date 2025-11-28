@@ -482,26 +482,38 @@ def prepare_export_rows(rows, include_notes, has_notes_data):
     """根据导出配置格式化行数据"""
     # 添加数据格式化函数
     def format_volume(volume):
-        """格式化成交量为万手"""
+        """格式化成交量：超过亿以亿为单位，其他值以万为单位，2位小数，四舍五入"""
         if volume is None:
             return '-'
         vol = float(volume)
-        if vol >= 10000:
-            return f"{vol / 10000:.2f}万手"
-        return f"{vol:.0f}手"
+        # 1亿 = 10000万
+        if vol >= 100000000:  # 超过1亿，以亿为单位
+            vol_yi = round(vol / 100000000, 2)
+            return f"{vol_yi:.2f}亿"
+        else:  # 其他值以万为单位
+            vol_wan = round(vol / 10000, 2)
+            return f"{vol_wan:.2f}万"
     
     def format_amount(amount):
-        """格式化成交额为亿"""
+        """格式化成交额：超过亿以亿为单位，其他值以万为单位，2位小数，四舍五入"""
         if amount is None:
             return '-'
         amt = float(amount)
-        return f"{amt / 100000000:.2f}亿"
+        # 1亿 = 10000万
+        if amt >= 100000000:  # 超过1亿，以亿为单位
+            amt_yi = round(amt / 100000000, 2)
+            return f"{amt_yi:.2f}亿"
+        else:  # 其他值以万为单位
+            amt_wan = round(amt / 10000, 2)
+            return f"{amt_wan:.2f}万"
     
     def format_percent(value):
-        """格式化百分比"""
+        """格式化百分比，小数点后2位，四舍五入"""
         if value is None:
             return '-'
-        return f"{float(value):.2f}%"
+        # 保留2位小数，四舍五入
+        pct = round(float(value), 2)
+        return f"{pct:.2f}%"
     
     def format_price(value):
         """格式化价格"""
@@ -509,40 +521,64 @@ def prepare_export_rows(rows, include_notes, has_notes_data):
             return '-'
         return f"{float(value):.2f}"
     
+    # 根据最新列表字段顺序：股票名称、日期、开盘、收盘、涨跌额、成交额、涨跌幅、成交量、换手率、5天涨跌%、10天涨跌%、30天涨跌%、60天涨跌%、备注
     if include_notes and has_notes_data:
         headers = [
-            "股票代码", "股票名称", "日期", "开盘", "收盘", "最高", "最低",
-            "成交量(万手)", "成交额(亿)", "涨跌幅%", "涨跌额", "换手率%",
-            "累计升跌%", "5天升跌%", "10天升跌%", "30天升跌%", "60天升跌%", "用户备注", "策略类型", "风险等级"
+            "股票名称", "日期", "开盘", "收盘", "涨跌额", "成交额", "涨跌幅", 
+            "成交量", "换手率", "5天涨跌%", "10天涨跌%", "30天涨跌%", "60天涨跌%", "备注"
         ]
     else:
         headers = [
-            "股票代码", "股票名称", "日期", "开盘", "收盘", "最高", "最低",
-            "成交量(万手)", "成交额(亿)", "涨跌幅%", "涨跌额", "换手率%",
-            "累计升跌%", "5天升跌%", "10天升跌%", "30天升跌%", "60天升跌%", "备注"
+            "股票名称", "日期", "开盘", "收盘", "涨跌额", "成交额", "涨跌幅", 
+            "成交量", "换手率", "5天涨跌%", "10天涨跌%", "30天涨跌%", "60天涨跌%", "备注"
         ]
     
     data_rows = []
     for row in rows:
+        # row结构: code, name, date, open, close, high, low, volume, amount, change_percent, change, turnover_rate,
+        #          cumulative_change_percent, five_day_change_percent, ten_day_change_percent, thirty_day_change_percent, sixty_day_change_percent,
+        #          user_notes, strategy_type, risk_level
+        # 按照新顺序：股票名称、日期、开盘、收盘、涨跌额、成交额、涨跌幅、成交量、换手率、5天涨跌%、10天涨跌%、30天涨跌%、60天涨跌%、备注
         if include_notes and has_notes_data:
+            # 合并备注信息
+            notes_text = row[17] if row[17] else ''
+            if row[18]:  # strategy_type
+                notes_text += f" [策略:{row[18]}]" if notes_text else f"[策略:{row[18]}]"
+            if row[19]:  # risk_level
+                notes_text += f" [风险:{row[19]}]" if notes_text else f"[风险:{row[19]}]"
+            
             data_rows.append([
-                row[0], row[1], row[2], format_price(row[3]), format_price(row[4]), 
-                format_price(row[5]), format_price(row[6]),
-                format_volume(row[7]), format_amount(row[8]), 
-                format_percent(row[9]), format_price(row[10]), format_percent(row[11]),
-                format_percent(row[12]), format_percent(row[13]), 
-                format_percent(row[14]), format_percent(row[15]), format_percent(row[16]),
-                row[17], row[18], row[19]
+                row[1],  # 股票名称
+                row[2],  # 日期
+                format_price(row[3]),  # 开盘
+                format_price(row[4]),  # 收盘
+                format_price(row[10]),  # 涨跌额
+                format_amount(row[8]),  # 成交额
+                format_percent(row[9]),  # 涨跌幅
+                format_volume(row[7]),  # 成交量
+                format_percent(row[11]),  # 换手率
+                format_percent(row[13]),  # 5天涨跌%
+                format_percent(row[14]),  # 10天涨跌%
+                format_percent(row[15]),  # 30天涨跌%
+                format_percent(row[16]),  # 60天涨跌%
+                notes_text  # 备注
             ])
         else:
             data_rows.append([
-                row[0], row[1], row[2], format_price(row[3]), format_price(row[4]), 
-                format_price(row[5]), format_price(row[6]),
-                format_volume(row[7]), format_amount(row[8]), 
-                format_percent(row[9]), format_price(row[10]), format_percent(row[11]),
-                format_percent(row[12]), format_percent(row[13]), 
-                format_percent(row[14]), format_percent(row[15]), format_percent(row[16]),
-                row[17]
+                row[1],  # 股票名称
+                row[2],  # 日期
+                format_price(row[3]),  # 开盘
+                format_price(row[4]),  # 收盘
+                format_price(row[10]),  # 涨跌额
+                format_amount(row[8]),  # 成交额
+                format_percent(row[9]),  # 涨跌幅
+                format_volume(row[7]),  # 成交量
+                format_percent(row[11]),  # 换手率
+                format_percent(row[13]),  # 5天涨跌%
+                format_percent(row[14]),  # 10天涨跌%
+                format_percent(row[15]),  # 30天涨跌%
+                format_percent(row[16]),  # 60天涨跌%
+                row[17] if row[17] else ''  # 备注
             ])
 
     return headers, data_rows
@@ -600,18 +636,38 @@ def export_to_text(rows, include_notes, has_notes_data, code):
 def export_to_excel(rows, include_notes, has_notes_data, code):
     """导出为Excel格式，支持颜色效果"""
     # 数据格式化函数
-    def format_volume_num(volume):
-        """格式化成交量数值"""
+    def format_volume_text(volume):
+        """格式化成交量为文本：超过亿以亿为单位，其他值以万为单位，2位小数，四舍五入"""
         if volume is None:
             return None
         vol = float(volume)
-        return vol / 10000 if vol >= 10000 else vol
+        # 1亿 = 10000万
+        if vol >= 100000000:  # 超过1亿，以亿为单位
+            vol_yi = round(vol / 100000000, 2)
+            return f"{vol_yi:.2f}亿"
+        else:  # 其他值以万为单位
+            vol_wan = round(vol / 10000, 2)
+            return f"{vol_wan:.2f}万"
     
-    def format_amount_num(amount):
-        """格式化成交额数值"""
+    def format_amount_text(amount):
+        """格式化成交额为文本：超过亿以亿为单位，其他值以万为单位，2位小数，四舍五入"""
         if amount is None:
             return None
-        return float(amount) / 100000000
+        amt = float(amount)
+        # 1亿 = 10000万
+        if amt >= 100000000:  # 超过1亿，以亿为单位
+            amt_yi = round(amt / 100000000, 2)
+            return f"{amt_yi:.2f}亿"
+        else:  # 其他值以万为单位
+            amt_wan = round(amt / 10000, 2)
+            return f"{amt_wan:.2f}万"
+    
+    def format_percent_text(value):
+        """格式化百分比为文本：如0.45%，小数点后2位，四舍五入"""
+        if value is None:
+            return None
+        pct = round(float(value), 2)
+        return f"{pct:.2f}%"
     
     def safe_float(value):
         """安全转换为浮点数"""
@@ -631,19 +687,11 @@ def export_to_excel(rows, include_notes, has_notes_data, code):
     normal_font = Font(color="000000")
     header_font = Font(bold=True)
     
-    # 设置表头
-    if include_notes and has_notes_data:
-        headers = [
-            "股票代码", "股票名称", "日期", "开盘", "收盘", "最高", "最低",
-            "成交量(万手)", "成交额(亿)", "涨跌幅%", "涨跌额", "换手率%",
-            "累计升跌%", "5天升跌%", "10天升跌%", "30天升跌%", "60天升跌%", "用户备注", "策略类型", "风险等级"
-        ]
-    else:
-        headers = [
-            "股票代码", "股票名称", "日期", "开盘", "收盘", "最高", "最低",
-            "成交量(万手)", "成交额(亿)", "涨跌幅%", "涨跌额", "换手率%",
-            "累计升跌%", "5天升跌%", "10天升跌%", "30天升跌%", "60天升跌%", "备注"
-        ]
+    # 设置表头 - 按照最新列表字段顺序：股票名称、日期、开盘、收盘、涨跌额、成交额、涨跌幅、成交量、换手率、5天涨跌%、10天涨跌%、30天涨跌%、60天涨跌%、备注
+    headers = [
+        "股票名称", "日期", "开盘", "收盘", "涨跌额", "成交额", "涨跌幅", 
+        "成交量", "换手率", "5天涨跌%", "10天涨跌%", "30天涨跌%", "60天涨跌%", "备注"
+    ]
     
     # 写入表头
     for col, header in enumerate(headers, 1):
@@ -651,63 +699,145 @@ def export_to_excel(rows, include_notes, has_notes_data, code):
         cell.font = header_font
     
     # 写入数据并应用颜色格式
+    # row结构: code, name, date, open, close, high, low, volume, amount, change_percent, change, turnover_rate,
+    #          cumulative_change_percent, five_day_change_percent, ten_day_change_percent, thirty_day_change_percent, sixty_day_change_percent,
+    #          user_notes, strategy_type, risk_level
     for row_idx, row in enumerate(rows, 2):
-        # 基本数据
-        ws.cell(row=row_idx, column=1, value=row[0])  # 股票代码
-        ws.cell(row=row_idx, column=2, value=row[1])  # 股票名称
-        ws.cell(row=row_idx, column=3, value=row[2])  # 日期
-        ws.cell(row=row_idx, column=4, value=safe_float(row[3]))  # 开盘
+        col_idx = 1
+        
+        # 股票名称
+        ws.cell(row=row_idx, column=col_idx, value=row[1])
+        col_idx += 1
+        
+        # 日期
+        ws.cell(row=row_idx, column=col_idx, value=row[2])
+        col_idx += 1
+        
+        # 开盘
+        ws.cell(row=row_idx, column=col_idx, value=safe_float(row[3]))
+        col_idx += 1
         
         # 收盘价（需要颜色格式）
-        close_cell = ws.cell(row=row_idx, column=5, value=safe_float(row[4]))
         change_percent = safe_float(row[9])
+        close_cell = ws.cell(row=row_idx, column=col_idx, value=safe_float(row[4]))
         if change_percent is not None:
             if change_percent > 0:
                 close_cell.font = red_font
             elif change_percent < 0:
                 close_cell.font = green_font
-        
-        ws.cell(row=row_idx, column=6, value=safe_float(row[5]))  # 最高
-        ws.cell(row=row_idx, column=7, value=safe_float(row[6]))  # 最低
-        ws.cell(row=row_idx, column=8, value=format_volume_num(row[7]))  # 成交量
-        ws.cell(row=row_idx, column=9, value=format_amount_num(row[8]))  # 成交额
-        
-        # 涨跌幅%（需要颜色格式）
-        change_pct_cell = ws.cell(row=row_idx, column=10, value=change_percent)
-        if change_percent is not None:
-            if change_percent > 0:
-                change_pct_cell.font = red_font
-            elif change_percent < 0:
-                change_pct_cell.font = green_font
+        col_idx += 1
         
         # 涨跌额（需要颜色格式）
-        change_cell = ws.cell(row=row_idx, column=11, value=safe_float(row[10]))
+        change_cell = ws.cell(row=row_idx, column=col_idx, value=safe_float(row[10]))
         if change_percent is not None:
             if change_percent > 0:
                 change_cell.font = red_font
             elif change_percent < 0:
                 change_cell.font = green_font
+        col_idx += 1
         
-        ws.cell(row=row_idx, column=12, value=safe_float(row[11]))  # 换手率%
+        # 成交额（需要颜色格式，跟前一天成交额比较），显示为带单位的文本，强制文本格式
+        current_amount = safe_float(row[8])
+        amount_text = format_amount_text(row[8])
+        amount_cell = ws.cell(row=row_idx, column=col_idx, value=amount_text)
+        amount_cell.number_format = '@'  # 强制文本格式
+        # 获取前一天的成交额（rows是按日期倒序排列的，所以下一行索引是前一天）
+        # row_idx从2开始，对应rows[0]（最新日期），rows[1]是前一天
+        current_row_index = row_idx - 2  # 转换为rows数组索引
+        if current_row_index + 1 < len(rows):  # 确保有前一天的数据
+            prev_row = rows[current_row_index + 1]  # 前一天的数据
+            prev_amount = safe_float(prev_row[8])
+            if current_amount is not None and prev_amount is not None:
+                if current_amount > prev_amount:
+                    amount_cell.font = red_font  # 比前一天多，红色
+                elif current_amount < prev_amount:
+                    amount_cell.font = green_font  # 比前一天少，绿色
+                # 相等则不变（使用默认字体）
+        col_idx += 1
         
-        # 各期涨跌%（需要颜色格式）
-        for col_offset, pct_val in enumerate([row[12], row[13], row[14], row[15], row[16]], 13):
-            pct_cell = ws.cell(row=row_idx, column=col_offset, value=safe_float(pct_val))
-            pct_value = safe_float(pct_val)
-            if pct_value is not None:
-                if pct_value > 0:
-                    pct_cell.font = red_font
-                elif pct_value < 0:
-                    pct_cell.font = green_font
+        # 涨跌幅%（需要颜色格式），显示格式如0.45%，小数点后2位，四舍五入，强制文本格式
+        change_pct_text = format_percent_text(change_percent)
+        change_pct_cell = ws.cell(row=row_idx, column=col_idx, value=change_pct_text)
+        change_pct_cell.number_format = '@'  # 强制文本格式
+        if change_percent is not None:
+            if change_percent > 0:
+                change_pct_cell.font = red_font
+            elif change_percent < 0:
+                change_pct_cell.font = green_font
+        col_idx += 1
         
-        # 备注相关字段
+        # 成交量（超过亿以亿为单位，其他值以万为单位，小数点后2位，四舍五入），强制文本格式
+        volume_text = format_volume_text(row[7])
+        volume_cell = ws.cell(row=row_idx, column=col_idx, value=volume_text)
+        volume_cell.number_format = '@'  # 强制文本格式
+        col_idx += 1
+        
+        # 换手率%，显示格式如0.45%，小数点后2位，四舍五入，强制文本格式
+        turnover_rate_text = format_percent_text(row[11])
+        turnover_rate_cell = ws.cell(row=row_idx, column=col_idx, value=turnover_rate_text)
+        turnover_rate_cell.number_format = '@'  # 强制文本格式
+        col_idx += 1
+        
+        # 5天涨跌%（需要颜色格式），显示格式如0.45%，小数点后2位，四舍五入，强制文本格式
+        five_day_pct = safe_float(row[13])
+        five_day_pct_text = format_percent_text(five_day_pct)
+        five_day_cell = ws.cell(row=row_idx, column=col_idx, value=five_day_pct_text)
+        five_day_cell.number_format = '@'  # 强制文本格式
+        if five_day_pct is not None:
+            if five_day_pct > 0:
+                five_day_cell.font = red_font
+            elif five_day_pct < 0:
+                five_day_cell.font = green_font
+        col_idx += 1
+        
+        # 10天涨跌%（需要颜色格式），显示格式如0.45%，小数点后2位，四舍五入，强制文本格式
+        ten_day_pct = safe_float(row[14])
+        ten_day_pct_text = format_percent_text(ten_day_pct)
+        ten_day_cell = ws.cell(row=row_idx, column=col_idx, value=ten_day_pct_text)
+        ten_day_cell.number_format = '@'  # 强制文本格式
+        if ten_day_pct is not None:
+            if ten_day_pct > 0:
+                ten_day_cell.font = red_font
+            elif ten_day_pct < 0:
+                ten_day_cell.font = green_font
+        col_idx += 1
+        
+        # 30天涨跌%（需要颜色格式），显示格式如0.45%，小数点后2位，四舍五入，强制文本格式
+        thirty_day_pct = safe_float(row[15])
+        thirty_day_pct_text = format_percent_text(thirty_day_pct)
+        thirty_day_cell = ws.cell(row=row_idx, column=col_idx, value=thirty_day_pct_text)
+        thirty_day_cell.number_format = '@'  # 强制文本格式
+        if thirty_day_pct is not None:
+            if thirty_day_pct > 0:
+                thirty_day_cell.font = red_font
+            elif thirty_day_pct < 0:
+                thirty_day_cell.font = green_font
+        col_idx += 1
+        
+        # 60天涨跌%（需要颜色格式），显示格式如0.45%，小数点后2位，四舍五入，强制文本格式
+        sixty_day_pct = safe_float(row[16])
+        sixty_day_pct_text = format_percent_text(sixty_day_pct)
+        sixty_day_cell = ws.cell(row=row_idx, column=col_idx, value=sixty_day_pct_text)
+        sixty_day_cell.number_format = '@'  # 强制文本格式
+        if sixty_day_pct is not None:
+            if sixty_day_pct > 0:
+                sixty_day_cell.font = red_font
+            elif sixty_day_pct < 0:
+                sixty_day_cell.font = green_font
+        col_idx += 1
+        
+        # 备注
         if include_notes and has_notes_data:
-            ws.cell(row=row_idx, column=18, value=row[17])  # 用户备注
-            ws.cell(row=row_idx, column=19, value=row[18])  # 策略类型
-            ws.cell(row=row_idx, column=20, value=row[19])  # 风险等级
+            # 合并备注信息
+            notes_text = row[17] if row[17] else ''
+            if row[18]:  # strategy_type
+                notes_text += f" [策略:{row[18]}]" if notes_text else f"[策略:{row[18]}]"
+            if row[19]:  # risk_level
+                notes_text += f" [风险:{row[19]}]" if notes_text else f"[风险:{row[19]}]"
+            ws.cell(row=row_idx, column=col_idx, value=notes_text)
         else:
-            ws.cell(row=row_idx, column=18, value=row[17])  # 备注
-    
+            ws.cell(row=row_idx, column=col_idx, value=row[17] if row[17] else '')
+        
     # 调整列宽
     for col in range(1, len(headers) + 1):
         ws.column_dimensions[get_column_letter(col)].width = 15

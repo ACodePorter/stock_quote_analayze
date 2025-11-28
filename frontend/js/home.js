@@ -46,10 +46,10 @@ async function loadRealData() {
     }
 }
 
-// 加载市场指数数据
+// 加载市场指数数据（A股）
 async function loadMarketIndices() {
     try {
-        console.log('加载指数数据，API地址:', `${API_BASE_URL}/api/market/indices`);
+        console.log('加载A股指数数据，API地址:', `${API_BASE_URL}/api/market/indices`);
         const response = await authFetch(`${API_BASE_URL}/api/market/indices`);
         console.log('API响应状态:', response.status, response.statusText);
         
@@ -61,15 +61,15 @@ async function loadMarketIndices() {
         console.log('API返回结果:', result);
         
         if (result.success && result.data && result.data.length > 0) {
-            console.log('成功获取指数数据，数量:', result.data.length);
-            updateIndexDisplay(result.data);
-            console.log('指数数据加载成功');
+            console.log('成功获取A股指数数据，数量:', result.data.length);
+            updateIndexDisplay(result.data, 'a-stock-content');
+            console.log('A股指数数据加载成功');
         } else {
             console.warn('API返回数据为空或格式不正确:', result);
             throw new Error('API返回数据为空');
         }
     } catch (error) {
-        console.error('指数数据加载失败:', error);
+        console.error('A股指数数据加载失败:', error);
         // 使用模拟数据作为后备
         const fallbackData = [
             { code: '000001', name: '上证指数', current: 3234.56, change: 12.34, change_percent: 0.38, volume: 12456789, timestamp: new Date().toISOString() },
@@ -77,17 +77,59 @@ async function loadMarketIndices() {
             { code: '399006', name: '创业板指', current: 2345.67, change: 5.67, change_percent: 0.24, volume: 5678901, timestamp: new Date().toISOString() },
             { code: '000300', name: '沪深300', current: 4567.89, change: -8.90, change_percent: -0.19, volume: 9876543, timestamp: new Date().toISOString() }
         ];
-        console.log('使用模拟指数数据作为后备');
-        updateIndexDisplay(fallbackData);
+        console.log('使用模拟A股指数数据作为后备');
+        updateIndexDisplay(fallbackData, 'a-stock-content');
+    }
+}
+
+// 加载港股指数数据
+async function loadHKMarketIndices() {
+    try {
+        console.log('加载港股指数数据，API地址:', `${API_BASE_URL}/api/market/hk-indices`);
+        const response = await authFetch(`${API_BASE_URL}/api/market/hk-indices`);
+        console.log('API响应状态:', response.status, response.statusText);
+        
+        if (!response.ok) {
+            throw new Error(`API返回错误状态: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        console.log('API返回结果:', result);
+        
+        if (result.success && result.data && result.data.length > 0) {
+            console.log('成功获取港股指数数据，数量:', result.data.length);
+            updateIndexDisplay(result.data, 'hk-stock-content');
+            console.log('港股指数数据加载成功');
+        } else {
+            console.warn('API返回数据为空或格式不正确:', result);
+            throw new Error('API返回数据为空');
+        }
+    } catch (error) {
+        console.error('港股指数数据加载失败:', error);
+        // 使用模拟数据作为后备
+        const fallbackData = [
+            { code: 'HSI', name: '恒生指数', current: 18000.00, change: 100.00, change_percent: 0.56, volume: 0, timestamp: new Date().toISOString() },
+            { code: 'HSTECH', name: '恒生科技指数', current: 4000.00, change: 50.00, change_percent: 1.27, volume: 0, timestamp: new Date().toISOString() },
+            { code: 'HSCI', name: '恒生综合指数', current: 5000.00, change: -20.00, change_percent: -0.40, volume: 0, timestamp: new Date().toISOString() },
+            { code: 'HSCEI', name: '恒生中国企业指数', current: 6000.00, change: 30.00, change_percent: 0.50, volume: 0, timestamp: new Date().toISOString() }
+        ];
+        console.log('使用模拟港股指数数据作为后备');
+        updateIndexDisplay(fallbackData, 'hk-stock-content');
     }
 }
 
 // 更新指数显示
-function updateIndexDisplay(indicesData) {
-    console.log('更新指数显示，收到数据:', indicesData);
+function updateIndexDisplay(indicesData, containerId) {
+    console.log('更新指数显示，收到数据:', indicesData, '容器:', containerId);
+    const container = document.getElementById(containerId);
+    if (!container) {
+        console.error('未找到容器:', containerId);
+        return;
+    }
+    
     indicesData.forEach(function(index) {
         console.log('处理指数:', index.code, index.name);
-        const card = document.querySelector('[data-index-code="' + index.code + '"]');
+        const card = container.querySelector('[data-index-code="' + index.code + '"]');
         if (card) {
             console.log('找到卡片:', index.code);
             const valueEl = card.querySelector('.index-value');
@@ -116,7 +158,15 @@ function updateIndexDisplay(indicesData) {
             
             if (volumeEl) {
                 const volume = (typeof index.volume === 'number' && !isNaN(index.volume)) ? index.volume : 0;
-                volumeEl.textContent = '成交量: ' + (volume / 1e8).toFixed(2) + '亿';
+                if (volume > 0) {
+                    if (volume >= 1e8) {
+                        volumeEl.textContent = '成交量: ' + (volume / 1e8).toFixed(2) + '亿';
+                    } else {
+                        volumeEl.textContent = '成交量: ' + (volume / 1e4).toFixed(2) + '万';
+                    }
+                } else {
+                    volumeEl.textContent = '成交量: --';
+                }
                 console.log('更新成交量:', index.code, volume);
             } else {
                 console.warn('未找到成交量元素:', index.code);
@@ -130,10 +180,7 @@ function updateIndexDisplay(indicesData) {
                 console.warn('未找到更新时间元素:', index.code);
             }
         } else {
-            console.error('未找到指数卡片，代码:', index.code, '，尝试的选择器:', '[data-index-code="' + index.code + '"]');
-            // 尝试查找所有卡片，用于调试
-            const allCards = document.querySelectorAll('.index-card');
-            console.log('页面中所有指数卡片:', Array.from(allCards).map(c => c.getAttribute('data-index-code')));
+            console.error('未找到指数卡片，代码:', index.code, '，容器:', containerId);
         }
     });
 }
@@ -457,6 +504,14 @@ function bindEvents() {
         }
     });
     
+    // 标签页切换
+    document.querySelectorAll('.market-tab').forEach(function(tab) {
+        tab.addEventListener('click', function() {
+            const tabId = this.dataset.tab;
+            switchMarketTab(tabId);
+        });
+    });
+    
     // 点击指数卡片跳转
     document.querySelectorAll('.index-card').forEach(function(card) {
         card.addEventListener('click', function() {
@@ -480,6 +535,28 @@ function bindEvents() {
             }
         }
     });
+}
+
+// 切换市场标签页
+function switchMarketTab(tabId) {
+    // 更新标签按钮状态
+    document.querySelectorAll('.market-tab').forEach(function(tab) {
+        tab.classList.remove('active');
+    });
+    document.querySelector(`[data-tab="${tabId}"]`).classList.add('active');
+    
+    // 更新内容区域显示
+    document.querySelectorAll('.market-tab-content').forEach(function(content) {
+        content.classList.remove('active');
+    });
+    document.getElementById(`${tabId}-content`).classList.add('active');
+    
+    // 根据标签页加载对应数据
+    if (tabId === 'a-stock') {
+        loadMarketIndices();
+    } else if (tabId === 'hk-stock') {
+        loadHKMarketIndices();
+    }
 }
 
 // 定时刷新数据

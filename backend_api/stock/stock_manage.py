@@ -3,7 +3,7 @@ from fastapi.responses import JSONResponse
 import akshare as ak
 from database import get_db
 from sqlalchemy.orm import Session
-from sqlalchemy import text, func
+from sqlalchemy import text, func, desc
 from fastapi import Depends
 import traceback
 import numpy as np
@@ -154,19 +154,31 @@ async def get_stock_quote(request: Request):
         db_session_gen = get_db()
         db = next(db_session_gen)
         try:
-            # 1. 先查询A股表
+            # 1. 先查询A股表，按update_time降序排序，确保获取最新数据
             quotes_today_a = db.query(StockRealtimeQuote).filter(
                 StockRealtimeQuote.code.in_(codes),
                 StockRealtimeQuote.trade_date.like(today_pattern)
-            ).all()
-            quote_map_a = {q.code: q for q in quotes_today_a}
+            ).order_by(StockRealtimeQuote.code, desc(StockRealtimeQuote.update_time)).all()
+            
+            # 构建字典时，只保留每个code的第一条（最新的），因为已经按update_time降序排序
+            quote_map_a = {}
+            for q in quotes_today_a:
+                if q.code not in quote_map_a:
+                    quote_map_a[q.code] = q
+                    print(f"[stock_quote] A股 {q.code} 使用最新数据，update_time: {q.update_time}")
 
-            # 2. 查询港股表
+            # 2. 查询港股表，按update_time降序排序，确保获取最新数据
             quotes_today_hk = db.query(StockRealtimeQuoteHK).filter(
                 StockRealtimeQuoteHK.code.in_(codes),
                 StockRealtimeQuoteHK.trade_date.like(today_pattern)
-            ).all()
-            quote_map_hk = {q.code: q for q in quotes_today_hk}
+            ).order_by(StockRealtimeQuoteHK.code, desc(StockRealtimeQuoteHK.update_time)).all()
+            
+            # 构建字典时，只保留每个code的第一条（最新的），因为已经按update_time降序排序
+            quote_map_hk = {}
+            for q in quotes_today_hk:
+                if q.code not in quote_map_hk:
+                    quote_map_hk[q.code] = q
+                    print(f"[stock_quote] 港股 {q.code} 使用最新数据，update_time: {q.update_time}")
 
             remaining_codes = []
             for code in codes:
