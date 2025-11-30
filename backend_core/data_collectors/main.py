@@ -15,6 +15,8 @@ from backend_core.data_collectors.akshare.hk_historical import HKHistoricalQuote
 from apscheduler.schedulers.background import BackgroundScheduler
 from backend_core.data_collectors.akshare.watchlist_history_collector import collect_watchlist_history
 from backend_core.data_collectors.news_collector import NewsCollector
+from backend_core.data_collectors.akshare.weekly_collector import WeeklyDataGenerator
+from backend_core.data_collectors.akshare.hk_weekly_collector import HKWeeklyDataGenerator
 import time
 
 
@@ -32,6 +34,9 @@ news_collector = NewsCollector()
 # 港股采集器
 hk_realtime_collector = HKRealtimeQuoteCollector(DATA_COLLECTORS.get('akshare', {}))
 hk_historical_collector = HKHistoricalQuoteCollector(DATA_COLLECTORS.get('akshare', {}))
+# 周线生成器
+weekly_generator = WeeklyDataGenerator()
+hk_weekly_generator = HKWeeklyDataGenerator()
 
 scheduler = BlockingScheduler()
 
@@ -179,6 +184,24 @@ def collect_hk_historical():
     except Exception as e:
         logging.error(f"[定时任务] 港股历史行情采集异常: {e}")
 
+def generate_weekly_data():
+    """生成当前周线数据任务（每日更新）"""
+    try:
+        logging.info("[定时任务] 当前周线数据生成开始...")
+        result = weekly_generator.generate_current_week_data()
+        logging.info(f"[定时任务] 当前周线数据生成完成: {result}")
+    except Exception as e:
+        logging.error(f"[定时任务] 当前周线数据生成异常: {e}")
+
+def generate_hk_weekly_data():
+    """生成港股当前周线数据任务（每日更新）"""
+    try:
+        logging.info("[定时任务] 港股当前周线数据生成开始...")
+        result = hk_weekly_generator.generate_current_week_data()
+        logging.info(f"[定时任务] 港股当前周线数据生成完成: {result}")
+    except Exception as e:
+        logging.error(f"[定时任务] 港股当前周线数据生成异常: {e}")
+
 # 定时任务配置
 # 每个交易日上午9:00-11:30、下午13:30-15:30每30分钟采集一次A股实时行情
 scheduler.add_job(
@@ -291,9 +314,29 @@ scheduler.add_job(
     id='hk_historical',
 )
 
+# 周线数据生成任务，每日收盘后晚上6点更新当前周数据
+scheduler.add_job(
+    generate_weekly_data,
+    'cron',
+    day_of_week='mon-fri',
+    hour=18,
+    minute=0,
+    id='generate_weekly',
+)
+
+# 港股周线数据生成任务，每日收盘后晚上6:10更新当前周数据
+scheduler.add_job(
+    generate_hk_weekly_data,
+    'cron',
+    day_of_week='mon-fri',
+    hour=18,
+    minute=10,
+    id='generate_hk_weekly',
+)
+
 if __name__ == "__main__":
     logging.info("启动定时采集任务...")
     try:
         scheduler.start()
     except (KeyboardInterrupt, SystemExit):
-        logging.info("定时任务已停止。") 
+        logging.info("定时任务已停止。")
