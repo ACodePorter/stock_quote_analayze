@@ -267,7 +267,7 @@ def generate_hk_annual_data():
         logging.error(f"[定时任务] 港股当前年线数据生成异常: {e}")
 
 # 定时任务配置
-scheduler.add_job(collect_akshare_realtime, 'cron', day_of_week='mon-fri', hour='9-11,13-16', minute='3,33', id='akshare_realtime')
+scheduler.add_job(collect_akshare_realtime, 'cron', day_of_week='mon-fri', hour='9-11,13-16', minute='3,28', id='akshare_realtime')
 scheduler.add_job(collect_tushare_historical, 'cron', hour='16', minute='27', id='tushare_historical')
 scheduler.add_job(collect_akshare_index_realtime, 'cron', day_of_week='mon-fri', hour='9-11,13-16', minute='58', id='akshare_index_realtime')
 scheduler.add_job(collect_akshare_industry_board_realtime, 'cron', day_of_week='mon-fri', hour='9-11,13-16', minute=2, id='akshare_industry_board_realtime')
@@ -277,7 +277,7 @@ scheduler.add_job(run_watchlist_history_collection, 'cron', minute='*/5', id='wa
 scheduler.add_job(collect_market_news, 'interval', minutes=50, id='market_news_collection')
 scheduler.add_job(update_hot_news, 'interval', hours=1, id='hot_news_update')
 scheduler.add_job(cleanup_old_news, 'cron', hour=2, minute=0, id='old_news_cleanup')
-scheduler.add_job(collect_hk_realtime, 'cron', day_of_week='mon-fri', hour='9-12,13-16', minute='11,57', id='hk_realtime')
+scheduler.add_job(collect_hk_realtime, 'cron', day_of_week='mon-fri', hour='9-12,13-16', minute='2,33', id='hk_realtime')
 scheduler.add_job(collect_hk_historical, 'cron', day_of_week='mon-fri', hour=16, minute=32, id='hk_historical')
 scheduler.add_job(generate_weekly_data, 'cron', day_of_week='mon-fri', hour=18, minute=0, id='generate_weekly')
 scheduler.add_job(generate_hk_weekly_data, 'cron', day_of_week='mon-fri', hour=18, minute=10, id='generate_hk_weekly')

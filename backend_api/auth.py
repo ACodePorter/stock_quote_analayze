@@ -11,6 +11,7 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 import hashlib
 import logging
+import bcrypt
 
 from models import User, Admin, TokenData
 from database import get_db, SessionLocal
@@ -35,10 +36,24 @@ ALGORITHM = JWT_CONFIG["algorithm"]
 ACCESS_TOKEN_EXPIRE_MINUTES = JWT_CONFIG["access_token_expire_minutes"]
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """验证密码"""
+    """验证密码
+    
+    bcrypt 限制密码长度不能超过72字节，如果超过则截断
+    """
     try:
-        # 尝试使用 passlib 验证
-        return pwd_context.verify(plain_password, hashed_password)
+        # bcrypt 限制密码不能超过72字节
+        password_bytes = plain_password.encode('utf-8')
+        if len(password_bytes) > 72:
+            password_bytes = password_bytes[:72]
+        
+        # 先尝试直接使用 bcrypt 验证（更可靠）
+        try:
+            hash_bytes = hashed_password.encode('utf-8')
+            return bcrypt.checkpw(password_bytes, hash_bytes)
+        except (ValueError, TypeError):
+            # 如果直接验证失败，尝试使用 passlib（兼容旧格式）
+            plain_password_str = password_bytes.decode('utf-8', errors='ignore')
+            return pwd_context.verify(plain_password_str, hashed_password)
     except Exception as e:
         logger.debug(f"passlib 验证失败: {str(e)}")
         try:
@@ -54,13 +69,50 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
         return False
 
 def get_password_hash(password: str) -> str:
-    """获取密码哈希值"""
-    return pwd_context.hash(password)
+    """获取密码哈希值
+    
+    bcrypt 限制密码长度不能超过72字节，如果超过则截断
+    直接使用 bcrypt 库以避免 passlib 初始化问题
+    """
+    if not password:
+        raise ValueError("密码不能为空")
+    
+    # bcrypt 限制密码不能超过72字节
+    password_bytes = password.encode('utf-8')
+    original_length = len(password_bytes)
+    
+    if original_length > 72:
+        logger.warning(f"密码长度 {original_length} 字节超过72字节限制，将截断为72字节")
+        password_bytes = password_bytes[:72]
+    
+    # 直接使用 bcrypt 库生成哈希，避免 passlib 的初始化问题
+    try:
+        # 生成 salt 并哈希密码
+        salt = bcrypt.gensalt()
+        hash_bytes = bcrypt.hashpw(password_bytes, salt)
+        # 转换为字符串（passlib 格式兼容）
+        hash_str = hash_bytes.decode('utf-8')
+        logger.debug(f"密码哈希生成成功，原始长度: {original_length} 字节")
+        return hash_str
+    except Exception as e:
+        logger.error(f"密码哈希生成失败: {str(e)}")
+        # 如果直接使用 bcrypt 失败，尝试使用 passlib（可能会失败，但至少尝试了）
+        try:
+            password_str = password_bytes.decode('utf-8', errors='ignore')
+            return pwd_context.hash(password_str)
+        except Exception as e2:
+            logger.error(f"使用 passlib 也失败: {str(e2)}")
+            raise ValueError(f"密码处理失败: {str(e2)}")
 
 def migrate_password_hash(db: Session, user: User, plain_password: str) -> None:
     """迁移密码哈希到新的算法"""
     try:
         logger.info(f"开始迁移用户 {user.username} 的密码哈希")
+        # bcrypt 限制密码不能超过72字节
+        password_bytes = plain_password.encode('utf-8')
+        if len(password_bytes) > 72:
+            password_bytes = password_bytes[:72]
+            plain_password = password_bytes.decode('utf-8', errors='ignore')
         # 使用 bcrypt 生成新的哈希值
         new_hash = pwd_context.hash(plain_password)
         # 更新用户的密码哈希

@@ -69,28 +69,48 @@ async def create_user(
     db: Session = Depends(get_db)
 ):
     """创建新用户"""
-    # 检查用户名和邮箱是否已存在
-    db_user = db.query(User).filter(
-        (User.username == user.username) | (User.email == user.email)
-    ).first()
-    if db_user:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="用户名或邮箱已存在"
+    try:
+        # 检查用户名和邮箱是否已存在
+        db_user = db.query(User).filter(
+            (User.username == user.username) | (User.email == user.email)
+        ).first()
+        if db_user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="用户名或邮箱已存在"
+            )
+        
+        # 验证密码长度（前端可能没有验证）
+        if not user.password or len(user.password) < 6:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="密码长度不能少于6位"
+            )
+        
+        # 创建新用户
+        db_user = User(
+            username=user.username,
+            email=user.email,
+            password_hash=get_password_hash(user.password),
+            role=user.role,
+            status="active"
         )
-    
-    # 创建新用户
-    db_user = User(
-        username=user.username,
-        email=user.email,
-        password_hash=get_password_hash(user.password),
-        role=user.role,
-        status="active"
-    )
-    db.add(db_user)
-    db.commit()
-    db.refresh(db_user)
-    return db_user
+        db.add(db_user)
+        db.commit()
+        db.refresh(db_user)
+        return db_user
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        import traceback
+        error_msg = f"创建用户失败: {str(e)}"
+        print(f"[create_user] {error_msg}")
+        print(traceback.format_exc())
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=error_msg
+        )
 
 @router.put("/{user_id}", response_model=UserInDB)
 async def update_user(
