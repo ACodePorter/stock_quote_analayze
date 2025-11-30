@@ -17,8 +17,13 @@ from backend_core.data_collectors.akshare.watchlist_history_collector import col
 from backend_core.data_collectors.news_collector import NewsCollector
 from backend_core.data_collectors.akshare.weekly_collector import WeeklyDataGenerator
 from backend_core.data_collectors.akshare.hk_weekly_collector import HKWeeklyDataGenerator
+from backend_core.data_collectors.akshare.monthly_collector import MonthlyDataGenerator
+from backend_core.data_collectors.akshare.hk_monthly_collector import HKMonthlyDataGenerator
+from backend_core.data_collectors.akshare.quarterly_collector import QuarterlyDataGenerator
+from backend_core.data_collectors.akshare.hk_quarterly_collector import HKQuarterlyDataGenerator
+from backend_core.data_collectors.akshare.semiannual_collector import SemiAnnualDataGenerator
+from backend_core.data_collectors.akshare.hk_semiannual_collector import HKSemiAnnualDataGenerator
 import time
-
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
 
@@ -31,12 +36,16 @@ index_collector = RealtimeIndexSpotAkCollector()
 industry_board_collector = RealtimeStockIndustryBoardCollector()
 notice_collector = AkshareStockNoticeReportCollector(DATA_COLLECTORS.get('akshare', {}))
 news_collector = NewsCollector()
-# 港股采集器
 hk_realtime_collector = HKRealtimeQuoteCollector(DATA_COLLECTORS.get('akshare', {}))
 hk_historical_collector = HKHistoricalQuoteCollector(DATA_COLLECTORS.get('akshare', {}))
-# 周线生成器
 weekly_generator = WeeklyDataGenerator()
 hk_weekly_generator = HKWeeklyDataGenerator()
+monthly_generator = MonthlyDataGenerator()
+hk_monthly_generator = HKMonthlyDataGenerator()
+quarterly_generator = QuarterlyDataGenerator()
+hk_quarterly_generator = HKQuarterlyDataGenerator()
+semiannual_generator = SemiAnnualDataGenerator()
+hk_semiannual_generator = HKSemiAnnualDataGenerator()
 
 scheduler = BlockingScheduler()
 
@@ -44,8 +53,6 @@ def collect_akshare_realtime():
     try:
         logging.info("[定时任务] AKShare 实时行情采集开始...")
         df = ak_collector.collect_quotes()
-        # 可在此处保存数据到数据库或文件
-        #logging.info(f"[定时任务] AKShare 实时行情采集完成，采集到 {len(df)} 条数据")
     except Exception as e:
         logging.error(f"[定时任务] AKShare 实时行情采集异常: {e}")
 
@@ -60,8 +67,7 @@ def collect_akshare_index_realtime():
 def collect_tushare_historical():
     try:
         today = datetime.now()
-        # 如果是周六、周日则不采集，工作日采集当天
-        if today.weekday() in (5, 6):  # 5=周六，6=周日
+        if today.weekday() in (5, 6):
             logging.info("[定时任务] 今天是周末，不执行 Tushare 历史行情采集。")
             return
         today = today.strftime('%Y%m%d')
@@ -90,7 +96,6 @@ def collect_akshare_industry_board_realtime():
 def collect_akshare_stock_notices():
     try:
         logging.info("[定时任务] A股公告数据采集开始...")
-        # 采集当日公告数据
         result = notice_collector.collect_stock_notices(symbol="全部")
         if result:
             logging.info("[定时任务] A股公告数据采集完成")
@@ -102,7 +107,6 @@ def collect_akshare_stock_notices():
 def collect_akshare_turnover_rate():
     try:
         logging.info("[定时任务] AKShare 历史换手率数据采集开始...")
-        # 采集最近30天缺失的换手率数据
         success = ak_turnover_collector.collect_missing_turnover_rate(30)
         if success:
             logging.info("[定时任务] AKShare 历史换手率数据采集完成")
@@ -122,7 +126,6 @@ def run_watchlist_history_collection():
         logging.error(f"[定时任务] 自选股历史行情采集异常: {e}")
 
 def collect_market_news():
-    """采集市场新闻任务"""
     try:
         logging.info("[定时任务] 市场新闻采集开始...")
         result = news_collector.collect_and_save_market_news()
@@ -134,7 +137,6 @@ def collect_market_news():
         logging.error(f"[定时任务] 市场新闻采集异常: {e}")
 
 def update_hot_news():
-    """更新热门资讯任务"""
     try:
         logging.info("[定时任务] 热门资讯更新开始...")
         success = news_collector.update_hot_news()
@@ -146,7 +148,6 @@ def update_hot_news():
         logging.error(f"[定时任务] 热门资讯更新异常: {e}")
 
 def cleanup_old_news():
-    """清理旧新闻任务"""
     try:
         logging.info("[定时任务] 旧新闻清理开始...")
         deleted_count = news_collector.cleanup_old_news(days=30)
@@ -155,7 +156,6 @@ def cleanup_old_news():
         logging.error(f"[定时任务] 旧新闻清理异常: {e}")
 
 def collect_hk_realtime():
-    """港股实时行情采集任务"""
     try:
         logging.info("[定时任务] 港股实时行情采集开始...")
         success = hk_realtime_collector.collect_quotes()
@@ -167,11 +167,9 @@ def collect_hk_realtime():
         logging.error(f"[定时任务] 港股实时行情采集异常: {e}")
 
 def collect_hk_historical():
-    """港股历史行情采集任务"""
     try:
         today = datetime.now()
-        # 如果是周六、周日则不采集，工作日采集当天
-        if today.weekday() in (5, 6):  # 5=周六，6=周日
+        if today.weekday() in (5, 6):
             logging.info("[定时任务] 今天是周末，不执行港股历史行情采集。")
             return
         today = today.strftime('%Y%m%d')
@@ -185,16 +183,14 @@ def collect_hk_historical():
         logging.error(f"[定时任务] 港股历史行情采集异常: {e}")
 
 def generate_weekly_data():
-    """生成当前周线数据任务（每日更新）"""
     try:
-        logging.info("[定时任务] 当前周线数据生成开始...")
+        logging.info("[定时任务] A股当前周线数据生成开始...")
         result = weekly_generator.generate_current_week_data()
-        logging.info(f"[定时任务] 当前周线数据生成完成: {result}")
+        logging.info(f"[定时任务] A股当前周线数据生成完成: {result}")
     except Exception as e:
-        logging.error(f"[定时任务] 当前周线数据生成异常: {e}")
+        logging.error(f"[定时任务] A股当前周线数据生成异常: {e}")
 
 def generate_hk_weekly_data():
-    """生成港股当前周线数据任务（每日更新）"""
     try:
         logging.info("[定时任务] 港股当前周线数据生成开始...")
         result = hk_weekly_generator.generate_current_week_data()
@@ -202,137 +198,75 @@ def generate_hk_weekly_data():
     except Exception as e:
         logging.error(f"[定时任务] 港股当前周线数据生成异常: {e}")
 
+def generate_monthly_data():
+    try:
+        logging.info("[定时任务] A股当前月线数据生成开始...")
+        result = monthly_generator.generate_current_month_data()
+        logging.info(f"[定时任务] A股当前月线数据生成完成: {result}")
+    except Exception as e:
+        logging.error(f"[定时任务] A股当前月线数据生成异常: {e}")
+
+def generate_hk_monthly_data():
+    try:
+        logging.info("[定时任务] 港股当前月线数据生成开始...")
+        result = hk_monthly_generator.generate_current_month_data()
+        logging.info(f"[定时任务] 港股当前月线数据生成完成: {result}")
+    except Exception as e:
+        logging.error(f"[定时任务] 港股当前月线数据生成异常: {e}")
+
+def generate_quarterly_data():
+    try:
+        logging.info("[定时任务] A股当前季线数据生成开始...")
+        result = quarterly_generator.generate_current_quarter_data()
+        logging.info(f"[定时任务] A股当前季线数据生成完成: {result}")
+    except Exception as e:
+        logging.error(f"[定时任务] A股当前季线数据生成异常: {e}")
+
+def generate_hk_quarterly_data():
+    try:
+        logging.info("[定时任务] 港股当前季线数据生成开始...")
+        result = hk_quarterly_generator.generate_current_quarter_data()
+        logging.info(f"[定时任务] 港股当前季线数据生成完成: {result}")
+    except Exception as e:
+        logging.error(f"[定时任务] 港股当前季线数据生成异常: {e}")
+
+def generate_semiannual_data():
+    try:
+        logging.info("[定时任务] A股当前半年线数据生成开始...")
+        result = semiannual_generator.generate_current_semiannual_data()
+        logging.info(f"[定时任务] A股当前半年线数据生成完成: {result}")
+    except Exception as e:
+        logging.error(f"[定时任务] A股当前半年线数据生成异常: {e}")
+
+def generate_hk_semiannual_data():
+    try:
+        logging.info("[定时任务] 港股当前半年线数据生成开始...")
+        result = hk_semiannual_generator.generate_current_semiannual_data()
+        logging.info(f"[定时任务] 港股当前半年线数据生成完成: {result}")
+    except Exception as e:
+        logging.error(f"[定时任务] 港股当前半年线数据生成异常: {e}")
+
 # 定时任务配置
-# 每个交易日上午9:00-11:30、下午13:30-15:30每30分钟采集一次A股实时行情
-scheduler.add_job(
-    collect_akshare_realtime,
-    'cron',
-    day_of_week='mon-fri',
-    hour='9-11,13-16',
-    minute='3,33',
-    id='akshare_realtime',
-    
-)
-# 每天收盘后，采集当天历史行情
+scheduler.add_job(collect_akshare_realtime, 'cron', day_of_week='mon-fri', hour='9-11,13-16', minute='3,33', id='akshare_realtime')
 scheduler.add_job(collect_tushare_historical, 'cron', hour='16', minute='27', id='tushare_historical')
-
-# 每隔5分钟采集一次Tushare实时行情----由于tushare对普通会员，一小时只能调用1次，所以暂时不启用
-#scheduler.add_job(collect_tushare_realtime, 'interval', minutes=5, id='tushare_realtime')
-
-
-# 指数实时行情采集任务，每30分钟采集一次
-# 工作日的交易时段内，每半小时采集一次指数实时行情
-scheduler.add_job(
-    collect_akshare_index_realtime,
-    'cron',
-    day_of_week='mon-fri',
-    hour='9-11,13-16',
-    minute='58',
-    id='akshare_index_realtime',
-)
-
-# 行业板块实时行情采集任务，每小时采集一次
-scheduler.add_job(
-    collect_akshare_industry_board_realtime,
-    'cron',
-    day_of_week='mon-fri',
-    hour='9-11,13-16',
-    minute=2,
-    id='akshare_industry_board_realtime',
-)
-
-
-# A股公告数据采集任务，每240分钟采集一次
-scheduler.add_job(
-    collect_akshare_stock_notices,
-    'interval',
-    minutes=180,
-    id='akshare_stock_notices',
-)
-
-# 历史换手率数据采集任务，每30天采集一次
-scheduler.add_job(
-    collect_akshare_turnover_rate,
-    'cron',
-    day_of_week='mon-fri',
-    hour='11',
-    minute='12',
-    id='akshare_turnover_rate',
-)
-
-# 自选股历史行情采集任务，每5分钟执行一次
-scheduler.add_job(
-    run_watchlist_history_collection,
-    'cron',
-    minute='*/5',
-    id='watchlist_history_every_5_minutes',
-)
-
-# 市场新闻采集任务，每30分钟采集一次
-scheduler.add_job(
-    collect_market_news,
-    'interval',
-    minutes=50,
-    id='market_news_collection',
-)
-
-# 热门资讯更新任务，每小时更新一次
-scheduler.add_job(
-    update_hot_news,
-    'interval',
-    hours=1,
-    id='hot_news_update',
-)
-
-# 旧新闻清理任务，每天凌晨2点执行
-scheduler.add_job(
-    cleanup_old_news,
-    'cron',
-    hour=2,
-    minute=0,
-    id='old_news_cleanup',
-)
-
-# 港股实时行情采集任务，工作日交易时段内每30分钟采集一次
-# 港股交易时间：工作日 9:30-12:00, 13:00-16:00
-scheduler.add_job(
-    collect_hk_realtime,
-    'cron',
-    day_of_week='mon-fri',
-    hour='9-12,13-16',
-    minute='11,57',
-    id='hk_realtime',
-)
-
-# 港股历史行情采集任务，每天收盘后执行
-scheduler.add_job(
-    collect_hk_historical,
-    'cron',
-    day_of_week='mon-fri',
-    hour=16,
-    minute=32,
-    id='hk_historical',
-)
-
-# 周线数据生成任务，每日收盘后晚上6点更新当前周数据
-scheduler.add_job(
-    generate_weekly_data,
-    'cron',
-    day_of_week='mon-fri',
-    hour=18,
-    minute=0,
-    id='generate_weekly',
-)
-
-# 港股周线数据生成任务，每日收盘后晚上6:10更新当前周数据
-scheduler.add_job(
-    generate_hk_weekly_data,
-    'cron',
-    day_of_week='mon-fri',
-    hour=18,
-    minute=10,
-    id='generate_hk_weekly',
-)
+scheduler.add_job(collect_akshare_index_realtime, 'cron', day_of_week='mon-fri', hour='9-11,13-16', minute='58', id='akshare_index_realtime')
+scheduler.add_job(collect_akshare_industry_board_realtime, 'cron', day_of_week='mon-fri', hour='9-11,13-16', minute=2, id='akshare_industry_board_realtime')
+scheduler.add_job(collect_akshare_stock_notices, 'interval', minutes=180, id='akshare_stock_notices')
+scheduler.add_job(collect_akshare_turnover_rate, 'cron', day_of_week='mon-fri', hour='11', minute='12', id='akshare_turnover_rate')
+scheduler.add_job(run_watchlist_history_collection, 'cron', minute='*/5', id='watchlist_history_every_5_minutes')
+scheduler.add_job(collect_market_news, 'interval', minutes=50, id='market_news_collection')
+scheduler.add_job(update_hot_news, 'interval', hours=1, id='hot_news_update')
+scheduler.add_job(cleanup_old_news, 'cron', hour=2, minute=0, id='old_news_cleanup')
+scheduler.add_job(collect_hk_realtime, 'cron', day_of_week='mon-fri', hour='9-12,13-16', minute='11,57', id='hk_realtime')
+scheduler.add_job(collect_hk_historical, 'cron', day_of_week='mon-fri', hour=16, minute=32, id='hk_historical')
+scheduler.add_job(generate_weekly_data, 'cron', day_of_week='mon-fri', hour=18, minute=0, id='generate_weekly')
+scheduler.add_job(generate_hk_weekly_data, 'cron', day_of_week='mon-fri', hour=18, minute=10, id='generate_hk_weekly')
+scheduler.add_job(generate_monthly_data, 'cron', day_of_week='mon-fri', hour=18, minute=20, id='generate_monthly')
+scheduler.add_job(generate_hk_monthly_data, 'cron', day_of_week='mon-fri', hour=18, minute=30, id='generate_hk_monthly')
+scheduler.add_job(generate_quarterly_data, 'cron', day_of_week='mon-fri', hour=18, minute=40, id='generate_quarterly')
+scheduler.add_job(generate_hk_quarterly_data, 'cron', day_of_week='mon-fri', hour=18, minute=50, id='generate_hk_quarterly')
+scheduler.add_job(generate_semiannual_data, 'cron', day_of_week='mon-fri', hour=19, minute=0, id='generate_semiannual')
+scheduler.add_job(generate_hk_semiannual_data, 'cron', day_of_week='mon-fri', hour=19, minute=10, id='generate_hk_semiannual')
 
 if __name__ == "__main__":
     logging.info("启动定时采集任务...")
