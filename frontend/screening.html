@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,24 +8,26 @@
     <link rel="stylesheet" href="css/common.css">
     <link rel="stylesheet" href="css/screening.css">
 </head>
+
 <body>
     <div id="header-container"></div>
-    
+
     <main class="screening-container">
         <div class="screening-header">
             <h1>选股策略</h1>
             <p class="strategy-description">基于技术分析的智能选股策略</p>
         </div>
-        
+
         <!-- 策略标签页导航 -->
         <div class="strategy-tabs">
             <button class="strategy-tab active" data-strategy="cyb-midline" id="cybMidlineTab">创业板中线选股策略</button>
             <button class="strategy-tab" data-strategy="parking-apron" id="parkingApronTab">停机坪</button>
             <button class="strategy-tab" data-strategy="backtrace-ma250" id="backtraceMa250Tab">回踩年线</button>
             <button class="strategy-tab" data-strategy="high-tight-flag" id="highTightFlagTab">高而窄的旗形</button>
-            <button class="strategy-tab" data-strategy="keep-increasing" id="keepIncreasingTab">持续上涨（MA30向上）</button>
+            <button class="strategy-tab" data-strategy="keep-increasing" id="keepIncreasingTab">持续上涨(MA30向上)</button>
+            <button class="strategy-tab" data-strategy="long-lower-shadow" id="longLowerShadowTab">长下影阳线</button>
         </div>
-        
+
         <!-- 创业板中线选股策略标签页内容 -->
         <div id="cyb-midline-content" class="strategy-content active">
             <div class="strategy-info-card">
@@ -40,19 +43,19 @@
                     <li class="condition-item">5. 当前均线多头排列（MA5 > MA10 > MA20）</li>
                 </ul>
             </div>
-            
+
             <div class="screening-actions">
                 <button id="refreshBtn-cyb" class="refresh-btn" data-strategy="cyb-midline">刷新筛选</button>
                 <span id="searchDate-cyb" class="search-date"></span>
             </div>
-            
+
             <div id="loadingIndicator-cyb" class="loading-indicator" style="display:none;">
                 <div class="spinner"></div>
                 <span>正在筛选股票，请稍候...</span>
             </div>
-            
+
             <div id="errorMessage-cyb" class="error-message" style="display:none;"></div>
-            
+
             <div id="resultsContainer-cyb" class="results-container">
                 <div class="results-header">
                     <span id="resultsCount-cyb" class="results-count">共找到 0 只符合条件的股票</span>
@@ -84,7 +87,7 @@
                 </div>
             </div>
         </div>
-        
+
         <!-- 停机坪策略标签页内容 -->
         <div id="parking-apron-content" class="strategy-content">
             <div class="strategy-info-card">
@@ -98,19 +101,19 @@
                     <li class="condition-item">3. 接下2、3个交易日必须高开，收盘价必须上涨，且与开盘价不能大于等于相差3%，且每天涨跌幅在5%间</li>
                 </ul>
             </div>
-            
+
             <div class="screening-actions">
                 <button id="refreshBtn-parking" class="refresh-btn" data-strategy="parking-apron">刷新筛选</button>
                 <span id="searchDate-parking" class="search-date"></span>
             </div>
-            
+
             <div id="loadingIndicator-parking" class="loading-indicator" style="display:none;">
                 <div class="spinner"></div>
                 <span>正在筛选股票，请稍候...</span>
             </div>
-            
+
             <div id="errorMessage-parking" class="error-message" style="display:none;"></div>
-            
+
             <div id="resultsContainer-parking" class="results-container">
                 <div class="results-header">
                     <span id="resultsCount-parking" class="results-count">共找到 0 只符合条件的股票</span>
@@ -137,7 +140,7 @@
                 </div>
             </div>
         </div>
-        
+
         <!-- 回踩年线策略标签页内容 -->
         <div id="backtrace-ma250-content" class="strategy-content">
             <div class="strategy-info-card">
@@ -149,22 +152,22 @@
                     <li class="condition-item">1. 时间段：前段=最近60交易日最高收盘价之前交易日(长度>0)，后段=最高价当日及后面的交易日</li>
                     <li class="condition-item">2. 前段由年线(250日)以下向上突破</li>
                     <li class="condition-item">3. 后段必须在年线以上运行，且后段最低价日与最高价日相差必须在10-50日间</li>
-                    <li class="condition-item">4. 回踩伴随缩量：最高价日交易量/后段最低价日交易量>2,后段最低价/最高价<0.8</li>
+                    <li class="condition-item">4. 回踩伴随缩量：最高价日交易量/后段最低价日交易量>2,后段最低价/最高价<0.8< /li>
                 </ul>
             </div>
-            
+
             <div class="screening-actions">
                 <button id="refreshBtn-backtrace" class="refresh-btn" data-strategy="backtrace-ma250">刷新筛选</button>
                 <span id="searchDate-backtrace" class="search-date"></span>
             </div>
-            
+
             <div id="loadingIndicator-backtrace" class="loading-indicator" style="display:none;">
                 <div class="spinner"></div>
                 <span>正在筛选股票，请稍候...</span>
             </div>
-            
+
             <div id="errorMessage-backtrace" class="error-message" style="display:none;"></div>
-            
+
             <div id="resultsContainer-backtrace" class="results-container">
                 <div class="results-header">
                     <span id="resultsCount-backtrace" class="results-count">共找到 0 只符合条件的股票</span>
@@ -193,7 +196,7 @@
                 </div>
             </div>
         </div>
-        
+
         <!-- 高而窄的旗形策略标签页内容 -->
         <div id="high-tight-flag-content" class="strategy-content">
             <div class="strategy-info-card">
@@ -207,19 +210,19 @@
                     <li class="condition-item">3. 之前24~10日必须连续两天涨幅大于等于9.5%</li>
                 </ul>
             </div>
-            
+
             <div class="screening-actions">
                 <button id="refreshBtn-high-tight" class="refresh-btn" data-strategy="high-tight-flag">刷新筛选</button>
                 <span id="searchDate-high-tight" class="search-date"></span>
             </div>
-            
+
             <div id="loadingIndicator-high-tight" class="loading-indicator" style="display:none;">
                 <div class="spinner"></div>
                 <span>正在筛选股票，请稍候...</span>
             </div>
-            
+
             <div id="errorMessage-high-tight" class="error-message" style="display:none;"></div>
-            
+
             <div id="resultsContainer-high-tight" class="results-container">
                 <div class="results-header">
                     <span id="resultsCount-high-tight" class="results-count">共找到 0 只符合条件的股票</span>
@@ -246,7 +249,7 @@
                 </div>
             </div>
         </div>
-        
+
         <!-- 持续上涨（MA30向上）策略标签页内容 -->
         <div id="keep-increasing-content" class="strategy-content">
             <div class="strategy-info-card">
@@ -259,19 +262,20 @@
                     <li class="condition-item">2. 涨幅要求：(当日的30日均线 / 30日前的30日均线) > 1.2</li>
                 </ul>
             </div>
-            
+
             <div class="screening-actions">
-                <button id="refreshBtn-keep-increasing" class="refresh-btn" data-strategy="keep-increasing">刷新筛选</button>
+                <button id="refreshBtn-keep-increasing" class="refresh-btn"
+                    data-strategy="keep-increasing">刷新筛选</button>
                 <span id="searchDate-keep-increasing" class="search-date"></span>
             </div>
-            
+
             <div id="loadingIndicator-keep-increasing" class="loading-indicator" style="display:none;">
                 <div class="spinner"></div>
                 <span>正在筛选股票，请稍候...</span>
             </div>
-            
+
             <div id="errorMessage-keep-increasing" class="error-message" style="display:none;"></div>
-            
+
             <div id="resultsContainer-keep-increasing" class="results-container">
                 <div class="results-header">
                     <span id="resultsCount-keep-increasing" class="results-count">共找到 0 只符合条件的股票</span>
@@ -299,13 +303,71 @@
                 </div>
             </div>
         </div>
+
+        <!-- 长下影阳线策略标签页内容 -->
+        <div id="long-lower-shadow-content" class="strategy-content">
+            <div class="strategy-info-card">
+                <h2>策略说明</h2>
+                <ul class="strategy-conditions">
+                    <li><strong>股票范围:</strong>全部A股</li>
+                    <li><strong>时间范围:</strong>最近60个交易日</li>
+                    <li><strong>选股条件:</strong></li>
+                    <li class="condition-item">1. 下跌趋势: 当前价格 < 60日前价格</li>
+                    <li class="condition-item">2. 长下影阳线: 最近7个交易日内出现</li>
+                    <li class="condition-item"> - 收盘价 > 开盘价 (阳线)</li>
+                    <li class="condition-item"> - 下影线长度 >= 实体长度的2倍</li>
+                </ul>
+            </div>
+
+            <div class="screening-actions">
+                <button id="refreshBtn-long-lower-shadow" class="refresh-btn"
+                    data-strategy="long-lower-shadow">刷新筛选</button>
+                <span id="searchDate-long-lower-shadow" class="search-date"></span>
+            </div>
+
+            <div id="loadingIndicator-long-lower-shadow" class="loading-indicator" style="display:none;">
+                <div class="spinner"></div>
+                <span>正在筛选股票，请稍候...</span>
+            </div>
+
+            <div id="errorMessage-long-lower-shadow" class="error-message" style="display:none;"></div>
+
+            <div id="resultsContainer-long-lower-shadow" class="results-container">
+                <div class="results-header">
+                    <span id="resultsCount-long-lower-shadow" class="results-count">共找到 0 只符合条件的股票</span>
+                </div>
+                <div id="resultsTable-long-lower-shadow" class="results-table-wrapper">
+                    <table class="results-table">
+                        <thead>
+                            <tr>
+                                <th>股票代码</th>
+                                <th>股票名称</th>
+                                <th>形态日期</th>
+                                <th>形态收盘价</th>
+                                <th>下影线长度</th>
+                                <th>实体长度</th>
+                                <th>影线/实体比</th>
+                                <th>当前价格</th>
+                                <th>当前涨跌幅</th>
+                                <th>60日跌幅</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="resultsTableBody-long-lower-shadow">
+                            <tr>
+                                <td colspan="11" class="empty-state">点击"刷新筛选"按钮开始筛选</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
     </main>
-    
+
     <script src="js/config.js"></script>
     <script src="js/common.js"></script>
     <script src="components/header.js"></script>
     <script src="js/screening.js"></script>
 </body>
+
 </html>
-
-

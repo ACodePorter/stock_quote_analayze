@@ -13,6 +13,7 @@ from database import get_db
 from stock.stock_screening import StockScreeningStrategy
 from stock.high_tight_flag_strategy import HighTightFlagStrategy
 from stock.keep_increasing_strategy import KeepIncreasingStrategy
+from stock.long_lower_shadow_strategy import LongLowerShadowStrategy
 
 logger = logging.getLogger(__name__)
 
@@ -241,4 +242,49 @@ async def get_keep_increasing_strategy(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"持续上涨（MA30向上）选股策略执行失败: {str(e)}"
+        )
+
+
+@router.get("/long-lower-shadow-strategy")
+async def get_long_lower_shadow_strategy(
+    db: Session = Depends(get_db)
+):
+    """
+    长下影阳线选股策略
+    
+    策略条件:
+    1. 下跌趋势: 当前价格 < 60日前价格
+    2. 长下影阳线: 最近7个交易日内出现
+       - 收盘价 > 开盘价 (阳线)
+       - 下影线长度 >= 实体长度的2倍
+    
+    Args:
+        db: 数据库会话
+    
+    Returns:
+        符合条件的股票列表
+    """
+    try:
+        logger.info("开始执行长下影阳线选股策略")
+        
+        # 执行选股策略
+        results = LongLowerShadowStrategy.screening_long_lower_shadow_strategy(db)
+        
+        logger.info(f"长下影阳线选股策略执行完成，找到 {len(results)} 只符合条件的股票")
+        
+        return JSONResponse({
+            "success": True,
+            "data": results,
+            "total": len(results),
+            "search_date": datetime.now().strftime("%Y-%m-%d"),
+            "strategy_name": "长下影阳线"
+        })
+        
+    except Exception as e:
+        logger.error(f"执行长下影阳线选股策略失败: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"长下影阳线选股策略执行失败: {str(e)}"
         )
