@@ -23,6 +23,8 @@ from backend_core.data_collectors.akshare.quarterly_collector import QuarterlyDa
 from backend_core.data_collectors.akshare.hk_quarterly_collector import HKQuarterlyDataGenerator
 from backend_core.data_collectors.akshare.semiannual_collector import SemiAnnualDataGenerator
 from backend_core.data_collectors.akshare.hk_semiannual_collector import HKSemiAnnualDataGenerator
+from backend_core.data_collectors.akshare.annual_collector import AnnualDataGenerator
+from backend_core.data_collectors.akshare.hk_annual_collector import HKAnnualDataGenerator
 import time
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
@@ -46,6 +48,8 @@ quarterly_generator = QuarterlyDataGenerator()
 hk_quarterly_generator = HKQuarterlyDataGenerator()
 semiannual_generator = SemiAnnualDataGenerator()
 hk_semiannual_generator = HKSemiAnnualDataGenerator()
+annual_generator = AnnualDataGenerator()
+hk_annual_generator = HKAnnualDataGenerator()
 
 scheduler = BlockingScheduler()
 
@@ -246,6 +250,22 @@ def generate_hk_semiannual_data():
     except Exception as e:
         logging.error(f"[定时任务] 港股当前半年线数据生成异常: {e}")
 
+def generate_annual_data():
+    try:
+        logging.info("[定时任务] A股当前年线数据生成开始...")
+        result = annual_generator.generate_current_annual_data()
+        logging.info(f"[定时任务] A股当前年线数据生成完成: {result}")
+    except Exception as e:
+        logging.error(f"[定时任务] A股当前年线数据生成异常: {e}")
+
+def generate_hk_annual_data():
+    try:
+        logging.info("[定时任务] 港股当前年线数据生成开始...")
+        result = hk_annual_generator.generate_current_annual_data()
+        logging.info(f"[定时任务] 港股当前年线数据生成完成: {result}")
+    except Exception as e:
+        logging.error(f"[定时任务] 港股当前年线数据生成异常: {e}")
+
 # 定时任务配置
 scheduler.add_job(collect_akshare_realtime, 'cron', day_of_week='mon-fri', hour='9-11,13-16', minute='3,33', id='akshare_realtime')
 scheduler.add_job(collect_tushare_historical, 'cron', hour='16', minute='27', id='tushare_historical')
@@ -267,6 +287,8 @@ scheduler.add_job(generate_quarterly_data, 'cron', day_of_week='mon-fri', hour=1
 scheduler.add_job(generate_hk_quarterly_data, 'cron', day_of_week='mon-fri', hour=18, minute=50, id='generate_hk_quarterly')
 scheduler.add_job(generate_semiannual_data, 'cron', day_of_week='mon-fri', hour=19, minute=0, id='generate_semiannual')
 scheduler.add_job(generate_hk_semiannual_data, 'cron', day_of_week='mon-fri', hour=19, minute=10, id='generate_hk_semiannual')
+scheduler.add_job(generate_annual_data, 'cron', day_of_week='mon-fri', hour=19, minute=20, id='generate_annual')
+scheduler.add_job(generate_hk_annual_data, 'cron', day_of_week='mon-fri', hour=19, minute=30, id='generate_hk_annual')
 
 if __name__ == "__main__":
     logging.info("启动定时采集任务...")

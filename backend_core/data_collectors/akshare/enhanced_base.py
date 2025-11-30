@@ -19,10 +19,7 @@ import ssl
 from urllib3.util.retry import Retry
 from requests.adapters import HTTPAdapter
 
-# 直接导入config模块
-import sys
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-from config.config import DATA_COLLECTORS
+from backend_core.config.config import DATA_COLLECTORS
 
 T = TypeVar('T')
 

@@ -14,10 +14,7 @@ import os
 from pathlib import Path
 import json
 
-# 直接导入config模块
-import sys
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-from config.config import DATA_COLLECTORS
+from backend_core.config.config import DATA_COLLECTORS
 
 T = TypeVar('T')
 
@@ -229,4 +226,4 @@ class AKShareCollector:
             self.logger.info(f"数据已保存到: {filepath}")
         except Exception as e:
             self.logger.error(f"保存数据失败: {str(e)}")
-            raise 
+            raise

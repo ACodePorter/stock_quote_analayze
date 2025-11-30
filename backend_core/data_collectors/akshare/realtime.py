@@ -11,7 +11,7 @@ import logging
 from datetime import datetime
 
 # 直接导入base模块
-from .base import AKShareCollector
+from backend_core.data_collectors.akshare.base import AKShareCollector
 from backend_core.database.db import SessionLocal
 from sqlalchemy import text
 
