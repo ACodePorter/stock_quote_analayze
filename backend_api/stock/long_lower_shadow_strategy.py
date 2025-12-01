@@ -3,10 +3,13 @@
 独立策略文件
 
 策略要求:
-1. 下跌趋势: 当前价格 < 60日前价格
-2. 长下影阳线: 最近7个交易日内出现
+1. 股票范围: 排除创业板（3开头）和科创板（688开头）
+2. 下跌趋势: 当日最低价 < MA20（20日移动平均线）
+3. 长下影阳线: 最近3个交易日内出现
    - 收盘价 > 开盘价 (阳线)
    - 下影线长度 >= 实体长度的2倍
+   - 上影线很短或几乎没有（上影线 <= 实体长度的30%）
+   - 出现长下影阳线当日振幅超过5%
 """
 
 import numpy as np
@@ -23,30 +26,43 @@ class LongLowerShadowStrategy:
     """长下影阳线选股策略类"""
     
     @staticmethod
-    def check_downtrend(historical_data: List[Dict], threshold: int = 60) -> bool:
+    def check_downtrend(historical_data: List[Dict], threshold: int = 20) -> bool:
         """
         检查是否处于下跌趋势
         
         Args:
             historical_data: 历史数据列表（倒序，最新在前）
-            threshold: 检查的天数（默认60天）
+            threshold: MA计算天数（默认20天）
         
         Returns:
-            是否处于下跌趋势
+            是否处于下跌趋势（当日最低价 < MA20）
         """
         if len(historical_data) < threshold:
             return False
         
-        # 当前价格
-        current_price = float(historical_data[0].get('close', 0))
-        # 60日前价格
-        price_60_days_ago = float(historical_data[threshold - 1].get('close', 0))
+        # 当日最低价
+        current_low = float(historical_data[0].get('low', 0))
         
-        if current_price <= 0 or price_60_days_ago <= 0:
+        if current_low <= 0:
             return False
         
-        # 下跌趋势: 当前价格 < 60日前价格
-        return current_price < price_60_days_ago
+        # 计算MA20（20日移动平均线）
+        # 取最近20个交易日的收盘价
+        prices = []
+        for i in range(threshold):
+            if i < len(historical_data):
+                price = float(historical_data[i].get('close', 0))
+                if price > 0:
+                    prices.append(price)
+        
+        if len(prices) < threshold:
+            return False
+        
+        # 计算平均值
+        ma20 = sum(prices) / len(prices)
+        
+        # 下跌趋势: 当日最低价 < MA20
+        return current_low < ma20
     
     @staticmethod
     def check_long_lower_shadow(day_data: Dict) -> Tuple[bool, Optional[Dict]]:
@@ -88,6 +104,12 @@ class LongLowerShadowStrategy:
         if not is_long_lower_shadow:
             return False, None
         
+        # 条件3: 上影线很短或几乎没有（上影线 <= 实体长度的30%）
+        is_short_upper_shadow = upper_shadow <= body_length * 0.3
+        
+        if not is_short_upper_shadow:
+            return False, None
+        
         # 返回形态信息
         return True, {
             'date': day_data.get('date'),
@@ -98,29 +120,32 @@ class LongLowerShadowStrategy:
             'body_length': body_length,
             'lower_shadow': lower_shadow,
             'upper_shadow': upper_shadow,
-            'shadow_body_ratio': lower_shadow / body_length if body_length > 0 else 0
+            'shadow_body_ratio': lower_shadow / body_length if body_length > 0 else 0,
+            'upper_shadow_ratio': upper_shadow / body_length if body_length > 0 else 0
         }
     
     @staticmethod
     def check_long_lower_shadow_conditions(historical_data: List[Dict], 
-                                           downtrend_days: int = 60,
-                                           recent_days: int = 7) -> Tuple[bool, Optional[Dict]]:
+                                           downtrend_days: int = 20,
+                                           recent_days: int = 3) -> Tuple[bool, Optional[Dict]]:
         """
         检查长下影阳线策略条件
         
         策略要求:
-        1. 下跌趋势: 当前价格 < 60日前价格
-        2. 长下影阳线: 最近7个交易日内出现
+        1. 下跌趋势: 当日最低价 < MA20（20日移动平均线）
+        2. 长下影阳线: 最近3个交易日内出现
+        3. 上影线很短或几乎没有
+        4. 振幅: 出现长下影阳线当日振幅超过5%
         
         Args:
             historical_data: 历史数据列表（倒序，最新在前）
-            downtrend_days: 下跌趋势判断天数（默认60天）
-            recent_days: 检查长下影阳线的天数（默认7天）
+            downtrend_days: 下跌趋势判断天数（默认20天）
+            recent_days: 检查长下影阳线的天数（默认3天）
         
         Returns:
             (是否满足条件, 策略信息)
         """
-        # 需要至少60个交易日的数据
+        # 需要至少20个交易日的数据
         if len(historical_data) < downtrend_days:
             return False, None
         
@@ -129,26 +154,56 @@ class LongLowerShadowStrategy:
         if not is_downtrend:
             return False, None
         
-        # 条件2: 检查最近7个交易日内是否有长下影阳线
-        recent_data = historical_data[:recent_days]
+        # 条件2: 检查最近3个交易日内是否有长下影阳线
+        # 注意：我们需要前一天的收盘价来计算振幅，所以需要确保 historical_data 足够长
         
         long_lower_shadow_found = False
         pattern_info = None
         
-        for day_data in recent_data:
+        for i in range(min(recent_days, len(historical_data) - 1)):
+            day_data = historical_data[i]
+            prev_day_data = historical_data[i+1]
+            
+            # 计算振幅: (最高价 - 最低价) / 昨收
+            high_price = float(day_data.get('high', 0))
+            low_price = float(day_data.get('low', 0))
+            pre_close = float(prev_day_data.get('close', 0))
+            
+            if pre_close <= 0:
+                continue
+                
+            amplitude = (high_price - low_price) / pre_close
+            
+            # 振幅必须超过 5%
+            if amplitude <= 0.05:
+                continue
+
             is_pattern, info = LongLowerShadowStrategy.check_long_lower_shadow(day_data)
             if is_pattern:
                 long_lower_shadow_found = True
                 pattern_info = info
+                # 将振幅信息添加到 pattern_info
+                pattern_info['amplitude'] = amplitude
                 break  # 找到第一个符合条件的就返回
         
         if not long_lower_shadow_found:
             return False, None
         
-        # 计算下跌幅度
+        # 计算MA20
         current_price = float(historical_data[0].get('close', 0))
-        price_60_days_ago = float(historical_data[downtrend_days - 1].get('close', 0))
-        decline_ratio = (price_60_days_ago - current_price) / price_60_days_ago if price_60_days_ago > 0 else 0
+        
+        # 计算MA20（20日移动平均线）
+        prices = []
+        for i in range(downtrend_days):
+            if i < len(historical_data):
+                price = float(historical_data[i].get('close', 0))
+                if price > 0:
+                    prices.append(price)
+        
+        ma20 = sum(prices) / len(prices) if prices else 0
+        
+        # 计算相对MA20的偏离度
+        deviation_from_ma20 = (current_price - ma20) / ma20 if ma20 > 0 else 0
         
         # 所有条件满足
         return True, {
@@ -161,9 +216,10 @@ class LongLowerShadowStrategy:
             'lower_shadow': pattern_info['lower_shadow'],
             'upper_shadow': pattern_info['upper_shadow'],
             'shadow_body_ratio': pattern_info['shadow_body_ratio'],
+            'amplitude': pattern_info.get('amplitude', 0),
             'current_price': current_price,
-            'price_60_days_ago': price_60_days_ago,
-            'decline_ratio': decline_ratio
+            'ma20': ma20,
+            'deviation_from_ma20': deviation_from_ma20
         }
     
     @staticmethod
@@ -172,8 +228,11 @@ class LongLowerShadowStrategy:
         长下影阳线选股策略主函数
         
         策略要求:
-        1. 下跌趋势: 当前价格 < 60日前价格
-        2. 长下影阳线: 最近7个交易日内出现
+        1. 股票范围: 排除创业板（3开头）和科创板（688开头）
+        2. 下跌趋势: 当日最低价 < MA20（20日移动平均线）
+        3. 长下影阳线: 最近3个交易日内出现
+        4. 上影线很短或几乎没有
+        5. 振幅: 出现长下影阳线当日振幅超过5%
         
         Args:
             db: 数据库会话
@@ -184,20 +243,22 @@ class LongLowerShadowStrategy:
         results = []
         
         try:
-            # 1. 获取全部A股股票列表
+            # 1. 获取A股股票列表（排除创业板和科创板）
             stocks_query = db.execute(text("""
                 SELECT DISTINCT code, name 
                 FROM stock_basic_info 
                 WHERE LENGTH(code) = 6
+                AND code NOT LIKE '3%'      -- 排除创业板
+                AND code NOT LIKE '688%'    -- 排除科创板
                 ORDER BY code
             """))
             
             stocks = stocks_query.fetchall()
             logger.info(f"找到 {len(stocks)} 只A股股票")
             
-            # 2. 计算查询日期范围（至少需要60个交易日的数据）
+            # 2. 计算查询日期范围（至少需要20个交易日的数据）
             end_date = datetime.now().date()
-            start_date = end_date - timedelta(days=100)  # 往前推100天以确保有足够数据
+            start_date = end_date - timedelta(days=50)  # 往前推50天以确保有足够数据
             
             start_date_str = start_date.strftime('%Y-%m-%d')
             end_date_str = end_date.strftime('%Y-%m-%d')
@@ -227,7 +288,7 @@ class LongLowerShadowStrategy:
                     
                     history_rows = history_query.fetchall()
                     
-                    if len(history_rows) < 60:  # 至少需要60个交易日的数据
+                    if len(history_rows) < 20:  # 至少需要20个交易日的数据
                         continue
                     
                     # 转换为字典列表
@@ -254,7 +315,7 @@ class LongLowerShadowStrategy:
                     
                     # 检查长下影阳线策略条件
                     is_valid, strategy_info = LongLowerShadowStrategy.check_long_lower_shadow_conditions(
-                        historical_data, downtrend_days=60, recent_days=7
+                        historical_data, downtrend_days=20, recent_days=3
                     )
                     
                     if not is_valid or not strategy_info:
@@ -276,7 +337,9 @@ class LongLowerShadowStrategy:
                         'lower_shadow': round(strategy_info['lower_shadow'], 2),
                         'body_length': round(strategy_info['body_length'], 2),
                         'shadow_body_ratio': round(strategy_info['shadow_body_ratio'], 2),
-                        'decline_ratio': round(strategy_info['decline_ratio'], 4)
+                        'amplitude': round(strategy_info.get('amplitude', 0), 4),
+                        'ma20': round(strategy_info.get('ma20', 0), 2),
+                        'deviation_from_ma20': round(strategy_info.get('deviation_from_ma20', 0), 4)
                     }
                     
                     results.append(result_item)

@@ -163,7 +163,11 @@ async def get_watchlist(
                 'change_amount': (
                     safe_float(getattr(q, 'current_price', None)) - safe_float(getattr(q, 'pre_close', None))
                     if q and safe_float(getattr(q, 'current_price', None)) is not None and safe_float(getattr(q, 'pre_close', None)) is not None
-                    else None
+                    else (
+                        safe_float(getattr(q, 'current_price', None)) * safe_float(getattr(q, 'change_percent', None)) / 100 / (1 + safe_float(getattr(q, 'change_percent', None)) / 100)
+                        if q and safe_float(getattr(q, 'current_price', None)) is not None and safe_float(getattr(q, 'change_percent', None)) is not None
+                        else None
+                    )
                 ),
                 'turnover_rate': safe_float(getattr(q, 'turnover_rate', None)) if q else None,
                 'pe_dynamic': safe_float(getattr(q, 'pe_dynamic', None)) if q else None,

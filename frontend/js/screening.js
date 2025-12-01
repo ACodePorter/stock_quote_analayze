@@ -401,9 +401,11 @@ const ScreeningPage = {
                         <td>${stock.lower_shadow ? stock.lower_shadow.toFixed(2) : '--'}</td>
                         <td>${stock.body_length ? stock.body_length.toFixed(2) : '--'}</td>
                         <td>${stock.shadow_body_ratio ? stock.shadow_body_ratio.toFixed(2) : '--'}</td>
+                        <td>${stock.amplitude ? (stock.amplitude * 100).toFixed(2) + '%' : '--'}</td>
                         <td>${stock.current_price ? stock.current_price.toFixed(2) : '--'}</td>
                         <td class="${changeClass}">${changeSymbol}${changePercent.toFixed(2)}%</td>
-                        <td>${stock.decline_ratio ? (stock.decline_ratio * 100).toFixed(2) + '%' : '--'}</td>
+                        <td>${stock.ma20 ? stock.ma20.toFixed(2) : '--'}</td>
+                        <td class="${stock.deviation_from_ma20 < 0 ? 'negative' : (stock.deviation_from_ma20 > 0 ? 'positive' : '')}">${stock.deviation_from_ma20 ? (stock.deviation_from_ma20 * 100).toFixed(2) + '%' : '--'}</td>
                         <td>
                             <div class="action-links">
                                 <a href="stock_history.html?code=${stock.code}" class="action-link" target="_blank">历史</a>

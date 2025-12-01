@@ -2,7 +2,7 @@
 const WatchlistPage = {
     // 全局API前缀
     //API_BASE_URL: 'http://192.168.31.237:5000',
-    
+
     // 修改获取用户ID的方法
     async getUserId() {
         try {
@@ -26,12 +26,12 @@ const WatchlistPage = {
 
     // 模拟数据
     // stocksData: [
-       //  { code: '000001', name: '平安银行', price: 12.34, change: 0.56, percent: 4.76, group: 'bank', open: 11.89, high: 12.45, low: 11.85, volume: '1.2亿' },
-        // { code: '600036', name: '招商银行', price: 45.67, change: 1.23, percent: 2.77, group: 'bank', open: 44.50, high: 45.89, low: 44.23, volume: '3.5亿' },
-        // { code: '600519', name: '贵州茅台', price: 1865.00, change: -12.50, percent: -0.67, group: 'consumption', open: 1875.00, high: 1890.00, low: 1860.00, volume: '0.8亿' },
-        // { code: '000858', name: '五粮液', price: 156.78, change: 3.45, percent: 2.25, group: 'consumption', open: 154.20, high: 158.90, low: 153.10, volume: '2.1亿' },
-        // { code: '002415', name: '海康威视', price: 32.45, change: 1.56, percent: 5.05, group: 'tech', open: 31.20, high: 32.67, low: 30.95, volume: '4.2亿' },
-        // { code: '300750', name: '宁德时代', price: 187.50, change: 8.90, percent: 4.99, group: 'tech', open: 180.00, high: 189.90, low: 178.20, volume: '6.8亿' }
+    //  { code: '000001', name: '平安银行', price: 12.34, change: 0.56, percent: 4.76, group: 'bank', open: 11.89, high: 12.45, low: 11.85, volume: '1.2亿' },
+    // { code: '600036', name: '招商银行', price: 45.67, change: 1.23, percent: 2.77, group: 'bank', open: 44.50, high: 45.89, low: 44.23, volume: '3.5亿' },
+    // { code: '600519', name: '贵州茅台', price: 1865.00, change: -12.50, percent: -0.67, group: 'consumption', open: 1875.00, high: 1890.00, low: 1860.00, volume: '0.8亿' },
+    // { code: '000858', name: '五粮液', price: 156.78, change: 3.45, percent: 2.25, group: 'consumption', open: 154.20, high: 158.90, low: 153.10, volume: '2.1亿' },
+    // { code: '002415', name: '海康威视', price: 32.45, change: 1.56, percent: 5.05, group: 'tech', open: 31.20, high: 32.67, low: 30.95, volume: '4.2亿' },
+    // { code: '300750', name: '宁德时代', price: 187.50, change: 8.90, percent: 4.99, group: 'tech', open: 180.00, high: 189.90, low: 178.20, volume: '6.8亿' }
     // ],
 
     // 分组数据
@@ -66,6 +66,14 @@ const WatchlistPage = {
                     pre_close: item.pre_close,
                     volume: item.volume
                 }));
+                // Fallback calculation for change amount if missing
+                this.stocksData.forEach(stock => {
+                    if ((stock.change === null || stock.change === undefined) &&
+                        stock.price !== null && stock.price !== undefined &&
+                        stock.percent !== null && stock.percent !== undefined) {
+                        stock.change = stock.price * stock.percent / 100 / (1 + stock.percent / 100);
+                    }
+                });
                 console.log('stocksData:', this.stocksData);
 
             } else {
@@ -91,7 +99,7 @@ const WatchlistPage = {
                 console.log('未获取到用户ID，请先登录');
                 return;
             }
-            
+
             await this.loadGroups();
             await this.loadWatchlist();
             this.bindEvents();
@@ -232,8 +240,8 @@ const WatchlistPage = {
     renderStocks() {
         console.log('selectedGroup:', this.selectedGroup, 'stocksData:', this.stocksData);
         const filteredStocks = (this.selectedGroup === 'default' || this.selectedGroup === 'all')
-        ? this.stocksData
-        : this.stocksData.filter(stock => stock.group === this.selectedGroup);
+            ? this.stocksData
+            : this.stocksData.filter(stock => stock.group === this.selectedGroup);
 
         if (this.currentView === 'grid') {
             this.renderGridView(filteredStocks);
@@ -261,7 +269,7 @@ const WatchlistPage = {
                 <div class="stock-price">
                     <span class="current-price ${this.getPriceColorClass(stock.price, stock.pre_close)}">${this.formatPrice(stock.price)}</span>
                     <span class="price-change ${this.getChangeClass(stock.change)}">${this.formatChange(stock.change)}</span>
-                    <span class="change-percent ${this.getChangeClass(stock.change)}">${this.formatPercent(stock.percent)}</span>
+                    <span class="change-percent ${this.getChangeClass(stock.percent)}">${this.formatPercent(stock.percent)}</span>
                 </div>
                 <div class="stock-details">
                     <div class="detail-row">
@@ -295,8 +303,8 @@ const WatchlistPage = {
         const tbody = document.getElementById('stocksTableBody');
         if (!tbody) return;
 
-        const filteredStocks = stocks || (this.selectedGroup === 'default' 
-            ? this.stocksData 
+        const filteredStocks = stocks || (this.selectedGroup === 'default'
+            ? this.stocksData
             : this.stocksData.filter(stock => stock.group === this.selectedGroup));
 
         if (!filteredStocks.length) {
@@ -336,7 +344,7 @@ const WatchlistPage = {
         if (!CommonUtils.checkLoginAndHandleExpiry()) {
             return;
         }
-        
+
         const modal = document.getElementById('addStockModal');
         modal.classList.add('active');
         modal.querySelector('.stock-search-input').focus();
@@ -485,7 +493,7 @@ const WatchlistPage = {
     updateStockCount() {
         const count = this.stocksData.length;
         document.getElementById('stockCount').textContent = count;
-        
+
         // 更新分组计数
         this.updateGroupCounts();
     },
@@ -595,31 +603,39 @@ const WatchlistPage = {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ codes })
         })
-        .then(res => res.json())
-        .then(data => {
-            if (data.success && Array.isArray(data.data)) {
-                // 用后端返回的新行情数据重写 this.stocksData，保留原有 name/group 字段
-                this.stocksData = data.data.map(newStock => {
-                    // 查找原有 name/group 信息
-                    const old = this.stocksData.find(s => s.code === newStock.code) || {};
-                    return {
-                        code: newStock.code,
-                        name: old.name || '',
-                        group: old.group || 'default',
-                        price: newStock.current_price,
-                        change: newStock.change_amount,
-                        percent: newStock.change_percent,
-                        open: newStock.open,
-                        pre_close: newStock.pre_close,
-                        high: newStock.high,
-                        low: newStock.low,
-                        volume: newStock.volume,
-                        turnover: newStock.turnover
-                    };
-                });
-                this.renderStocks();
-            }
-        });
+            .then(res => res.json())
+            .then(data => {
+                if (data.success && Array.isArray(data.data)) {
+                    // 用后端返回的新行情数据重写 this.stocksData，保留原有 name/group 字段
+                    this.stocksData = data.data.map(newStock => {
+                        // 查找原有 name/group 信息
+                        const old = this.stocksData.find(s => s.code === newStock.code) || {};
+                        return {
+                            code: newStock.code,
+                            name: old.name || '',
+                            group: old.group || 'default',
+                            price: newStock.current_price,
+                            change: newStock.change_amount,
+                            percent: newStock.change_percent,
+                            open: newStock.open,
+                            pre_close: newStock.pre_close,
+                            high: newStock.high,
+                            low: newStock.low,
+                            volume: newStock.volume,
+                            turnover: newStock.turnover
+                        };
+                    });
+                    // Fallback calculation for change amount if missing
+                    this.stocksData.forEach(stock => {
+                        if ((stock.change === null || stock.change === undefined) &&
+                            stock.price !== null && stock.price !== undefined &&
+                            stock.percent !== null && stock.percent !== undefined) {
+                            stock.change = stock.price * stock.percent / 100 / (1 + stock.percent / 100);
+                        }
+                    });
+                    this.renderStocks();
+                }
+            });
     },
 
     // 加载分组
@@ -643,8 +659,8 @@ const WatchlistPage = {
         const groups = ['default', ...this.groups.filter(g => g !== 'default')];
         nav.innerHTML = groups.map(g =>
             g === 'default'
-                ? `<button class="tab-btn${this.selectedGroup==='default'?' active':''}" data-group="default">全部</button>`
-                : `<span class="group-tab-wrap"><button class="tab-btn${this.selectedGroup===g?' active':''}" data-group="${g}">${g}</button><span class="group-actions"><button class="rename-group-btn" title="重命名">✎</button><button class="del-group-btn" title="删除">×</button></span></span>`
+                ? `<button class="tab-btn${this.selectedGroup === 'default' ? ' active' : ''}" data-group="default">全部</button>`
+                : `<span class="group-tab-wrap"><button class="tab-btn${this.selectedGroup === g ? ' active' : ''}" data-group="${g}">${g}</button><span class="group-actions"><button class="rename-group-btn" title="重命名">✎</button><button class="del-group-btn" title="删除">×</button></span></span>`
         ).join('') + '<button class="add-group-btn">+ 新建分组</button>';
         // 绑定事件
         nav.querySelectorAll('.tab-btn').forEach(btn => {
@@ -656,14 +672,14 @@ const WatchlistPage = {
         nav.querySelectorAll('.rename-group-btn').forEach((btn, i) => {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
-                const group = groups[i+1];
+                const group = groups[i + 1];
                 this.renameGroup(group);
             });
         });
         nav.querySelectorAll('.del-group-btn').forEach((btn, i) => {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
-                const group = groups[i+1];
+                const group = groups[i + 1];
                 this.deleteGroup(group);
             });
         });
@@ -676,7 +692,7 @@ const WatchlistPage = {
     renderGroupSelect() {
         const select = document.querySelector('.group-select');
         if (!select) return;
-        select.innerHTML = this.groups.filter(g=>g!=='default').map(g => `<option value="${g}">${g}</option>`).join('');
+        select.innerHTML = this.groups.filter(g => g !== 'default').map(g => `<option value="${g}">${g}</option>`).join('');
     },
 
     // 新建分组弹窗
@@ -685,7 +701,7 @@ const WatchlistPage = {
         if (!CommonUtils.checkLoginAndHandleExpiry()) {
             return;
         }
-        
+
         const name = prompt('请输入新分组名称');
         if (name && name.trim()) {
             this.createGroup(name.trim());
@@ -804,7 +820,7 @@ const WatchlistPage = {
             <button class="btn btn-danger btn-sm" onclick="WatchlistPage.batchDeleteStocks()">批量删除</button>
             <select class="batch-move-select" onchange="WatchlistPage.batchMoveGroup(this.value)">
                 <option value="">批量移动到分组</option>
-                ${this.groups.filter(g=>g!=='default').map(g=>`<option value="${g}">${g}</option>`).join('')}
+                ${this.groups.filter(g => g !== 'default').map(g => `<option value="${g}">${g}</option>`).join('')}
             </select>
         `;
     }
@@ -823,4 +839,4 @@ function goToStockHistory(code, name) {
 // DOM加载完成后初始化
 document.addEventListener('DOMContentLoaded', () => {
     WatchlistPage.init();
-}); 
+});
