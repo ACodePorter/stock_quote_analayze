@@ -53,7 +53,7 @@ class HKSemiAnnualDataGenerator:
 
     def get_hk_stock_list(self) -> List[Dict[str, str]]:
         try:
-            result = self.session.execute(text("SELECT code, name FROM hk_stock_basic_info ORDER BY code"))
+            result = self.session.execute(text("SELECT code, name FROM stock_basic_info_hk ORDER BY code"))
             stocks = [{'code': row[0], 'name': row[1] if row[1] else ''} for row in result.fetchall()]
             logger.info(f"从数据库获取到 {len(stocks)} 只港股")
             return stocks
@@ -65,7 +65,7 @@ class HKSemiAnnualDataGenerator:
         try:
             query = text("""
                 SELECT date, open, high, low, close, volume, amount, name
-                FROM hk_historical_quotes
+                FROM historical_quotes_hk
                 WHERE code = :code AND date >= :start_date AND date <= :end_date
                 ORDER BY date ASC
             """)

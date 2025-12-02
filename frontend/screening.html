@@ -25,7 +25,7 @@
             <button class="strategy-tab" data-strategy="backtrace-ma250" id="backtraceMa250Tab">回踩年线</button>
             <button class="strategy-tab" data-strategy="high-tight-flag" id="highTightFlagTab">高而窄的旗形</button>
             <button class="strategy-tab" data-strategy="keep-increasing" id="keepIncreasingTab">持续上涨(MA30向上)</button>
-            <button class="strategy-tab" data-strategy="long-lower-shadow" id="longLowerShadowTab">长下影阳线</button>
+            <button class="strategy-tab" data-strategy="long-lower-shadow" id="longLowerShadowTab">长下影线</button>
         </div>
 
         <!-- 创业板中线选股策略标签页内容 -->
@@ -304,7 +304,7 @@
             </div>
         </div>
 
-        <!-- 长下影阳线策略标签页内容 -->
+        <!-- 长下影线策略标签页内容 -->
         <div id="long-lower-shadow-content" class="strategy-content">
             <div class="strategy-info-card">
                 <h2>策略说明</h2>
@@ -313,11 +313,10 @@
                     <li><strong>时间范围:</strong>最近20个交易日</li>
                     <li><strong>选股条件:</strong></li>
                     <li class="condition-item">1. 下跌趋势: 当日最低价 < MA20（20日移动平均线）</li>
-                    <li class="condition-item">2. 长下影阳线: 最近3个交易日内出现</li>
-                    <li class="condition-item"> - 收盘价 > 开盘价 (阳线)</li>
+                    <li class="condition-item">2. 长下影线: 最近3个交易日内出现(阳线或阴线均可)</li>
                     <li class="condition-item"> - 下影线长度 >= 实体长度的2倍</li>
                     <li class="condition-item"> - 上影线很短或几乎没有（<= 实体长度的30%）</li>
-                    <li class="condition-item"> - 出现长下影阳线当日振幅超过5%</li>
+                    <li class="condition-item"> - 出现长下影线当日振幅超过5%</li>
                 </ul>
             </div>
 

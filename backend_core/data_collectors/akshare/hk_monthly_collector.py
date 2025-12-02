@@ -80,7 +80,7 @@ class HKMonthlyDataGenerator:
         try:
             result = self.session.execute(text("""
                 SELECT code, name 
-                FROM hk_stock_basic_info 
+                FROM stock_basic_info_hk 
                 ORDER BY code
             """))
             
@@ -105,7 +105,7 @@ class HKMonthlyDataGenerator:
             # 1. 获取日线数据
             query = text("""
                 SELECT date, open, high, low, close, volume, amount, name
-                FROM hk_historical_quotes
+                FROM historical_quotes_hk
                 WHERE code = :code AND date >= :start_date AND date <= :end_date
                 ORDER BY date ASC
             """)

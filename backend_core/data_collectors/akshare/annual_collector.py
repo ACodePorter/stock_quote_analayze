@@ -76,8 +76,8 @@ class AnnualDataGenerator:
             df.set_index('date', inplace=True)
             stock_name = df['name'].iloc[0] if not df['name'].empty else ''
             
-            # 年线聚合 (A 表示年末)
-            annual_df = df.resample('A').agg({
+            # 年线聚合 (YE 表示年末)
+            annual_df = df.resample('YE').agg({
                 'open': 'first', 'high': 'max', 'low': 'min',
                 'close': 'last', 'volume': 'sum', 'amount': 'sum'
             })

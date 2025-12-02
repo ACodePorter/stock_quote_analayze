@@ -1,15 +1,14 @@
 """
-长下影阳线选股策略
+长下影线选股策略(支持阳线和阴线)
 独立策略文件
 
 策略要求:
-1. 股票范围: 排除创业板（3开头）和科创板（688开头）
-2. 下跌趋势: 当日最低价 < MA20（20日移动平均线）
-3. 长下影阳线: 最近3个交易日内出现
-   - 收盘价 > 开盘价 (阳线)
+1. 股票范围: 排除创业板(3开头)和科创板(688开头)
+2. 下跌趋势: 当日最低价 < MA20(20日移动平均线)
+3. 长下影线: 最近3个交易日内出现(阳线或阴线均可)
    - 下影线长度 >= 实体长度的2倍
-   - 上影线很短或几乎没有（上影线 <= 实体长度的30%）
-   - 出现长下影阳线当日振幅超过5%
+   - 上影线很短或几乎没有(上影线 <= 实体长度的30%)
+   - 出现长下影线当日振幅超过5%
 """
 
 import numpy as np
@@ -23,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 
 class LongLowerShadowStrategy:
-    """长下影阳线选股策略类"""
+    """长下影线选股策略类(支持阳线和阴线)"""
     
     @staticmethod
     def check_downtrend(historical_data: List[Dict], threshold: int = 20) -> bool:
@@ -67,13 +66,13 @@ class LongLowerShadowStrategy:
     @staticmethod
     def check_long_lower_shadow(day_data: Dict) -> Tuple[bool, Optional[Dict]]:
         """
-        检查单日是否为长下影阳线
+        检查单日是否为长下影线(阳线或阴线)
         
         Args:
             day_data: 单日数据
         
         Returns:
-            (是否为长下影阳线, 形态信息)
+            (是否为长下影线, 形态信息)
         """
         open_price = float(day_data.get('open', 0))
         close_price = float(day_data.get('close', 0))
@@ -84,12 +83,7 @@ class LongLowerShadowStrategy:
         if open_price <= 0 or close_price <= 0 or high_price <= 0 or low_price <= 0:
             return False, None
         
-        # 条件1: 阳线 (收盘价 > 开盘价)
-        is_bullish = close_price > open_price
-        if not is_bullish:
-            return False, None
-        
-        # 计算实体长度
+        # 计算实体长度(阳线或阴线都可以)
         body_length = abs(close_price - open_price)
         
         # 计算下影线长度
@@ -129,18 +123,18 @@ class LongLowerShadowStrategy:
                                            downtrend_days: int = 20,
                                            recent_days: int = 3) -> Tuple[bool, Optional[Dict]]:
         """
-        检查长下影阳线策略条件
+        检查长下影线策略条件
         
         策略要求:
-        1. 下跌趋势: 当日最低价 < MA20（20日移动平均线）
-        2. 长下影阳线: 最近3个交易日内出现
+        1. 下跌趋势: 当日最低价 < MA20(20日移动平均线)
+        2. 长下影线: 最近3个交易日内出现(阳线或阴线均可)
         3. 上影线很短或几乎没有
-        4. 振幅: 出现长下影阳线当日振幅超过5%
+        4. 振幅: 出现长下影线当日振幅超过5%
         
         Args:
             historical_data: 历史数据列表（倒序，最新在前）
-            downtrend_days: 下跌趋势判断天数（默认20天）
-            recent_days: 检查长下影阳线的天数（默认3天）
+            downtrend_days: 下跌趋势判断天数(默认20天)
+            recent_days: 检查长下影线的天数(默认3天)
         
         Returns:
             (是否满足条件, 策略信息)
@@ -154,7 +148,7 @@ class LongLowerShadowStrategy:
         if not is_downtrend:
             return False, None
         
-        # 条件2: 检查最近3个交易日内是否有长下影阳线
+        # 条件2: 检查最近3个交易日内是否有长下影线(阳线或阴线)
         # 注意：我们需要前一天的收盘价来计算振幅，所以需要确保 historical_data 足够长
         
         long_lower_shadow_found = False
@@ -225,14 +219,14 @@ class LongLowerShadowStrategy:
     @staticmethod
     def screening_long_lower_shadow_strategy(db: Session) -> List[Dict]:
         """
-        长下影阳线选股策略主函数
+        长下影线选股策略主函数(支持阳线和阴线)
         
         策略要求:
-        1. 股票范围: 排除创业板（3开头）和科创板（688开头）
-        2. 下跌趋势: 当日最低价 < MA20（20日移动平均线）
-        3. 长下影阳线: 最近3个交易日内出现
+        1. 股票范围: 排除创业板(3开头)和科创板(688开头)
+        2. 下跌趋势: 当日最低价 < MA20(20日移动平均线)
+        3. 长下影线: 最近3个交易日内出现(阳线或阴线均可)
         4. 上影线很短或几乎没有
-        5. 振幅: 出现长下影阳线当日振幅超过5%
+        5. 振幅: 出现长下影线当日振幅超过5%
         
         Args:
             db: 数据库会话
@@ -313,7 +307,7 @@ class LongLowerShadowStrategy:
                             'amount': float(row[9]) if row[9] else 0.0
                         })
                     
-                    # 检查长下影阳线策略条件
+                    # 检查长下影线策略条件
                     is_valid, strategy_info = LongLowerShadowStrategy.check_long_lower_shadow_conditions(
                         historical_data, downtrend_days=20, recent_days=3
                     )
@@ -353,10 +347,10 @@ class LongLowerShadowStrategy:
                         logger.warning(f"回滚事务时出错: {str(rollback_error)}")
                     continue
             
-            logger.info(f"长下影阳线选股策略执行完成，找到 {len(results)} 只符合条件的股票")
+            logger.info(f"长下影线选股策略执行完成,找到 {len(results)} 只符合条件的股票")
             
         except Exception as e:
-            logger.error(f"长下影阳线选股策略执行失败: {str(e)}")
+            logger.error(f"长下影线选股策略执行失败: {str(e)}")
             import traceback
             logger.error(traceback.format_exc())
         

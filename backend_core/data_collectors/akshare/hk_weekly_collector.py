@@ -79,11 +79,11 @@ class HKWeeklyDataGenerator:
             logger.error(f"初始化数据库表失败: {e}")
 
     def get_hk_stock_list(self) -> List[Dict[str, str]]:
-        """从hk_stock_basic_info表获取港股列表"""
+        """从stock_basic_info_hk表获取港股列表"""
         try:
             result = self.session.execute(text("""
                 SELECT code, name 
-                FROM hk_stock_basic_info 
+                FROM stock_basic_info_hk 
                 ORDER BY code
             """))
             
@@ -108,7 +108,7 @@ class HKWeeklyDataGenerator:
             # 1. 获取日线数据
             query = text("""
                 SELECT date, open, high, low, close, volume, amount, name
-                FROM hk_historical_quotes
+                FROM historical_quotes_hk
                 WHERE code = :code AND date >= :start_date AND date <= :end_date
                 ORDER BY date ASC
             """)

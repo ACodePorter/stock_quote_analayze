@@ -244,8 +244,7 @@ async def get_quote_board(limit: int = Query(10, description="返回前N个涨�
         """, db.bind)
         
         # 按涨幅降序排列
-        df = df.sort_values(by='change_percent', ascending=False)
-        
+
         # 取前limit个
         df_limit = df.head(limit)
         
