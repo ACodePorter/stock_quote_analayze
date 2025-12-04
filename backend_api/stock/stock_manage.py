@@ -240,7 +240,7 @@ async def get_quote_board(limit: int = Query(10, description="返回前N个涨�
         df = pd.read_sql_query(f"""
             SELECT * FROM stock_realtime_quote 
             WHERE change_percent IS NOT NULL AND change_percent != 0 AND trade_date = '{latest_trade_date}'
-            ORDER BY code
+            ORDER BY change_percent DESC
         """, db.bind)
         
         # 按涨幅降序排列

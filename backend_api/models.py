@@ -391,6 +391,50 @@ class IndustryBoardRealtimeQuotes(Base):
     leading_stock_change_percent = Column(Float)
     update_time = Column(String)  # 改为String类型匹配数据库
 
+class HKIndexBasicInfo(Base):
+    """港股指数基础信息表"""
+    __tablename__ = "hk_index_basic_info"
+    code = Column(String(10), primary_key=True)
+    name = Column(String(50), nullable=False)
+    english_name = Column(String(100))
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+
+class HKIndexRealtimeQuotes(Base):
+    """港股指数实时行情表"""
+    __tablename__ = "hk_index_realtime_quotes"
+    code = Column(String(10), primary_key=True)
+    trade_date = Column(String, primary_key=True)  # 交易日期，格式：YYYY-MM-DD
+    name = Column(String(50), nullable=False)
+    price = Column(Float)
+    change = Column(Float)
+    pct_chg = Column(Float)
+    high = Column(Float)
+    low = Column(Float)
+    open = Column(Float)
+    pre_close = Column(Float)
+    volume = Column(Float)
+    amount = Column(Float)
+    update_time = Column(String, index=True)
+    collect_time = Column(String)
+
+class HKIndexHistoricalQuotes(Base):
+    """港股指数历史行情表"""
+    __tablename__ = "hk_index_historical_quotes"
+    code = Column(String(10), primary_key=True)
+    name = Column(String(50), nullable=False)
+    date = Column(String, primary_key=True)
+    open = Column(Float)
+    high = Column(Float)
+    low = Column(Float)
+    close = Column(Float)
+    volume = Column(Float)
+    amount = Column(Float)
+    change = Column(Float)
+    pct_chg = Column(Float)
+    collected_source = Column(String)
+    collected_date = Column(DateTime, default=datetime.now)
+
 class HistoricalQuotes(Base):
     __tablename__ = 'historical_quotes'
     code = Column(String, primary_key=True)

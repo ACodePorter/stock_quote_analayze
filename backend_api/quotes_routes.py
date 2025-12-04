@@ -1,816 +1,322 @@
-"""
-行情数据API路由
-提供股票、指数、行业板块的实时行情数据查询服务
-"""
-
-from typing import List, Optional, Dict, Any
-from fastapi import APIRouter, Depends, HTTPException, status, Query
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import desc, func, case, text
-from datetime import datetime, timedelta
-import logging
-import math
-import pandas as pd
-
-from database import get_db
-from models import (
-    StockRealtimeQuote,
-    IndexRealtimeQuotes,
-    IndustryBoardRealtimeQuotes
+from sqlalchemy import desc, asc, func, or_
+from typing import List, Optional
+from datetime import datetime
+from backend_api.database import get_db
+from backend_api.models import (
+    StockRealtimeQuote, IndexRealtimeQuotes, IndustryBoardRealtimeQuotes,
+    HistoricalQuotes, StockRealtimeQuoteHK, HKIndexRealtimeQuotes,
+    HKIndexHistoricalQuotes, HistoricalQuotesHK
 )
-
-# 配置日志
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/quotes", tags=["quotes"])
 
-# 响应模型
-class QuotesResponse:
-    def __init__(self, success: bool, data: List[Dict], total: int, page: int, page_size: int, message: str = ""):
-        self.success = success
-        self.data = data
-        self.total = total
-        self.page = page
-        self.page_size = page_size
-        self.message = message
+# 通用分页响应模型
+def paginate_query(query, page, page_size):
+    total = query.count()
+    items = query.offset((page - 1) * page_size).limit(page_size).all()
+    return {
+        "items": items,
+        "total": total,
+        "page": page,
+        "page_size": page_size
+    }
 
-    def dict(self):
-        return {
-            "success": self.success,
-            "data": self.data,
-            "total": self.total,
-            "page": self.page,
-            "page_size": self.page_size,
-            "message": self.message
-        }
-
-class StatsResponse:
-    def __init__(self, success: bool, data: Dict, message: str = ""):
-        self.success = success
-        self.data = data
-        self.message = message
-
-    def dict(self):
-        return {
-            "success": self.success,
-            "data": self.data,
-            "message": self.message
-        }
-
-def safe_float(value) -> Optional[float]:
-    """安全地将值转换为浮点数"""
-    try:
-        if value is None:
-            return None
-        # 移除pandas依赖，直接检查
-        if isinstance(value, (int, float)):
-            # 检查是否为nan或inf
-            if isinstance(value, float) and (math.isnan(value) or math.isinf(value)):
-                return None
-            return float(value)
-        elif isinstance(value, str) and value.strip():
-            # 检查字符串是否为nan或inf
-            if value.lower() in ['nan', 'inf', '-inf', 'infinity', '-infinity']:
-                return None
-            return float(value)
-        else:
-            return None
-    except (ValueError, TypeError) as e:
-        logger.warning(f"safe_float转换失败: {value} ({type(value)}) - {str(e)}")
-        return None
-
-def safe_datetime(value) -> Optional[str]:
-    """安全地处理时间字段"""
-    try:
-        if value is None:
-            return None
-        if hasattr(value, 'isoformat'):
-            return value.isoformat()
-        elif isinstance(value, str):
-            return value
-        else:
-            return str(value)
-    except Exception as e:
-        logger.warning(f"safe_datetime转换失败: {value} ({type(value)}) - {str(e)}")
-        return None
-
-def format_quotes_data(data: List[Any], data_type: str) -> List[Dict]:
-    """格式化行情数据"""
-    formatted_data = []
-    
-    for item in data:
-        if data_type == "stocks":
-            formatted_item = {
-                "code": item.code,
-                "name": item.name,
-                "current_price": safe_float(item.current_price),
-                "change_percent": safe_float(item.change_percent),
-                "volume": safe_float(item.volume),
-                "amount": safe_float(item.amount),
-                "high": safe_float(item.high),
-                "low": safe_float(item.low),
-                "open": safe_float(item.open),
-                "pre_close": safe_float(item.pre_close),
-                "turnover_rate": safe_float(item.turnover_rate),
-                "pe_dynamic": safe_float(item.pe_dynamic),
-                "total_market_value": safe_float(item.total_market_value),
-                "pb_ratio": safe_float(item.pb_ratio),
-                "circulating_market_value": safe_float(item.circulating_market_value),
-                "update_time": safe_datetime(item.update_time)
-            }
-        elif data_type == "indices":
-            formatted_item = {
-                "code": item.code,
-                "name": item.name,
-                "price": safe_float(item.price),
-                "change": safe_float(item.change),
-                "pct_chg": safe_float(item.pct_chg),
-                "high": safe_float(item.high),
-                "low": safe_float(item.low),
-                "open": safe_float(item.open),
-                "pre_close": safe_float(item.pre_close),
-                "volume": safe_float(item.volume),
-                "amount": safe_float(item.amount),
-                "amplitude": safe_float(item.amplitude),
-                "turnover": safe_float(item.turnover),
-                "pe": safe_float(item.pe),
-                "volume_ratio": safe_float(item.volume_ratio),
-                "update_time": safe_datetime(item.update_time)
-            }
-        elif data_type == "industries":
-            formatted_item = {
-                "name": item.board_name,
-                "price": safe_float(item.latest_price),
-                "change_percent": safe_float(item.change_percent),
-                "change_amount": safe_float(item.change_amount),
-                "total_market_value": safe_float(item.total_market_value),
-                "volume": safe_float(item.volume),
-                "amount": safe_float(item.amount),
-                "turnover_rate": safe_float(item.turnover_rate),
-                "leading_stock": item.leading_stock_name,
-                "leading_stock_change": safe_float(item.leading_stock_change_percent),
-                "leading_stock_code": item.leading_stock_code,
-                "update_time": safe_datetime(item.update_time)
-            }
-        else:
-            continue
-            
-        formatted_data.append(formatted_item)
-    
-    return formatted_data
-
+# 1. A股股票实时行情
 @router.get("/stocks")
-async def get_stock_quotes(
-    page: int = Query(1, ge=1, description="页码"),
-    page_size: int = Query(20, ge=1, le=200, description="每页大小"),
-    keyword: Optional[str] = Query(None, description="搜索关键词"),
-    market: Optional[str] = Query(None, description="市场类型"),
-    sort_by: Optional[str] = Query("change_percent", description="排序字段")
+def get_stock_quotes(
+    page: int = 1,
+    page_size: int = 20,
+    keyword: Optional[str] = None,
+    market: Optional[str] = None,
+    sort_by: Optional[str] = "change_percent",
+    db: Session = Depends(get_db)
 ):
-    """获取股票实时行情数据"""
-    try:
-        db = next(get_db())
-        
-        # 首先获取最新的交易日期
-        latest_date_result = pd.read_sql_query("""
-            SELECT MAX(trade_date) as latest_date 
-            FROM stock_realtime_quote 
-            WHERE change_percent IS NOT NULL AND change_percent != 0
-        """, db.bind)
-        
-        if latest_date_result.empty or latest_date_result.iloc[0]['latest_date'] is None:
-            db.close()
-            return JSONResponse({'success': False, 'message': '暂无行情数据'}, status_code=404)
-        
-        latest_trade_date = latest_date_result.iloc[0]['latest_date']
-        print(f"📅 使用最新交易日期: {latest_trade_date}")
-        
-        # 构建查询，按最新交易日期过滤
-        query = db.query(StockRealtimeQuote).filter(StockRealtimeQuote.trade_date == latest_trade_date)
-        
-        # 关键词搜索
-        if keyword:
-            query = query.filter(
-                (StockRealtimeQuote.code.contains(keyword)) |
-                (StockRealtimeQuote.name.contains(keyword))
-            )
-        
-        # 市场类型过滤
-        if market:
-            if market == "sh":
-                query = query.filter(StockRealtimeQuote.code.startswith('6'))
-            elif market == "sz":
-                query = query.filter(StockRealtimeQuote.code.startswith('0'))
-            elif market == "cy":
-                query = query.filter(StockRealtimeQuote.code.startswith('3'))
-            elif market == "bj":
-                query = query.filter(StockRealtimeQuote.code.startswith('8'))
-        
-        # 排序 - 使用 case 语句确保 null 值排在最后
-        if sort_by == "change_percent":
-            query = query.order_by(
-                case(
-                    (StockRealtimeQuote.change_percent.is_(None), 0),
-                    else_=1
-                ).desc(),
-                desc(StockRealtimeQuote.change_percent)
-            )
-        elif sort_by == "current_price":
-            query = query.order_by(
-                case(
-                    (StockRealtimeQuote.current_price.is_(None), 0),
-                    else_=1
-                ).desc(),
-                desc(StockRealtimeQuote.current_price)
-            )
-        elif sort_by == "high":
-            query = query.order_by(
-                case(
-                    (StockRealtimeQuote.high.is_(None), 0),
-                    else_=1
-                ).desc(),
-                desc(StockRealtimeQuote.high)
-            )
-        elif sort_by == "low":
-            query = query.order_by(
-                case(
-                    (StockRealtimeQuote.low.is_(None), 0),
-                    else_=1
-                ).desc(),
-                desc(StockRealtimeQuote.low)
-            )
-        elif sort_by == "open":
-            query = query.order_by(
-                case(
-                    (StockRealtimeQuote.open.is_(None), 0),
-                    else_=1
-                ).desc(),
-                desc(StockRealtimeQuote.open)
-            )
-        elif sort_by == "pre_close":
-            query = query.order_by(
-                case(
-                    (StockRealtimeQuote.pre_close.is_(None), 0),
-                    else_=1
-                ).desc(),
-                desc(StockRealtimeQuote.pre_close)
-            )
-        elif sort_by == "volume":
-            query = query.order_by(
-                case(
-                    (StockRealtimeQuote.volume.is_(None), 0),
-                    else_=1
-                ).desc(),
-                desc(StockRealtimeQuote.volume)
-            )
-        elif sort_by == "amount":
-            query = query.order_by(
-                case(
-                    (StockRealtimeQuote.amount.is_(None), 0),
-                    else_=1
-                ).desc(),
-                desc(StockRealtimeQuote.amount)
-            )
-        elif sort_by == "turnover_rate":
-            query = query.order_by(
-                case(
-                    (StockRealtimeQuote.turnover_rate.is_(None), 0),
-                    else_=1
-                ).desc(),
-                desc(StockRealtimeQuote.turnover_rate)
-            )
-        elif sort_by == "pe_dynamic":
-            query = query.order_by(
-                case(
-                    (StockRealtimeQuote.pe_dynamic.is_(None), 0),
-                    else_=1
-                ).desc(),
-                desc(StockRealtimeQuote.pe_dynamic)
-            )
-        elif sort_by == "total_market_value":
-            query = query.order_by(
-                case(
-                    (StockRealtimeQuote.total_market_value.is_(None), 0),
-                    else_=1
-                ).desc(),
-                desc(StockRealtimeQuote.total_market_value)
-            )
-        elif sort_by == "pb_ratio":
-            query = query.order_by(
-                case(
-                    (StockRealtimeQuote.pb_ratio.is_(None), 0),
-                    else_=1
-                ).desc(),
-                desc(StockRealtimeQuote.pb_ratio)
-            )
-        elif sort_by == "circulating_market_value":
-            query = query.order_by(
-                case(
-                    (StockRealtimeQuote.circulating_market_value.is_(None), 0),
-                    else_=1
-                ).desc(),
-                desc(StockRealtimeQuote.circulating_market_value)
-            )
+    # 获取最新交易日期
+    latest_date_row = db.query(StockRealtimeQuote.trade_date).order_by(desc(StockRealtimeQuote.trade_date)).first()
+    if not latest_date_row:
+        return {"success": True, "data": [], "total": 0, "page": page, "page_size": page_size}
+    
+    latest_date = latest_date_row[0]
+    
+    # 只查询最新交易日期的数据
+    query = db.query(StockRealtimeQuote).filter(StockRealtimeQuote.trade_date == latest_date)
+    
+    # 筛选
+    if keyword:
+        query = query.filter(or_(
+            StockRealtimeQuote.code.like(f"%{keyword}%"),
+            StockRealtimeQuote.name.like(f"%{keyword}%")
+        ))
+    
+    # 排序
+    if sort_by:
+        if sort_by.startswith("-"):
+            query = query.order_by(asc(getattr(StockRealtimeQuote, sort_by[1:])))
         else:
-            query = query.order_by(
-                case(
-                    (StockRealtimeQuote.update_time.is_(None), 0),
-                    else_=1
-                ).desc(),
-                desc(StockRealtimeQuote.update_time)
-            )
-        
-        # 分页
-        total = query.count()
-        offset = (page - 1) * page_size
-        data = query.offset(offset).limit(page_size).all()
-        
-        # 格式化数据
-        formatted_data = format_quotes_data(data, "stocks")
-        
-        response = QuotesResponse(
-            success=True,
-            data=formatted_data,
-            total=total,
-            page=page,
-            page_size=page_size
-        )
-        
-        return response.dict()
-        
-    except Exception as e:
-        logger.error(f"获取股票行情数据失败: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"获取股票行情数据失败: {str(e)}"
-        )
-    finally:
-        db.close()
+            query = query.order_by(desc(getattr(StockRealtimeQuote, sort_by)))
+            
+    # 分页
+    result = paginate_query(query, page, page_size)
+    
+    return {
+        "success": True,
+        "data": [item.__dict__ for item in result["items"]],
+        "total": result["total"],
+        "page": page,
+        "page_size": page_size
+    }
 
+# 2. A股指数实时行情
 @router.get("/indices")
-async def get_index_quotes(
-    page: int = Query(1, ge=1, description="页码"),
-    page_size: int = Query(20, ge=1, le=100, description="每页大小"),
-    keyword: Optional[str] = Query(None, description="搜索关键词"),
-    sort_by: Optional[str] = Query("pct_chg", description="排序字段")
+def get_index_quotes(
+    page: int = 1,
+    page_size: int = 20,
+    keyword: Optional[str] = None,
+    sort_by: Optional[str] = "pct_chg",
+    db: Session = Depends(get_db)
 ):
-    """获取指数实时行情数据"""
-    try:
-        db = next(get_db())
+    query = db.query(IndexRealtimeQuotes)
+    
+    if keyword:
+        query = query.filter(or_(
+            IndexRealtimeQuotes.code.like(f"%{keyword}%"),
+            IndexRealtimeQuotes.name.like(f"%{keyword}%")
+        ))
         
-        # 构建查询
-        query = db.query(IndexRealtimeQuotes)
-        
-        # 关键词搜索
-        if keyword:
-            query = query.filter(
-                (IndexRealtimeQuotes.code.contains(keyword)) |
-                (IndexRealtimeQuotes.name.contains(keyword))
-            )
-        
-        # 排序 - 移除SQL排序，统一使用Python排序确保所有空值都排在最后
-        
-        # 分页和排序 - 统一使用Python排序确保所有空值都排在最后
-        all_data = query.all()
-        
-        # 根据排序字段进行Python排序，确保null值排在最后
-        if sort_by == "pct_chg":
-            all_data.sort(key=lambda x: (x.pct_chg is None, x.pct_chg or 0), reverse=True)
-        elif sort_by == "price":
-            all_data.sort(key=lambda x: (x.price is None, x.price or 0), reverse=True)
-        elif sort_by == "change":
-            all_data.sort(key=lambda x: (x.change is None, x.change or 0), reverse=True)
-        elif sort_by == "high":
-            all_data.sort(key=lambda x: (x.high is None, x.high or 0), reverse=True)
-        elif sort_by == "low":
-            all_data.sort(key=lambda x: (x.low is None, x.low or 0), reverse=True)
-        elif sort_by == "open":
-            all_data.sort(key=lambda x: (x.open is None, x.open or 0), reverse=True)
-        elif sort_by == "pre_close":
-            all_data.sort(key=lambda x: (x.pre_close is None, x.pre_close or 0), reverse=True)
-        elif sort_by == "volume":
-            all_data.sort(key=lambda x: (x.volume is None, x.volume or 0), reverse=True)
-        elif sort_by == "amount":
-            all_data.sort(key=lambda x: (x.amount is None, x.amount or 0), reverse=True)
-        elif sort_by == "amplitude":
-            all_data.sort(key=lambda x: (x.amplitude is None, x.amplitude or 0), reverse=True)
-        elif sort_by == "turnover":
-            all_data.sort(key=lambda x: (x.turnover is None, x.turnover or 0), reverse=True)
-        elif sort_by == "pe":
-            all_data.sort(key=lambda x: (x.pe is None, x.pe or 0), reverse=True)
-        elif sort_by == "volume_ratio":
-            all_data.sort(key=lambda x: (x.volume_ratio is None, x.volume_ratio or 0), reverse=True)
+    if sort_by:
+        if sort_by.startswith("-"):
+            query = query.order_by(asc(getattr(IndexRealtimeQuotes, sort_by[1:])))
         else:
-            # 默认按更新时间排序
-            all_data.sort(key=lambda x: (x.update_time is None, x.update_time or datetime.min), reverse=True)
-        
-        total = len(all_data)
-        start = (page - 1) * page_size
-        end = start + page_size
-        data = all_data[start:end]
-        
-        # 格式化数据
-        formatted_data = format_quotes_data(data, "indices")
-        
-        response = QuotesResponse(
-            success=True,
-            data=formatted_data,
-            total=total,
-            page=page,
-            page_size=page_size
-        )
-        
-        return response.dict()
-        
-    except Exception as e:
-        logger.error(f"获取指数行情数据失败: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"获取指数行情数据失败: {str(e)}"
-        )
-    finally:
-        db.close()
+            query = query.order_by(desc(getattr(IndexRealtimeQuotes, sort_by)))
+            
+    result = paginate_query(query, page, page_size)
+    
+    return {
+        "success": True,
+        "data": [item.__dict__ for item in result["items"]],
+        "total": result["total"],
+        "page": page,
+        "page_size": page_size
+    }
 
-@router.get("/industries")
-async def get_industry_quotes(
-    page: int = Query(1, ge=1, description="页码"),
-    page_size: int = Query(20, ge=1, le=100, description="每页大小"),
-    keyword: Optional[str] = Query(None, description="搜索关键词"),
-    sort_by: Optional[str] = Query("change_percent", description="排序字段")
-):
-    """获取行业板块实时行情数据"""
-    try:
-        db = next(get_db())
-        
-        # 构建查询
-        query = db.query(IndustryBoardRealtimeQuotes)
-        
-        # 关键词搜索
-        if keyword:
-            query = query.filter(IndustryBoardRealtimeQuotes.name.contains(keyword))
-        
-        # 排序 - 使用 case 语句确保 null 值排在最后
-        if sort_by == "change_percent":
-            query = query.order_by(
-                case(
-                    (IndustryBoardRealtimeQuotes.change_percent.is_(None), 0),
-                    else_=1
-                ).desc(),
-                desc(IndustryBoardRealtimeQuotes.change_percent)
-            )
-        elif sort_by == "amount":
-            query = query.order_by(
-                case(
-                    (IndustryBoardRealtimeQuotes.amount.is_(None), 0),
-                    else_=1
-                ).desc(),
-                desc(IndustryBoardRealtimeQuotes.amount)
-            )
-        elif sort_by == "turnover_rate":
-            query = query.order_by(
-                case(
-                    (IndustryBoardRealtimeQuotes.turnover_rate.is_(None), 0),
-                    else_=1
-                ).desc(),
-                desc(IndustryBoardRealtimeQuotes.turnover_rate)
-            )
-        else:
-            query = query.order_by(
-                case(
-                    (IndustryBoardRealtimeQuotes.update_time.is_(None), 0),
-                    else_=1
-                ).desc(),
-                desc(IndustryBoardRealtimeQuotes.update_time)
-            )
-        
-        # 分页
-        total = query.count()
-        offset = (page - 1) * page_size
-        data = query.offset(offset).limit(page_size).all()
-        
-        # 格式化数据
-        formatted_data = format_quotes_data(data, "industries")
-        
-        response = QuotesResponse(
-            success=True,
-            data=formatted_data,
-            total=total,
-            page=page,
-            page_size=page_size
-        )
-        
-        return response.dict()
-        
-    except Exception as e:
-        logger.error(f"获取行业板块行情数据失败: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"获取行业板块行情数据失败: {str(e)}"
-        )
-    finally:
-        db.close()
-
-@router.get("/stats")
-async def get_quotes_stats():
-    """获取行情数据统计信息"""
-    try:
-        db = next(get_db())
-        
-        # 统计各表数据量
-        total_stocks = db.query(func.count(StockRealtimeQuote.code)).scalar() or 0
-        total_indices = db.query(func.count(IndexRealtimeQuotes.code)).scalar() or 0
-        total_industries = db.query(func.count(IndustryBoardRealtimeQuotes.board_name)).scalar() or 0
-        
-        # 获取最后更新时间
-        last_stock_update = db.query(func.max(StockRealtimeQuote.update_time)).scalar()
-        last_index_update = db.query(func.max(IndexRealtimeQuotes.update_time)).scalar()
-        last_industry_update = db.query(func.max(IndustryBoardRealtimeQuotes.update_time)).scalar()
-        
-        # 取最新的更新时间
-        update_times = []
-        if last_stock_update and isinstance(last_stock_update, datetime):
-            update_times.append(last_stock_update)
-        if last_index_update and isinstance(last_index_update, datetime):
-            update_times.append(last_index_update)
-        if last_industry_update and isinstance(last_industry_update, datetime):
-            update_times.append(last_industry_update)
-        
-        last_update_time = max(update_times) if update_times else datetime.now()
-        
-        stats_data = {
-            "totalStocks": total_stocks,
-            "totalIndices": total_indices,
-            "totalIndustries": total_industries,
-            "lastUpdateTime": last_update_time.strftime("%Y-%m-%d %H:%M:%S") if isinstance(last_update_time, datetime) else str(last_update_time)
-        }
-        
-        response = StatsResponse(
-            success=True,
-            data=stats_data
-        )
-        
-        return response.dict()
-        
-    except Exception as e:
-        logger.error(f"获取行情数据统计失败: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"获取行情数据统计失败: {str(e)}"
-        )
-    finally:
-        db.close()
-
-@router.get("/stocks/list")
-async def get_stock_list():
-    """获取股票列表（用于历史行情查询）"""
-    try:
-        db = next(get_db())
-        
-        # 从stock_basic_info表获取股票列表
-        query = db.execute(text("""
-            SELECT code, name 
-            FROM stock_basic_info 
-            ORDER BY code
-        """))
-        
-        stock_list = []
-        for row in query.fetchall():
-            stock_list.append({
-                "code": row[0],
-                "name": row[1]
-            })
-        
-        db.close()
-        
-        return {
-            "success": True,
-            "data": stock_list
-        }
-        
-    except Exception as e:
-        logger.error(f"获取股票列表失败: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"获取股票列表失败: {str(e)}"
-        )
-
+# 3. A股历史行情
 @router.get("/history")
-async def get_historical_quotes(
-    code: Optional[str] = Query(None, description="股票代码"),
-    page: int = Query(1, ge=1, description="页码"),
-    size: int = Query(20, ge=1, le=100, description="每页大小"),
-    start_date: Optional[str] = Query(None, description="开始日期"),
-    end_date: Optional[str] = Query(None, description="结束日期"),
-    include_notes: bool = Query(True, description="是否包含交易备注")
+def get_historical_quotes(
+    page: int = 1,
+    size: int = 20,
+    code: Optional[str] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    keyword: Optional[str] = None,
+    db: Session = Depends(get_db)
 ):
-    """获取历史行情数据"""
-    try:
-        db = next(get_db())
+    query = db.query(HistoricalQuotes)
+    
+    if code:
+        query = query.filter(HistoricalQuotes.code == code)
         
-        # 格式化日期
-        def format_date(date_str):
-            if not date_str:
-                return None
-            try:
-                # 支持多种日期格式
-                if len(date_str) == 8:  # YYYYMMDD
-                    return f"{date_str[:4]}-{date_str[4:6]}-{date_str[6:8]}"
-                elif len(date_str) == 10:  # YYYY-MM-DD
-                    return date_str
-                else:
-                    return date_str
-            except:
-                return date_str
+    if keyword:
+        # 如果提供了关键字但没有提供代码，尝试搜索代码或名称
+        # 注意：HistoricalQuotes表可能没有name字段，需要关联查询或假设有
+        # 这里假设HistoricalQuotes有name字段，如果没有需要调整
+        query = query.filter(or_(
+            HistoricalQuotes.code.like(f"%{keyword}%"),
+            HistoricalQuotes.name.like(f"%{keyword}%")
+        ))
         
-        start_date_fmt = format_date(start_date)
-        end_date_fmt = format_date(end_date)
+    if start_date:
+        query = query.filter(HistoricalQuotes.date >= start_date)
+    if end_date:
+        query = query.filter(HistoricalQuotes.date <= end_date)
         
-        # 构建基础查询
-        if include_notes:
-            base_query = """
-                SELECT 
-                    h.code, h.name, h.date, h.open, h.close, h.high, h.low, 
-                    h.volume, h.amount, h.change_percent, h.change, h.turnover_rate,
-                    h.cumulative_change_percent, h.five_day_change_percent, h.ten_day_change_percent, h.thirty_day_change_percent, h.sixty_day_change_percent, h.remarks,
-                    COALESCE(tn.notes, '') as user_notes,
-                    COALESCE(tn.strategy_type, '') as strategy_type,
-                    COALESCE(tn.risk_level, '') as risk_level,
-                    COALESCE(tn.created_by, '') as notes_creator,
-                    tn.created_at as notes_created_at,
-                    tn.updated_at as notes_updated_at
-                FROM historical_quotes h
-                LEFT JOIN trading_notes tn ON h.code = tn.stock_code AND h.date::date = tn.trade_date
-            """
-        else:
-            base_query = """
-                SELECT 
-                    code, name, date, open, close, high, low, 
-                    volume, amount, change_percent, change, turnover_rate,
-                    cumulative_change_percent, five_day_change_percent, ten_day_change_percent, thirty_day_change_percent, sixty_day_change_percent, remarks
-                FROM historical_quotes
-            """
-        
-        # 构建 WHERE 子句
-        where_clauses = []
-        params = {}
-        
-        if code:
-            where_clauses.append("h.code = :code" if include_notes else "code = :code")
-            params["code"] = code
-        
-        if start_date_fmt:
-            where_clauses.append("h.date >= :start_date" if include_notes else "date >= :start_date")
-            params["start_date"] = start_date_fmt
-        
-        if end_date_fmt:
-            where_clauses.append("h.date <= :end_date" if include_notes else "date <= :end_date")
-            params["end_date"] = end_date_fmt
-        
-        if where_clauses:
-            query = base_query + " WHERE " + " AND ".join(where_clauses)
-        else:
-            query = base_query
-        
-        query += " ORDER BY h.date DESC" if include_notes else " ORDER BY date DESC"
-        
-        # 获取总数
-        count_query = f"SELECT COUNT(*) FROM ({query})"
-        total = db.execute(text(count_query), params).scalar()
-        
-        # 分页查询
-        query += " LIMIT :limit OFFSET :offset"
-        params["limit"] = size
-        params["offset"] = (page - 1) * size
-        result = db.execute(text(query), params)
-        
-        items = []
-        for row in result.fetchall():
-            item = {
-                "code": row[0],
-                "name": row[1],
-                "date": row[2],
-                "open": safe_float(row[3]),
-                "close": safe_float(row[4]),
-                "high": safe_float(row[5]),
-                "low": safe_float(row[6]),
-                "volume": safe_float(row[7]),
-                "amount": safe_float(row[8]),
-                "change_percent": safe_float(row[9]),
-                "change": safe_float(row[10]),
-                "turnover_rate": safe_float(row[11]),
-                "cumulative_change_percent": safe_float(row[12]),
-                "five_day_change_percent": safe_float(row[13]),
-                "ten_day_change_percent": safe_float(row[14]),
-                "thirty_day_change_percent": safe_float(row[15]),
-                "sixty_day_change_percent": safe_float(row[16]),
-                "remarks": row[17] if row[17] else ""
-            }
-            
-            # 如果包含备注，添加备注相关字段
-            if include_notes and len(row) > 18:
-                item.update({
-                    "user_notes": row[18] if row[18] else "",
-                    "strategy_type": row[19] if row[19] else "",
-                    "risk_level": row[20] if row[20] else "",
-                    "notes_creator": row[21] if row[21] else "",
-                    "notes_created_at": safe_datetime(row[22]),
-                    "notes_updated_at": safe_datetime(row[23])
-                })
-            
-            items.append(item)
-        
-        db.close()
-        
-        return {
-            "items": items,
-            "total": total
-        }
-        
-    except Exception as e:
-        logger.error(f"获取历史行情数据失败: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"获取历史行情数据失败: {str(e)}"
-        )
+    # 默认按日期降序
+    query = query.order_by(desc(HistoricalQuotes.date))
+    
+    result = paginate_query(query, page, size)
+    
+    return {
+        "items": [item.__dict__ for item in result["items"]],
+        "total": result["total"],
+        "page": page,
+        "size": size
+    }
 
-@router.put("/history/{code}/{date}")
-async def update_historical_quote(
-    code: str,
-    date: str,
-    request_data: Dict[str, Any]
+# 4. A股行业板块实时行情
+@router.get("/industries")
+def get_industry_quotes(
+    page: int = 1,
+    page_size: int = 20,
+    keyword: Optional[str] = None,
+    sort_by: Optional[str] = "change_percent",
+    db: Session = Depends(get_db)
 ):
-    """更新历史行情数据"""
-    try:
-        db = next(get_db())
+    query = db.query(IndustryBoardRealtimeQuotes)
+    
+    if keyword:
+        query = query.filter(IndustryBoardRealtimeQuotes.board_name.like(f"%{keyword}%"))
         
-        # 构建更新字段
-        update_fields = []
-        params = {"code": code, "date": date}
-        
-        for field, value in request_data.items():
-            if field in ['open', 'close', 'high', 'low', 'volume', 'amount', 'change_percent', 'change', 'turnover_rate']:
-                if value is not None:
-                    update_fields.append(f"{field} = :{field}")
-                    params[field] = value
-            elif field == 'remarks':
-                update_fields.append(f"{field} = :{field}")
-                params[field] = value
-        
-        if not update_fields:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="没有有效的更新字段"
-            )
-        
-        # 执行更新
-        update_query = f"""
-            UPDATE historical_quotes 
-            SET {', '.join(update_fields)}
-            WHERE code = :code AND date = :date
-        """
-        
-        result = db.execute(text(update_query), params)
-        db.commit()
-        
-        if result.rowcount == 0:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="未找到指定的历史行情数据"
-            )
-        
-        db.close()
-        
-        return {
-            "success": True,
-            "message": "历史行情数据更新成功"
-        }
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"更新历史行情数据失败: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"更新历史行情数据失败: {str(e)}"
-        )
+    if sort_by:
+        if sort_by.startswith("-"):
+            query = query.order_by(asc(getattr(IndustryBoardRealtimeQuotes, sort_by[1:])))
+        else:
+            query = query.order_by(desc(getattr(IndustryBoardRealtimeQuotes, sort_by)))
+            
+    result = paginate_query(query, page, page_size)
+    
+    return {
+        "success": True,
+        "data": [item.__dict__ for item in result["items"]],
+        "total": result["total"],
+        "page": page,
+        "page_size": page_size
+    }
 
-@router.post("/refresh")
-async def refresh_quotes():
-    """刷新所有行情数据"""
-    try:
-        # TODO: 实现数据刷新逻辑
-        # 这里可以调用数据采集服务来更新行情数据
+# 5. 港股实时行情
+@router.get("/hk-stocks")
+def get_hk_stock_quotes(
+    page: int = 1,
+    page_size: int = 20,
+    keyword: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    # 获取最新日期
+    latest_date_row = db.query(StockRealtimeQuoteHK.trade_date).order_by(desc(StockRealtimeQuoteHK.trade_date)).first()
+    if not latest_date_row:
+        return {"success": True, "data": [], "total": 0, "page": page, "page_size": page_size}
+    
+    latest_date = latest_date_row[0]
+    
+    query = db.query(StockRealtimeQuoteHK).filter(StockRealtimeQuoteHK.trade_date == latest_date)
+    
+    if keyword:
+        query = query.filter(or_(
+            StockRealtimeQuoteHK.code.like(f"%{keyword}%"),
+            StockRealtimeQuoteHK.name.like(f"%{keyword}%")
+        ))
         
-        return {
-            "success": True,
-            "message": "行情数据刷新任务已启动"
-        }
+    # 默认按涨跌幅排序
+    query = query.order_by(desc(StockRealtimeQuoteHK.change_percent))
+    
+    result = paginate_query(query, page, page_size)
+    
+    return {
+        "success": True,
+        "data": [item.__dict__ for item in result["items"]],
+        "total": result["total"],
+        "page": page,
+        "page_size": page_size
+    }
+
+# 6. 港股历史行情
+@router.get("/hk-history")
+def get_hk_historical_quotes(
+    page: int = 1,
+    size: int = 20,
+    code: Optional[str] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    keyword: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    query = db.query(HistoricalQuotesHK)
+    
+    if code:
+        query = query.filter(HistoricalQuotesHK.code == code)
         
-    except Exception as e:
-        logger.error(f"刷新行情数据失败: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"刷新行情数据失败: {str(e)}"
-        )
+    if keyword:
+        query = query.filter(or_(
+            HistoricalQuotesHK.code.like(f"%{keyword}%"),
+            HistoricalQuotesHK.name.like(f"%{keyword}%")
+        ))
+        
+    if start_date:
+        query = query.filter(HistoricalQuotesHK.date >= start_date)
+    if end_date:
+        query = query.filter(HistoricalQuotesHK.date <= end_date)
+        
+    query = query.order_by(desc(HistoricalQuotesHK.date))
+    
+    result = paginate_query(query, page, size)
+    
+    return {
+        "items": [item.__dict__ for item in result["items"]],
+        "total": result["total"],
+        "page": page,
+        "size": size
+    }
+
+# 7. 港股指数实时行情
+@router.get("/hk-indices")
+def get_hk_index_quotes(
+    page: int = 1,
+    page_size: int = 20,
+    keyword: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    # 获取最新日期
+    latest_date_row = db.query(HKIndexRealtimeQuotes.trade_date).order_by(desc(HKIndexRealtimeQuotes.trade_date)).first()
+    if not latest_date_row:
+        return {"success": True, "data": [], "total": 0, "page": page, "page_size": page_size}
+    
+    latest_date = latest_date_row[0]
+    
+    query = db.query(HKIndexRealtimeQuotes).filter(HKIndexRealtimeQuotes.trade_date == latest_date)
+    
+    if keyword:
+        query = query.filter(or_(
+            HKIndexRealtimeQuotes.code.like(f"%{keyword}%"),
+            HKIndexRealtimeQuotes.name.like(f"%{keyword}%")
+        ))
+        
+    # 默认按涨跌幅排序
+    query = query.order_by(desc(HKIndexRealtimeQuotes.pct_chg))
+    
+    result = paginate_query(query, page, page_size)
+    
+    return {
+        "success": True,
+        "data": [item.__dict__ for item in result["items"]],
+        "total": result["total"],
+        "page": page,
+        "page_size": page_size
+    }
+
+# 8. 港股指数历史行情
+@router.get("/hk-index-history")
+def get_hk_index_historical_quotes(
+    page: int = 1,
+    size: int = 20,
+    code: Optional[str] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    keyword: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    query = db.query(HKIndexHistoricalQuotes)
+    
+    if code:
+        query = query.filter(HKIndexHistoricalQuotes.code == code)
+        
+    if keyword:
+        query = query.filter(or_(
+            HKIndexHistoricalQuotes.code.like(f"%{keyword}%"),
+            HKIndexHistoricalQuotes.name.like(f"%{keyword}%")
+        ))
+        
+    if start_date:
+        query = query.filter(HKIndexHistoricalQuotes.date >= start_date)
+    if end_date:
+        query = query.filter(HKIndexHistoricalQuotes.date <= end_date)
+        
+    query = query.order_by(desc(HKIndexHistoricalQuotes.date))
+    
+    result = paginate_query(query, page, size)
+    
+    return {
+        "items": [item.__dict__ for item in result["items"]],
+        "total": result["total"],
+        "page": page,
+        "size": size
+    }

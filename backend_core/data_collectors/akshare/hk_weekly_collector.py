@@ -206,6 +206,7 @@ class HKWeeklyDataGenerator:
             
         except Exception as e:
             logger.error(f"生成港股 {stock_code} 周线数据失败: {e}")
+            self.session.rollback()  # 回滚失败的事务，避免影响后续查询
             self.failed_count += 1
             return False
 

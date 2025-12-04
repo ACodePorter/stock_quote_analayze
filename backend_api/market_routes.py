@@ -10,8 +10,9 @@ import pandas as pd
 import numpy as np
 import sqlite3
 from sqlalchemy.orm import Session
+from sqlalchemy import desc
 from backend_api.database import get_db
-from backend_api.models import IndexRealtimeQuotes, IndustryBoardRealtimeQuotes
+from backend_api.models import IndexRealtimeQuotes, IndustryBoardRealtimeQuotes, HKIndexRealtimeQuotes
 
 
 
@@ -138,145 +139,52 @@ def get_industry_board(db: Session = Depends(get_db)):
 
 # 获取港股指数数据
 @router.get("/hk-indices")
-def get_hk_market_indices():
-    """获取港股指数数据，优先使用akshare stock_hk_index_spot_em，失败则使用stock_hk_index_daily_sina"""
+def get_hk_market_indices(db: Session = Depends(get_db)):
+    """获取港股指数数据（从数据库 hk_index_realtime_quotes 表中获取当前日期的数据）"""
     try:
-        import akshare as ak
+        # 获取当前日期
+        current_date = datetime.now().strftime('%Y-%m-%d')
         
-        # 港股指数代码映射
-        hk_index_map = {
-            'HSI': {'name': '恒生指数', 'ak_code': 'HSI'},
-            'HSTECH': {'name': '恒生科技指数', 'ak_code': 'HSTECH'},
-            'HSCI': {'name': '恒生综合指数', 'ak_code': 'HSCI'},
-            'HSCEI': {'name': '恒生中国企业指数', 'ak_code': 'HSCEI'}
-        }
+        # 查询当前日期的所有港股指数数据，如果没有则查询最新日期的数据
+        rows = db.query(HKIndexRealtimeQuotes).filter(
+            HKIndexRealtimeQuotes.trade_date == current_date
+        ).all()
+        
+        # 如果当前日期没有数据，查询最新日期的数据
+        if not rows:
+            # 获取最新的交易日期
+            latest_date_row = db.query(HKIndexRealtimeQuotes).order_by(
+                desc(HKIndexRealtimeQuotes.trade_date)
+            ).first()
+            
+            if latest_date_row:
+                latest_date = latest_date_row.trade_date
+                rows = db.query(HKIndexRealtimeQuotes).filter(
+                    HKIndexRealtimeQuotes.trade_date == latest_date
+                ).all()
         
         indices_data = []
+        if rows:
+            for row in rows:
+                indices_data.append({
+                    'code': row.code,
+                    'name': row.name,
+                    'current': row.price,
+                    'change': row.change,
+                    'change_percent': row.pct_chg,
+                    'volume': row.volume or 0,
+                    'timestamp': row.update_time or datetime.now().isoformat()
+                })
         
-        # 优先尝试使用 stock_hk_index_spot_em
-        try:
-            print('[get_hk_market_indices] 尝试使用 stock_hk_index_spot_em 接口')
-            df = ak.stock_hk_index_spot_em()
-            
-            if df is not None and not df.empty:
-                print(f'[get_hk_market_indices] stock_hk_index_spot_em 返回数据形状: {df.shape}')
-                print(f'[get_hk_market_indices] stock_hk_index_spot_em 列名: {df.columns.tolist()}')
-                
-                # 遍历目标指数
-                for code, info in hk_index_map.items():
-                    try:
-                        # 尝试通过指数代码或名称匹配
-                        index_row = None
-                        
-                        # 先尝试通过代码匹配（可能列名是"代码"或"index_code"等）
-                        if '代码' in df.columns:
-                            index_row = df[df['代码'] == info['ak_code']]
-                        elif 'index_code' in df.columns:
-                            index_row = df[df['index_code'] == info['ak_code']]
-                        elif 'code' in df.columns:
-                            index_row = df[df['code'] == info['ak_code']]
-                        
-                        # 如果代码匹配失败，尝试通过名称匹配
-                        if (index_row is None or index_row.empty) and '名称' in df.columns:
-                            index_row = df[df['名称'].str.contains(info['name'], na=False)]
-                        elif (index_row is None or index_row.empty) and 'name' in df.columns:
-                            index_row = df[df['name'].str.contains(info['name'], na=False)]
-                        
-                        if index_row is not None and not index_row.empty:
-                            row = index_row.iloc[0]
-                            
-                            # 提取数据（列名可能不同，需要灵活处理）
-                            current = safe_float(row.get('最新价', row.get('current', row.get('price', None))))
-                            change = safe_float(row.get('涨跌额', row.get('change', row.get('change_amount', None))))
-                            change_percent = safe_float(row.get('涨跌幅', row.get('change_percent', row.get('pct_chg', None))))
-                            volume = safe_float(row.get('成交量', row.get('volume', row.get('vol', 0))))
-                            
-                            indices_data.append({
-                                'code': code,
-                                'name': info['name'],
-                                'current': current,
-                                'change': change,
-                                'change_percent': change_percent,
-                                'volume': volume,
-                                'timestamp': datetime.now().isoformat()
-                            })
-                            print(f'[get_hk_market_indices] 成功获取 {info["name"]} 数据')
-                        else:
-                            print(f'[get_hk_market_indices] 未找到 {info["name"]} 的数据')
-                    except Exception as e:
-                        print(f'[get_hk_market_indices] 处理 {info["name"]} 时出错: {str(e)}')
-                        import traceback
-                        traceback.print_exc()
-                        continue
-                
-                if indices_data:
-                    print(f'[get_hk_market_indices] 成功获取 {len(indices_data)} 个港股指数数据')
-                    return JSONResponse({'success': True, 'data': indices_data})
-            else:
-                print('[get_hk_market_indices] stock_hk_index_spot_em 返回空数据')
-                raise Exception('stock_hk_index_spot_em 返回空数据')
-        except Exception as e1:
-            print(f'[get_hk_market_indices] stock_hk_index_spot_em 接口调用失败: {str(e1)}')
-            import traceback
-            traceback.print_exc()
-            
-            # 失败则尝试使用 stock_hk_index_daily_sina
-            try:
-                print('[get_hk_market_indices] 尝试使用 stock_hk_index_daily_sina 接口')
-                
-                # 遍历目标指数，逐个获取
-                for code, info in hk_index_map.items():
-                    try:
-                        # stock_hk_index_daily_sina 需要传入指数代码
-                        df_sina = ak.stock_hk_index_daily_sina(symbol=info['ak_code'])
-                        
-                        if df_sina is not None and not df_sina.empty:
-                            # 获取最新一条数据
-                            latest_row = df_sina.iloc[-1]
-                            
-                            # 提取数据（列名可能是 date, open, close, high, low, volume 等）
-                            current = safe_float(latest_row.get('close', latest_row.get('收盘', None)))
-                            
-                            # 计算涨跌额和涨跌幅（需要前一日数据）
-                            if len(df_sina) >= 2:
-                                prev_row = df_sina.iloc[-2]
-                                prev_close = safe_float(prev_row.get('close', prev_row.get('收盘', None)))
-                                if current is not None and prev_close is not None and prev_close > 0:
-                                    change = current - prev_close
-                                    change_percent = (change / prev_close) * 100
-                                else:
-                                    change = None
-                                    change_percent = None
-                            else:
-                                change = None
-                                change_percent = None
-                            
-                            volume = safe_float(latest_row.get('volume', latest_row.get('成交量', 0)))
-                            
-                            indices_data.append({
-                                'code': code,
-                                'name': info['name'],
-                                'current': current,
-                                'change': change,
-                                'change_percent': change_percent,
-                                'volume': volume,
-                                'timestamp': datetime.now().isoformat()
-                            })
-                            print(f'[get_hk_market_indices] 通过sina接口成功获取 {info["name"]} 数据')
-                    except Exception as e2:
-                        print(f'[get_hk_market_indices] 通过sina接口获取 {info["name"]} 失败: {str(e2)}')
-                        continue
-                
-                if indices_data:
-                    print(f'[get_hk_market_indices] 通过sina接口成功获取 {len(indices_data)} 个港股指数数据')
-                    return JSONResponse({'success': True, 'data': indices_data})
-                else:
-                    raise Exception('所有接口都未能获取到数据')
-            except Exception as e2:
-                print(f'[get_hk_market_indices] stock_hk_index_daily_sina 接口调用失败: {str(e2)}')
-                import traceback
-                traceback.print_exc()
-                raise Exception(f'港股指数数据获取失败: {str(e2)}')
+        if indices_data:
+            return JSONResponse({'success': True, 'data': indices_data})
+        else:
+            # 如果数据库没有数据，返回空数据提示
+            return JSONResponse({
+                'success': False,
+                'message': '数据库中暂无港股指数数据，请先运行数据采集任务',
+                'data': []
+            })
         
     except Exception as e:
         import traceback
@@ -295,18 +203,6 @@ def get_hk_market_indices():
 def get_industry_board_top_stocks(board_code: str, board_name: str = None, db: Session = Depends(get_db)):
     """获取指定行业板块内涨幅领先的股票（从数据库表获取真实数据）"""
     try:
-        # 不再需要akshare，直接从数据库获取数据
-        
-        # 获取板块内所有股票的实时行情数据
-        # 不再使用AKShare获取板块成分股，直接从数据库表获取领涨股信息
-        pass
-        
-        # 不再使用模拟数据
-        pass
-        
-        # 不再使用AKShare获取股票实时数据，直接从数据库表获取
-        pass
-        
         # 直接从 industry_board_realtime_quotes 表获取领涨股信息
         board_data = db.query(IndustryBoardRealtimeQuotes).filter(
             IndustryBoardRealtimeQuotes.board_code == board_code
@@ -356,4 +252,4 @@ def get_industry_board_top_stocks(board_code: str, board_name: str = None, db: S
             'message': '获取板块龙头股数据失败',
             'error': str(e),
             'traceback': tb
-        }, status_code=500) 
+        }, status_code=500)

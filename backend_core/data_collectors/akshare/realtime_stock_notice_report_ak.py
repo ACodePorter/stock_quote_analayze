@@ -53,7 +53,7 @@ class AkshareStockNoticeReportCollector(AKShareCollector):
         # 创建A股公告数据表
         session.execute(text('''
             CREATE TABLE IF NOT EXISTS stock_notice_report (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id SERIAL PRIMARY KEY,
                 code TEXT NOT NULL,
                 name TEXT NOT NULL,
                 notice_title TEXT NOT NULL,
@@ -85,7 +85,7 @@ class AkshareStockNoticeReportCollector(AKShareCollector):
         # 创建操作日志表（如果不存在）
         session.execute(text('''
             CREATE TABLE IF NOT EXISTS realtime_collect_operation_logs (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id SERIAL PRIMARY KEY,
                 operation_type TEXT NOT NULL,
                 operation_desc TEXT NOT NULL,
                 affected_rows INTEGER,

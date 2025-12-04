@@ -3,10 +3,10 @@
 独立策略文件
 
 策略要求:
-1. 股票范围: 排除创业板(3开头)和科创板(688开头)
+1. 股票范围: 排除创业板(3开头)、科创板(688开头)和北证A股(9开头)
 2. 下跌趋势: 当日最低价 < MA20(20日移动平均线)
-3. 长下影线: 最近3个交易日内出现(阳线或阴线均可)
-   - 下影线长度 >= 实体长度的2倍
+3. 长下影线: 最近2个交易日内出现(阳线或阴线均可)
+   - 下影线长度 >= 实体长度的1倍
    - 上影线很短或几乎没有(上影线 <= 实体长度的30%)
    - 出现长下影线当日振幅超过5%
 """
@@ -92,8 +92,8 @@ class LongLowerShadowStrategy:
         # 计算上影线长度
         upper_shadow = high_price - max(open_price, close_price)
         
-        # 条件2: 下影线长度 >= 实体长度的2倍
-        is_long_lower_shadow = lower_shadow >= body_length * 2
+        # 条件2: 下影线长度 >= 实体长度的1倍
+        is_long_lower_shadow = lower_shadow >= body_length * 1
         
         if not is_long_lower_shadow:
             return False, None
@@ -121,20 +121,20 @@ class LongLowerShadowStrategy:
     @staticmethod
     def check_long_lower_shadow_conditions(historical_data: List[Dict], 
                                            downtrend_days: int = 20,
-                                           recent_days: int = 3) -> Tuple[bool, Optional[Dict]]:
+                                           recent_days: int = 2) -> Tuple[bool, Optional[Dict]]:
         """
         检查长下影线策略条件
         
         策略要求:
         1. 下跌趋势: 当日最低价 < MA20(20日移动平均线)
-        2. 长下影线: 最近3个交易日内出现(阳线或阴线均可)
+        2. 长下影线: 最近2个交易日内出现(阳线或阴线均可)
         3. 上影线很短或几乎没有
         4. 振幅: 出现长下影线当日振幅超过5%
         
         Args:
             historical_data: 历史数据列表（倒序，最新在前）
             downtrend_days: 下跌趋势判断天数(默认20天)
-            recent_days: 检查长下影线的天数(默认3天)
+            recent_days: 检查长下影线的天数(默认2天)
         
         Returns:
             (是否满足条件, 策略信息)
@@ -148,7 +148,7 @@ class LongLowerShadowStrategy:
         if not is_downtrend:
             return False, None
         
-        # 条件2: 检查最近3个交易日内是否有长下影线(阳线或阴线)
+        # 条件2: 检查最近2个交易日内是否有长下影线(阳线或阴线)
         # 注意：我们需要前一天的收盘价来计算振幅，所以需要确保 historical_data 足够长
         
         long_lower_shadow_found = False
@@ -222,9 +222,9 @@ class LongLowerShadowStrategy:
         长下影线选股策略主函数(支持阳线和阴线)
         
         策略要求:
-        1. 股票范围: 排除创业板(3开头)和科创板(688开头)
+        1. 股票范围: 排除创业板(3开头)、科创板(688开头)和北证A股(9开头)
         2. 下跌趋势: 当日最低价 < MA20(20日移动平均线)
-        3. 长下影线: 最近3个交易日内出现(阳线或阴线均可)
+        3. 长下影线: 最近2个交易日内出现(阳线或阴线均可)
         4. 上影线很短或几乎没有
         5. 振幅: 出现长下影线当日振幅超过5%
         
@@ -237,13 +237,14 @@ class LongLowerShadowStrategy:
         results = []
         
         try:
-            # 1. 获取A股股票列表（排除创业板和科创板）
+            # 1. 获取A股股票列表（排除创业板、科创板和北证A股）
             stocks_query = db.execute(text("""
                 SELECT DISTINCT code, name 
                 FROM stock_basic_info 
                 WHERE LENGTH(code) = 6
                 AND code NOT LIKE '3%'      -- 排除创业板
                 AND code NOT LIKE '688%'    -- 排除科创板
+                AND code NOT LIKE '9%'      -- 排除北证A股
                 ORDER BY code
             """))
             
@@ -309,7 +310,7 @@ class LongLowerShadowStrategy:
                     
                     # 检查长下影线策略条件
                     is_valid, strategy_info = LongLowerShadowStrategy.check_long_lower_shadow_conditions(
-                        historical_data, downtrend_days=20, recent_days=3
+                        historical_data, downtrend_days=20, recent_days=2
                     )
                     
                     if not is_valid or not strategy_info:

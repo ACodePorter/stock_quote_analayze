@@ -128,8 +128,8 @@ class MonthlyDataGenerator:
             # 获取股票名称
             stock_name = df['name'].iloc[0] if not df['name'].empty else ''
             
-            # 2. 重采样为月线 (M 表示月末)
-            monthly_df = df.resample('M').agg({
+            # 2. 重采样为月线 (ME 表示月末)
+            monthly_df = df.resample('ME').agg({
                 'open': 'first',
                 'high': 'max',
                 'low': 'min',
@@ -202,6 +202,7 @@ class MonthlyDataGenerator:
             
         except Exception as e:
             logger.error(f"生成股票 {stock_code} 月线数据失败: {e}")
+            self.session.rollback()  # 回滚失败的事务，避免影响后续查询
             self.failed_count += 1
             return False
 

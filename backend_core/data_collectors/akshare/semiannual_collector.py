@@ -80,8 +80,8 @@ class SemiAnnualDataGenerator:
             df.set_index('date', inplace=True)
             stock_name = df['name'].iloc[0] if not df['name'].empty else ''
             
-            # 半年线聚合 (6M 表示6个月)
-            semiannual_df = df.resample('6M').agg({
+            # 半年线聚合 (6ME 表示6个月月末)
+            semiannual_df = df.resample('6ME').agg({
                 'open': 'first', 'high': 'max', 'low': 'min',
                 'close': 'last', 'volume': 'sum', 'amount': 'sum'
             })
@@ -135,6 +135,7 @@ class SemiAnnualDataGenerator:
             return True
         except Exception as e:
             logger.error(f"生成股票 {stock_code} 半年线数据失败: {e}")
+            self.session.rollback()  # 回滚失败的事务，避免影响后续查询
             self.failed_count += 1
             return False
 

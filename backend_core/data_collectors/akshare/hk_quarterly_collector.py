@@ -100,8 +100,8 @@ class HKQuarterlyDataGenerator:
             df.set_index('date', inplace=True)
             stock_name = df['name'].iloc[0] if not df['name'].empty else ''
             
-            # 季线聚合 (Q 表示季度末)
-            quarterly_df = df.resample('Q').agg({
+            # 季线聚合 (QE 表示季度末)
+            quarterly_df = df.resample('QE').agg({
                 'open': 'first',
                 'high': 'max',
                 'low': 'min',
@@ -159,6 +159,7 @@ class HKQuarterlyDataGenerator:
             return True
         except Exception as e:
             logger.error(f"生成港股 {stock_code} 季线数据失败: {e}")
+            self.session.rollback()  # 回滚失败的事务，避免影响后续查询
             self.failed_count += 1
             return False
 

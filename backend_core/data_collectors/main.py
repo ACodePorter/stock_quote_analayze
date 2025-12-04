@@ -12,6 +12,8 @@ from backend_core.data_collectors.akshare.realtime_stock_industry_board_ak impor
 from backend_core.data_collectors.akshare.realtime_stock_notice_report_ak import AkshareStockNoticeReportCollector
 from backend_core.data_collectors.akshare.hk_realtime import HKRealtimeQuoteCollector
 from backend_core.data_collectors.akshare.hk_historical import HKHistoricalQuoteCollector
+from backend_core.data_collectors.akshare.hk_index_realtime import HKIndexRealtimeCollector
+from backend_core.data_collectors.akshare.hk_index_historical_collector import HKIndexHistoricalCollector
 from apscheduler.schedulers.background import BackgroundScheduler
 from backend_core.data_collectors.akshare.watchlist_history_collector import collect_watchlist_history
 from backend_core.data_collectors.news_collector import NewsCollector
@@ -40,6 +42,8 @@ notice_collector = AkshareStockNoticeReportCollector(DATA_COLLECTORS.get('akshar
 news_collector = NewsCollector()
 hk_realtime_collector = HKRealtimeQuoteCollector(DATA_COLLECTORS.get('akshare', {}))
 hk_historical_collector = HKHistoricalQuoteCollector(DATA_COLLECTORS.get('akshare', {}))
+hk_index_collector = HKIndexRealtimeCollector()
+hk_index_historical_collector = HKIndexHistoricalCollector()
 weekly_generator = WeeklyDataGenerator()
 hk_weekly_generator = HKWeeklyDataGenerator()
 monthly_generator = MonthlyDataGenerator()
@@ -266,8 +270,30 @@ def generate_hk_annual_data():
     except Exception as e:
         logging.error(f"[定时任务] 港股当前年线数据生成异常: {e}")
 
+def collect_hk_index_realtime():
+    try:
+        logging.info("[定时任务] 港股指数实时行情采集开始...")
+        result = hk_index_collector.collect_realtime_quotes()
+        if result:
+            logging.info(f"[定时任务] 港股指数实时行情采集完成，采集到 {len(result)} 条数据")
+        else:
+            logging.warning("[定时任务] 港股指数实时行情采集失败")
+    except Exception as e:
+        logging.error(f"[定时任务] 港股指数实时行情采集异常: {e}")
+
+def collect_hk_index_historical():
+    try:
+        logging.info("[定时任务] 港股指数历史行情采集开始...")
+        result = hk_index_historical_collector.collect_daily_to_historical()
+        if result and result.get('success', 0) > 0:
+            logging.info(f"[定时任务] 港股指数历史行情采集完成: {result.get('message', '')}")
+        else:
+            logging.warning(f"[定时任务] 港股指数历史行情采集失败: {result.get('message', '未知错误')}")
+    except Exception as e:
+        logging.error(f"[定时任务] 港股指数历史行情采集异常: {e}")
+
 # 定时任务配置
-scheduler.add_job(collect_akshare_realtime, 'cron', day_of_week='mon-fri', hour='9-11,13-16', minute='3,28', id='akshare_realtime')
+scheduler.add_job(collect_akshare_realtime, 'cron', day_of_week='mon-fri', hour='9-11,13-16', minute='3,38', id='akshare_realtime')
 scheduler.add_job(collect_tushare_historical, 'cron', hour='16', minute='2', id='tushare_historical')
 scheduler.add_job(collect_akshare_index_realtime, 'cron', day_of_week='mon-fri', hour='9-11,13-16', minute='58', id='akshare_index_realtime')
 scheduler.add_job(collect_akshare_industry_board_realtime, 'cron', day_of_week='mon-fri', hour='9-11,13-16', minute=2, id='akshare_industry_board_realtime')
@@ -289,6 +315,8 @@ scheduler.add_job(generate_semiannual_data, 'cron', day_of_week='mon-fri', hour=
 scheduler.add_job(generate_hk_semiannual_data, 'cron', day_of_week='mon-fri', hour=16, minute=50, id='generate_hk_semiannual')
 scheduler.add_job(generate_annual_data, 'cron', day_of_week='mon-fri', hour=16, minute=25, id='generate_annual')
 scheduler.add_job(generate_hk_annual_data, 'cron', day_of_week='mon-fri', hour=16, minute=57, id='generate_hk_annual')
+scheduler.add_job(collect_hk_index_realtime, 'cron', day_of_week='mon-fri', hour='9-12,13-16', minute='5,35', id='hk_index_realtime')
+scheduler.add_job(collect_hk_index_historical, 'cron', day_of_week='mon-fri', hour=17, minute=5, id='hk_index_historical')
 
 if __name__ == "__main__":
     logging.info("启动定时采集任务...")

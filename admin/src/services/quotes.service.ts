@@ -47,6 +47,15 @@ export interface HistoricalQuoteUpdateParams {
   remarks?: string
 }
 
+export interface MultiPeriodQuoteParams {
+  period: string
+  page: number
+  pageSize: number
+  keyword?: string
+  startDate?: string
+  endDate?: string
+}
+
 export interface QuotesResponse<T> {
   success: boolean
   data: T[]
@@ -78,7 +87,7 @@ class QuotesService {
     const queryParams = new URLSearchParams()
     queryParams.append('page', params.page.toString())
     queryParams.append('page_size', params.pageSize.toString())
-    
+
     if (params.keyword) {
       queryParams.append('keyword', params.keyword)
     }
@@ -88,7 +97,7 @@ class QuotesService {
     if (params.sortBy) {
       queryParams.append('sort_by', params.sortBy)
     }
-    
+
     return apiService.get<QuotesResponse<any>>(this.getQuotesApiUrl(`/stocks?${queryParams}`))
   }
 
@@ -99,14 +108,14 @@ class QuotesService {
     const queryParams = new URLSearchParams()
     queryParams.append('page', params.page.toString())
     queryParams.append('page_size', params.pageSize.toString())
-    
+
     if (params.keyword) {
       queryParams.append('keyword', params.keyword)
     }
     if (params.sortBy) {
       queryParams.append('sort_by', params.sortBy)
     }
-    
+
     return apiService.get<QuotesResponse<any>>(this.getQuotesApiUrl(`/indices?${queryParams}`))
   }
 
@@ -117,14 +126,14 @@ class QuotesService {
     const queryParams = new URLSearchParams()
     queryParams.append('page', params.page.toString())
     queryParams.append('page_size', params.pageSize.toString())
-    
+
     if (params.keyword) {
       queryParams.append('keyword', params.keyword)
     }
     if (params.sortBy) {
       queryParams.append('sort_by', params.sortBy)
     }
-    
+
     return apiService.get<QuotesResponse<any>>(this.getQuotesApiUrl(`/industries?${queryParams}`))
   }
 
@@ -147,15 +156,15 @@ class QuotesService {
    */
   async getHistoricalQuotes(params: HistoricalQuoteParams): Promise<QuotesResponse<any>> {
     const queryParams = new URLSearchParams()
-    
+
     // code 可以为空
     if (params.code) {
       queryParams.append('code', params.code)
     }
-    
+
     queryParams.append('page', params.page.toString())
     queryParams.append('size', params.pageSize.toString())
-    
+
     if (params.startDate) {
       queryParams.append('start_date', params.startDate)
     }
@@ -165,9 +174,9 @@ class QuotesService {
     if (params.includeNotes !== undefined) {
       queryParams.append('include_notes', params.includeNotes.toString())
     }
-    
+
     const response = await apiService.get<any>(this.getQuotesApiUrl(`/history?${queryParams}`))
-    
+
     // 转换响应格式以匹配 QuotesResponse 接口
     return {
       success: true,
@@ -193,6 +202,119 @@ class QuotesService {
    */
   async getStockList(): Promise<{ success: boolean; data: any[] }> {
     return apiService.get<{ success: boolean; data: any[] }>(this.getQuotesApiUrl('/stocks/list'))
+  }
+  /**
+   * 获取港股实时行情数据
+   */
+  async getHKStockQuotes(params: StockQuoteParams): Promise<QuotesResponse<any>> {
+    const queryParams = new URLSearchParams()
+    queryParams.append('page', params.page.toString())
+    queryParams.append('page_size', params.pageSize.toString())
+
+    if (params.keyword) {
+      queryParams.append('keyword', params.keyword)
+    }
+
+    return apiService.get<QuotesResponse<any>>(this.getQuotesApiUrl(`/hk-stocks?${queryParams}`))
+  }
+
+  /**
+   * 获取港股历史行情数据
+   */
+  async getHKHistoricalQuotes(params: HistoricalQuoteParams): Promise<QuotesResponse<any>> {
+    const queryParams = new URLSearchParams()
+
+    if (params.code) {
+      queryParams.append('code', params.code)
+    }
+
+    queryParams.append('page', params.page.toString())
+    queryParams.append('size', params.pageSize.toString())
+
+    if (params.startDate) {
+      queryParams.append('start_date', params.startDate)
+    }
+    if (params.endDate) {
+      queryParams.append('end_date', params.endDate)
+    }
+
+    const response = await apiService.get<any>(this.getQuotesApiUrl(`/hk-history?${queryParams}`))
+
+    return {
+      success: true,
+      data: response.items || [],
+      total: response.total || 0,
+      page: params.page,
+      pageSize: params.pageSize
+    }
+  }
+
+  /**
+   * 获取港股指数实时行情数据
+   */
+  async getHKIndexQuotes(params: IndexQuoteParams): Promise<QuotesResponse<any>> {
+    const queryParams = new URLSearchParams()
+    queryParams.append('page', params.page.toString())
+    queryParams.append('page_size', params.pageSize.toString())
+
+    if (params.keyword) {
+      queryParams.append('keyword', params.keyword)
+    }
+
+    return apiService.get<QuotesResponse<any>>(this.getQuotesApiUrl(`/hk-indices?${queryParams}`))
+  }
+
+  /**
+   * 获取港股指数历史行情数据
+   */
+  async getHKIndexHistoricalQuotes(params: HistoricalQuoteParams): Promise<QuotesResponse<any>> {
+    const queryParams = new URLSearchParams()
+
+    if (params.code) {
+      queryParams.append('code', params.code)
+    }
+
+    queryParams.append('page', params.page.toString())
+    queryParams.append('size', params.pageSize.toString())
+
+    if (params.startDate) {
+      queryParams.append('start_date', params.startDate)
+    }
+    if (params.endDate) {
+      queryParams.append('end_date', params.endDate)
+    }
+
+    const response = await apiService.get<any>(this.getQuotesApiUrl(`/hk-index-history?${queryParams}`))
+
+    return {
+      success: true,
+      data: response.items || [],
+      total: response.total || 0,
+      page: params.page,
+      pageSize: params.pageSize
+    }
+  }
+
+  /**
+   * 获取多周期历史行情数据
+   */
+  async getMultiPeriodHistoricalQuotes(params: MultiPeriodQuoteParams): Promise<QuotesResponse<any>> {
+    const queryParams = new URLSearchParams()
+    queryParams.append('period', params.period)
+    queryParams.append('page', params.page.toString())
+    queryParams.append('page_size', params.pageSize.toString())
+
+    if (params.keyword) {
+      queryParams.append('keyword', params.keyword)
+    }
+    if (params.startDate) {
+      queryParams.append('start_date', params.startDate)
+    }
+    if (params.endDate) {
+      queryParams.append('end_date', params.endDate)
+    }
+
+    return apiService.get<QuotesResponse<any>>(this.getQuotesApiUrl(`/historical/multi-period?${queryParams}`))
   }
 }
 

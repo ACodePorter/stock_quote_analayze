@@ -72,7 +72,7 @@ class AkshareRealtimeQuoteCollector(AKShareCollector):
 
         cursor = session.execute(text('''
             CREATE TABLE IF NOT EXISTS realtime_collect_operation_logs (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id SERIAL PRIMARY KEY,
                 operation_type TEXT NOT NULL,
                 operation_desc TEXT NOT NULL,
                 affected_rows INTEGER,

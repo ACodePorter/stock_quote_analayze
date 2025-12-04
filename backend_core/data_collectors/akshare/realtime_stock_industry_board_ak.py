@@ -67,7 +67,7 @@ class RealtimeStockIndustryBoardCollector:
             print(f"Creating {self.log_table}...")
             session.execute(text(f'''
                 CREATE TABLE IF NOT EXISTS {self.log_table} (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    id SERIAL PRIMARY KEY,
                     operation_type TEXT NOT NULL,
                     operation_desc TEXT NOT NULL,
                     affected_rows INTEGER,
