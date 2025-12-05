@@ -41,6 +41,100 @@ class AkshareDataCollector:
         self.skipped_count = 0
         self.failed_count = 0
         self.failed_stocks = []
+        # 初始化港股表结构，添加全量采集标志字段
+        self._init_hk_table_structure()
+    
+    def _init_hk_table_structure(self):
+        """初始化港股表结构，添加全量采集标志字段"""
+        try:
+            # 尝试添加全量采集相关字段（如果不存在）
+            try:
+                self.session.execute(text("""
+                    ALTER TABLE stock_basic_info_hk 
+                    ADD COLUMN IF NOT EXISTS full_collection_completed BOOLEAN DEFAULT FALSE
+                """))
+                self.session.commit()
+            except Exception:
+                # PostgreSQL不支持IF NOT EXISTS，使用DO块
+                try:
+                    self.session.execute(text("""
+                        DO $$ 
+                        BEGIN
+                            IF NOT EXISTS (
+                                SELECT 1 FROM information_schema.columns 
+                                WHERE table_name='stock_basic_info_hk' 
+                                AND column_name='full_collection_completed'
+                            ) THEN
+                                ALTER TABLE stock_basic_info_hk 
+                                ADD COLUMN full_collection_completed BOOLEAN DEFAULT FALSE;
+                            END IF;
+                        END $$;
+                    """))
+                    self.session.commit()
+                except Exception as e:
+                    logger.debug(f"字段 full_collection_completed 可能已存在: {e}")
+                    self.session.rollback()
+            
+            try:
+                self.session.execute(text("""
+                    DO $$ 
+                    BEGIN
+                        IF NOT EXISTS (
+                            SELECT 1 FROM information_schema.columns 
+                            WHERE table_name='stock_basic_info_hk' 
+                            AND column_name='full_collection_date'
+                        ) THEN
+                            ALTER TABLE stock_basic_info_hk 
+                            ADD COLUMN full_collection_date TIMESTAMP;
+                        END IF;
+                    END $$;
+                """))
+                self.session.commit()
+            except Exception as e:
+                logger.debug(f"字段 full_collection_date 可能已存在: {e}")
+                self.session.rollback()
+            
+            try:
+                self.session.execute(text("""
+                    DO $$ 
+                    BEGIN
+                        IF NOT EXISTS (
+                            SELECT 1 FROM information_schema.columns 
+                            WHERE table_name='stock_basic_info_hk' 
+                            AND column_name='full_collection_start_date'
+                        ) THEN
+                            ALTER TABLE stock_basic_info_hk 
+                            ADD COLUMN full_collection_start_date TEXT;
+                        END IF;
+                    END $$;
+                """))
+                self.session.commit()
+            except Exception as e:
+                logger.debug(f"字段 full_collection_start_date 可能已存在: {e}")
+                self.session.rollback()
+            
+            try:
+                self.session.execute(text("""
+                    DO $$ 
+                    BEGIN
+                        IF NOT EXISTS (
+                            SELECT 1 FROM information_schema.columns 
+                            WHERE table_name='stock_basic_info_hk' 
+                            AND column_name='full_collection_end_date'
+                        ) THEN
+                            ALTER TABLE stock_basic_info_hk 
+                            ADD COLUMN full_collection_end_date TEXT;
+                        END IF;
+                    END $$;
+                """))
+                self.session.commit()
+            except Exception as e:
+                logger.debug(f"字段 full_collection_end_date 可能已存在: {e}")
+                self.session.rollback()
+                
+        except Exception as e:
+            logger.warning(f"初始化港股表结构失败（可能字段已存在）: {e}")
+            self.session.rollback()
         
     def get_stock_list(self, only_uncompleted: bool = False) -> List[Dict[str, str]]:
         """从stock_basic_info表获取股票列表"""
@@ -75,6 +169,68 @@ class AkshareDataCollector:
             
         except Exception as e:
             logger.error(f"获取股票列表失败: {e}")
+            return []
+    
+    def get_hk_stock_list(self, only_uncompleted: bool = False) -> List[Dict[str, str]]:
+        """从stock_basic_info_hk表获取港股列表"""
+        try:
+            # 检查是否有数据
+            count_result = self.session.execute(text("SELECT count(*) FROM stock_basic_info_hk"))
+            count = count_result.scalar()
+            
+            if count < 100: # 如果数据太少，尝试重新获取
+                logger.info("港股基础信息表数据过少，尝试从AkShare获取最新列表...")
+                try:
+                    df = ak.stock_hk_spot()
+                    if df is not None and not df.empty:
+                        # akshare返回列: symbol, name, ...
+                        for _, row in df.iterrows():
+                            code = str(row['symbol'])
+                            name = str(row['name'])
+                            # 简单的插入，忽略冲突
+                            self.session.execute(text("""
+                                INSERT INTO stock_basic_info_hk (code, name, create_date)
+                                VALUES (:code, :name, :create_date)
+                                ON CONFLICT (code) DO UPDATE SET name = :name
+                            """), {
+                                'code': code,
+                                'name': name,
+                                'create_date': datetime.now()
+                            })
+                        self.session.commit()
+                        logger.info(f"已更新港股基础信息表，共 {len(df)} 条")
+                except Exception as e:
+                    logger.error(f"从AkShare获取港股列表失败: {e}")
+            
+            # 查询数据库
+            if only_uncompleted:
+                # 只获取未完成全量采集的港股
+                result = self.session.execute(text("""
+                    SELECT code, name
+                    FROM stock_basic_info_hk 
+                    WHERE full_collection_completed IS NULL OR full_collection_completed = FALSE
+                    ORDER BY code
+                """))
+            else:
+                # 获取所有港股
+                result = self.session.execute(text("""
+                    SELECT code, name
+                    FROM stock_basic_info_hk 
+                    ORDER BY code
+                """))
+            
+            stocks = []
+            for row in result.fetchall():
+                stocks.append({
+                    'code': str(row[0]),
+                    'name': row[1] if row[1] else ''
+                })
+            
+            logger.info(f"从数据库获取到 {len(stocks)} 只港股" + ("（仅未完成全量采集）" if only_uncompleted else ""))
+            return stocks
+            
+        except Exception as e:
+            logger.error(f"获取港股列表失败: {e}")
             return []
     
     def check_existing_data(self, stock_code: str, start_date: str, end_date: str) -> List[str]:
@@ -241,10 +397,212 @@ class AkshareDataCollector:
             logger.error(f"更新股票 {stock_code} 全量采集标志失败: {e}")
             # 不抛出异常，避免影响主流程
     
-    def collect_historical_data(self, start_date: str, end_date: str, stock_codes: Optional[List[str]] = None, full_collection_mode: bool = False) -> Dict[str, any]:
+    def collect_single_hk_stock_data(self, stock_code: str, stock_name: str, start_date: str, end_date: str, is_full_collection: bool = False) -> bool:
+        """采集单只港股的历史数据"""
+        try:
+            # 检查已存在的数据
+            # 港股表是 historical_quotes_hk
+            result = self.session.execute(text("""
+                SELECT date 
+                FROM historical_quotes_hk 
+                WHERE code = :stock_code 
+                AND date >= :start_date 
+                AND date <= :end_date
+                ORDER BY date
+            """), {
+                'stock_code': stock_code,
+                'start_date': start_date,
+                'end_date': end_date
+            })
+            
+            existing_dates = [row[0] for row in result.fetchall()]
+            if existing_dates:
+                logger.debug(f"港股 {stock_code} 在 {start_date} 到 {end_date} 期间已有 {len(existing_dates)} 天数据")
+            
+            # 使用akshare获取历史数据
+            logger.info(f"开始采集港股 {stock_code} 的历史数据...")
+            
+            df = None
+            source = 'akshare_eastmoney'
+            
+            # 1. 尝试使用 stock_hk_hist (EastMoney)
+            try:
+                start_date_str = pd.to_datetime(start_date).strftime('%Y%m%d')
+                end_date_str = pd.to_datetime(end_date).strftime('%Y%m%d')
+                
+                # 添加重试机制
+                max_retries = 3
+                for attempt in range(max_retries):
+                    try:
+                        df = ak.stock_hk_hist(
+                            symbol=stock_code,
+                            period='daily',
+                            start_date=start_date_str,
+                            end_date=end_date_str,
+                            adjust=""
+                        )
+                        break
+                    except Exception as e:
+                        if attempt < max_retries - 1:
+                            time.sleep(1)
+                        else:
+                            raise e
+
+                # 重命名列以统一格式
+                if df is not None and not df.empty:
+                    column_map = {
+                        '日期': 'date', '开盘': 'open', '收盘': 'close', '最高': 'high', '最低': 'low',
+                        '成交量': 'volume', '成交额': 'amount', '涨跌额': 'change_amount', 
+                        '涨跌幅': 'change_percent', '换手率': 'turnover_rate', '振幅': 'amplitude'
+                    }
+                    df = df.rename(columns=column_map)
+                    
+            except Exception as e:
+                logger.warning(f"EastMoney接口采集失败，尝试Sina接口: {e}")
+                source = 'akshare_sina'
+                try:
+                    # 2. 尝试使用 stock_hk_daily (Sina)
+                    df = ak.stock_hk_daily(symbol=stock_code, adjust="")
+                    
+                    if df is not None and not df.empty:
+                        # Sina返回: date, open, high, low, close, volume
+                        # 转换数据类型
+                        for col in ['open', 'high', 'low', 'close', 'volume']:
+                            df[col] = pd.to_numeric(df[col], errors='coerce')
+                        
+                        df = df.sort_values('date')
+                        
+                        # 计算衍生指标
+                        df['pre_close'] = df['close'].shift(1)
+                        df['change_amount'] = df['close'] - df['pre_close']
+                        df['change_percent'] = (df['change_amount'] / df['pre_close']) * 100
+                        df['amplitude'] = ((df['high'] - df['low']) / df['pre_close']) * 100
+                        df['amount'] = None 
+                        df['turnover_rate'] = None 
+                        
+                        # 过滤日期范围
+                        df['date'] = pd.to_datetime(df['date'])
+                        mask = (df['date'] >= pd.to_datetime(start_date)) & (df['date'] <= pd.to_datetime(end_date))
+                        df = df.loc[mask]
+                        
+                except Exception as e2:
+                    logger.error(f"Sina接口采集也失败: {e2}")
+                    self.failed_count += 1
+                    self.failed_stocks.append(f"{stock_code}: {str(e)} | {str(e2)}")
+                    return False
+            
+            if df is None or df.empty:
+                logger.warning(f"港股 {stock_code} 在指定日期范围内没有数据")
+                return True
+            
+            logger.info(f"港股 {stock_code} 采集到 {len(df)} 条数据 ({source})")
+            
+            # 计算多周期涨跌幅
+            if 'date' in df.columns:
+                df = df.sort_values('date')
+                if 'close' in df.columns:
+                    df['five_day_change_percent'] = df['close'].pct_change(periods=5) * 100
+                    df['ten_day_change_percent'] = df['close'].pct_change(periods=10) * 100
+                    df['thirty_day_change_percent'] = df['close'].pct_change(periods=30) * 100
+                    df['sixty_day_change_percent'] = df['close'].pct_change(periods=60) * 100
+            
+            # 处理数据并插入数据库
+            success_count = 0
+            skip_count = 0
+            
+            for _, row in df.iterrows():
+                try:
+                    # 转换日期格式
+                    date_val = row['date']
+                    if hasattr(date_val, 'strftime'):
+                        trade_date = date_val.strftime('%Y-%m-%d')
+                    else:
+                        trade_date = str(date_val)
+                        if len(trade_date) == 8:
+                            trade_date = f"{trade_date[:4]}-{trade_date[4:6]}-{trade_date[6:8]}"
+                    
+                    # 检查是否已存在
+                    if trade_date in existing_dates:
+                        skip_count += 1
+                        continue
+                    
+                    def get_val(row, key, default=None):
+                        val = row.get(key)
+                        if pd.isna(val) or val == '':
+                            return default
+                        return float(val)
+
+                    data = {
+                        'code': stock_code,
+                        'ts_code': stock_code,
+                        'name': stock_name,
+                        'english_name': None,
+                        'date': trade_date,
+                        'open': get_val(row, 'open'),
+                        'high': get_val(row, 'high'),
+                        'low': get_val(row, 'low'),
+                        'close': get_val(row, 'close'),
+                        'pre_close': get_val(row, 'pre_close'), 
+                        'volume': get_val(row, 'volume'),
+                        'amount': get_val(row, 'amount'),
+                        'change_amount': get_val(row, 'change_amount'),
+                        'change_percent': get_val(row, 'change_percent'),
+                        'turnover_rate': get_val(row, 'turnover_rate'),
+                        'amplitude': get_val(row, 'amplitude'),
+                        'five_day_change_percent': get_val(row, 'five_day_change_percent'),
+                        'ten_day_change_percent': get_val(row, 'ten_day_change_percent'),
+                        'thirty_day_change_percent': get_val(row, 'thirty_day_change_percent'),
+                        'sixty_day_change_percent': get_val(row, 'sixty_day_change_percent'),
+                        'collected_source': source,
+                        'collected_date': datetime.now().isoformat()
+                    }
+                    
+                    # 插入数据
+                    self.session.execute(text("""
+                        INSERT INTO historical_quotes_hk
+                        (code, ts_code, name, english_name, date, open, high, low, close, pre_close, 
+                         volume, amount, change_amount, change_percent, turnover_rate, amplitude,
+                         five_day_change_percent, ten_day_change_percent, thirty_day_change_percent, sixty_day_change_percent,
+                         collected_source, collected_date)
+                        VALUES (:code, :ts_code, :name, :english_name, :date, :open, :high, :low, :close, :pre_close,
+                                :volume, :amount, :change_amount, :change_percent, :turnover_rate, :amplitude,
+                                :five_day_change_percent, :ten_day_change_percent, :thirty_day_change_percent, :sixty_day_change_percent,
+                                :collected_source, :collected_date)
+                    """), data)
+                    
+                    success_count += 1
+                    
+                except Exception as e:
+                    logger.error(f"处理港股 {stock_code} 日期 {trade_date} 数据时出错: {e}")
+                    continue
+            
+            # 提交事务
+            self.session.commit()
+            
+            self.collected_count += success_count
+            self.skipped_count += skip_count
+            
+            logger.info(f"港股 {stock_code} 处理完成: 新增 {success_count} 条，跳过 {skip_count} 条")
+            
+            # 如果是全量采集模式，更新该港股的全量采集标志
+            if is_full_collection:
+                self._update_hk_full_collection_flag(stock_code, start_date, end_date)
+            
+            # 添加随机延迟
+            time.sleep(random.uniform(0.5, 1.5))
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"采集港股 {stock_code} 历史数据失败: {e}")
+            self.failed_count += 1
+            self.failed_stocks.append(f"{stock_code}: {str(e)}")
+            return False
+    
+    def collect_historical_data(self, start_date: str, end_date: str, stock_codes: Optional[List[str]] = None, full_collection_mode: bool = False, market: str = 'CN') -> Dict[str, any]:
         """批量采集历史行情数据"""
         try:
-            logger.info(f"开始批量采集历史行情数据: {start_date} 到 {end_date}")
+            logger.info(f"开始批量采集历史行情数据: {start_date} 到 {end_date}, 市场: {market}")
             
             # 获取股票列表
             if stock_codes:
@@ -257,16 +615,37 @@ class AkshareDataCollector:
                     if row:
                         stocks.append({'code': str(row[0]), 'name': row[1] if row[1] else ''})
                     else:
-                        logger.warning(f"股票代码 {code} 在stock_basic_info表中不存在")
+                        # 尝试从港股表查询
+                        result_hk = self.session.execute(text("""
+                            SELECT code, name FROM stock_basic_info_hk WHERE code = :code
+                        """), {'code': code})
+                        row_hk = result_hk.fetchone()
+                        if row_hk:
+                            stocks.append({'code': str(row_hk[0]), 'name': row_hk[1] if row_hk[1] else ''})
+                        else:
+                            # 如果是5位数字代码，尝试作为港股采集
+                            if len(code) == 5 and code.isdigit():
+                                logger.info(f"股票代码 {code} 未在基础信息表中找到，尝试作为港股采集")
+                                stocks.append({'code': code, 'name': code})
+                            else:
+                                logger.warning(f"股票代码 {code} 在stock_basic_info和stock_basic_info_hk表中都不存在")
             else:
                 # 根据模式决定获取哪些股票
                 if full_collection_mode:
-                    # 全量采集模式：只获取未完成全量采集的股票
-                    stocks = self.get_stock_list(only_uncompleted=True)
-                    logger.info(f"全量采集模式：获取到 {len(stocks)} 只未完成全量采集的股票")
+                    if market == 'HK':
+                        # 港股全量采集：只获取未完成全量采集的港股
+                        stocks = self.get_hk_stock_list(only_uncompleted=True)
+                        logger.info(f"港股全量采集模式：获取到 {len(stocks)} 只未完成全量采集的港股")
+                    else:
+                        # A股全量采集：只获取未完成全量采集的股票
+                        stocks = self.get_stock_list(only_uncompleted=True)
+                        logger.info(f"A股全量采集模式：获取到 {len(stocks)} 只未完成全量采集的股票")
                 else:
-                    # 普通模式：获取所有股票
-                    stocks = self.get_stock_list()
+                    # 普通模式：获取所有股票 (默认A股)
+                    if market == 'HK':
+                        stocks = self.get_hk_stock_list()
+                    else:
+                        stocks = self.get_stock_list()
             
             if not stocks:
                 logger.error("没有找到需要采集的股票")
@@ -292,9 +671,34 @@ class AkshareDataCollector:
             for i, stock in enumerate(stocks, 1):
                 logger.info(f"进度: {i}/{len(stocks)} - 采集股票 {stock['code']} ({stock['name']})")
                 
-                if self.collect_single_stock_data(stock['code'], stock['name'], start_date, end_date):
-                    success_count += 1
-                time.sleep(20)  # 每次采集后休眠20秒
+                if len(stock['code']) == 5:
+                    # 港股 (5位代码)
+                    # 在全量采集模式下，检查是否已采集过
+                    if full_collection_mode and market == 'HK':
+                        # 检查该港股是否已完成全量采集
+                        check_result = self.session.execute(text("""
+                            SELECT full_collection_completed 
+                            FROM stock_basic_info_hk 
+                            WHERE code = :code
+                        """), {'code': stock['code']})
+                        row = check_result.fetchone()
+                        if row and row[0]:
+                            logger.info(f"港股 {stock['code']} 已完成全量采集，跳过")
+                            self.skipped_count += 1
+                            continue
+                    
+                    if self.collect_single_hk_stock_data(stock['code'], stock['name'], start_date, end_date, full_collection_mode and market == 'HK'):
+                        success_count += 1
+                else:
+                    # A股
+                    if self.collect_single_stock_data(stock['code'], stock['name'], start_date, end_date):
+                        success_count += 1
+                
+                # 休眠控制
+                if market == 'HK':
+                    time.sleep(5)  # 港股每次采集后休眠5秒
+                else:
+                    time.sleep(20)  # A股保持20秒 (或者根据需要调整)
                 
                 # 每处理10只股票输出一次进度
                 if i % 10 == 0:
@@ -331,6 +735,30 @@ class AkshareDataCollector:
                 'skipped': 0,
                 'failed_details': [str(e)]
             }
+    
+    def _update_hk_full_collection_flag(self, stock_code: str, start_date: str, end_date: str):
+        """更新港股的全量采集标志"""
+        try:
+            # 更新港股全量采集标志
+            self.session.execute(text("""
+                UPDATE stock_basic_info_hk 
+                SET full_collection_completed = TRUE,
+                    full_collection_date = CURRENT_TIMESTAMP,
+                    full_collection_start_date = :start_date,
+                    full_collection_end_date = :end_date
+                WHERE code = :stock_code
+            """), {
+                'stock_code': stock_code,
+                'start_date': start_date,
+                'end_date': end_date
+            })
+            
+            self.session.commit()
+            logger.info(f"已更新港股 {stock_code} 的全量采集标志")
+            
+        except Exception as e:
+            logger.error(f"更新港股 {stock_code} 全量采集标志失败: {e}")
+            # 不抛出异常，避免影响主流程
     
     def _log_collection_result(self, start_date: str, end_date: str, total_stocks: int, success_stocks: int):
         """记录采集结果到日志表"""
@@ -404,7 +832,8 @@ async def start_historical_collection(
             request.end_date,
             request.stock_codes,
             request.test_mode,
-            request.full_collection_mode
+            request.full_collection_mode,
+            request.market
         )
         
         logger.info(f"启动历史数据采集任务: {task_id}")
@@ -417,7 +846,8 @@ async def start_historical_collection(
             end_date=request.end_date,
             stock_codes=request.stock_codes,
             test_mode=request.test_mode,
-            full_collection_mode=request.full_collection_mode
+            full_collection_mode=request.full_collection_mode,
+            market=request.market
         )
         
     except Exception as e:
@@ -430,12 +860,13 @@ def run_historical_collection_task(
     end_date: str,
     stock_codes: Optional[List[str]] = None,
     test_mode: bool = False,
-    full_collection_mode: bool = False
+    full_collection_mode: bool = False,
+    market: str = 'CN'
 ):
     """运行历史数据采集任务（后台任务）"""
     global current_task_id
     try:
-        logger.info(f"开始执行历史数据采集任务: {task_id}")
+        logger.info(f"开始执行历史数据采集任务: {task_id}, 市场: {market}")
         
         # 创建数据库会话
         from backend_api.database import SessionLocal
@@ -448,16 +879,32 @@ def run_historical_collection_task(
             # 获取股票列表
             if test_mode:
                 logger.info("测试模式：只采集前5只股票")
-                stocks = collector.get_stock_list()[:5]
+                if market == 'HK':
+                    stocks = collector.get_hk_stock_list()[:5]
+                else:
+                    stocks = collector.get_stock_list()[:5]
                 stock_codes = [stock['code'] for stock in stocks]
             
             # 更新任务状态
             with task_lock:
                 if task_id in collection_tasks:
-                    collection_tasks[task_id]["total_stocks"] = len(stock_codes) if stock_codes else len(collector.get_stock_list())
+                    if stock_codes:
+                        total = len(stock_codes)
+                    else:
+                        if full_collection_mode:
+                            if market == 'HK':
+                                total = len(collector.get_hk_stock_list(only_uncompleted=True))
+                            else:
+                                total = len(collector.get_stock_list(only_uncompleted=True))
+                        else:
+                            if market == 'HK':
+                                total = len(collector.get_hk_stock_list())
+                            else:
+                                total = len(collector.get_stock_list())
+                    collection_tasks[task_id]["total_stocks"] = total
             
             # 执行采集
-            result = collector.collect_historical_data(start_date, end_date, stock_codes, full_collection_mode)
+            result = collector.collect_historical_data(start_date, end_date, stock_codes, full_collection_mode, market)
             
             # 更新任务状态
             with task_lock:

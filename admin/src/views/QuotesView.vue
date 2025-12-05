@@ -40,7 +40,7 @@
                         placeholder="市场类型"
                         clearable
                         @change="handleStockMarketFilter"
-                        style="width: 100%"
+                        :style="{ width: '100%' }"
                       >
                         <el-option label="全部" value="" />
                         <el-option label="上海" value="sh" />
@@ -54,7 +54,7 @@
                         v-model="stockSortBy"
                         placeholder="排序方式"
                         @change="handleStockSortChange"
-                        style="width: 100%"
+                        :style="{ width: '100%' }"
                       >
                         <el-option label="涨跌幅（高到低）" value="change_percent" />
                         <el-option label="现价（高到低）" value="current_price" />
@@ -65,7 +65,7 @@
                       </el-select>
                     </el-col>
                     <el-col :xs="24" :sm="24" :md="4" :lg="4" :xl="4">
-                      <el-button @click="refreshStockData" :loading="stockLoading" style="width: 100%">
+                      <el-button @click="refreshStockData" :loading="stockLoading" :style="{ width: '100%' }">
                         <el-icon><Refresh /></el-icon>
                         刷新
                       </el-button>
@@ -77,7 +77,7 @@
                   :data="stockData"
                   :loading="stockLoading"
                   stripe
-                  style="width: 100%"
+                  :style="{ width: '100%' }"
                   class="responsive-table"
                 >
                   <el-table-column prop="code" label="代码" width="80" show-overflow-tooltip />
@@ -157,7 +157,7 @@
                       </el-input>
                     </el-col>
                     <el-col :xs="24" :sm="24" :md="4" :lg="4" :xl="4">
-                      <el-button @click="refreshIndexData" :loading="indexLoading" style="width: 100%">
+                      <el-button @click="refreshIndexData" :loading="indexLoading" :style="{ width: '100%' }">
                         <el-icon><Refresh /></el-icon>
                         刷新
                       </el-button>
@@ -169,7 +169,7 @@
                   :data="indexData"
                   :loading="indexLoading"
                   stripe
-                  style="width: 100%"
+                  :style="{ width: '100%' }"
                   class="responsive-table"
                 >
                   <el-table-column prop="code" label="代码" width="80" show-overflow-tooltip />
@@ -243,7 +243,7 @@
                       </el-input>
                     </el-col>
                     <el-col :xs="12" :sm="6" :md="4" :lg="4" :xl="4">
-                      <el-select v-model="historicalPeriod" placeholder="周期" style="width: 100%" @change="handleHistoricalPeriodChange">
+                      <el-select v-model="historicalPeriod" placeholder="周期" :style="{ width: '100%' }" @change="handleHistoricalPeriodChange">
                         <el-option label="日线" value="daily" />
                         <el-option label="周线" value="weekly" />
                         <el-option label="月线" value="monthly" />
@@ -260,7 +260,7 @@
                         format="YYYY-MM-DD"
                         value-format="YYYY-MM-DD"
                         @change="handleHistoricalDateChange"
-                        style="width: 100%"
+                        :style="{ width: '100%' }"
                       />
                     </el-col>
                     <el-col :xs="12" :sm="6" :md="4" :lg="4" :xl="4">
@@ -271,11 +271,11 @@
                         format="YYYY-MM-DD"
                         value-format="YYYY-MM-DD"
                         @change="handleHistoricalDateChange"
-                        style="width: 100%"
+                        :style="{ width: '100%' }"
                       />
                     </el-col>
                     <el-col :xs="24" :sm="12" :md="4" :lg="4" :xl="4">
-                      <el-button @click="refreshHistoricalData" :loading="historicalLoading" style="width: 100%">
+                      <el-button @click="refreshHistoricalData" :loading="historicalLoading" :style="{ width: '100%' }">
                         <el-icon><Refresh /></el-icon>
                         刷新
                       </el-button>
@@ -287,7 +287,7 @@
                   :data="historicalData"
                   :loading="historicalLoading"
                   stripe
-                  style="width: 100%"
+                  :style="{ width: '100%' }"
                   class="responsive-table"
                 >
                   <el-table-column prop="code" label="代码" width="80" show-overflow-tooltip fixed="left" />
@@ -359,7 +359,7 @@
                       </el-input>
                     </el-col>
                     <el-col :xs="24" :sm="24" :md="4" :lg="4" :xl="4">
-                      <el-button @click="refreshIndustryData" :loading="industryLoading" style="width: 100%">
+                      <el-button @click="refreshIndustryData" :loading="industryLoading" :style="{ width: '100%' }">
                         <el-icon><Refresh /></el-icon>
                         刷新
                       </el-button>
@@ -371,7 +371,7 @@
                   :data="industryData"
                   :loading="industryLoading"
                   stripe
-                  style="width: 100%"
+                  :style="{ width: '100%' }"
                   class="responsive-table"
                 >
                   <el-table-column prop="board_name" label="行业名称" min-width="120" show-overflow-tooltip />
@@ -438,7 +438,7 @@
                       </el-input>
                     </el-col>
                     <el-col :xs="24" :sm="24" :md="4" :lg="4" :xl="4">
-                      <el-button @click="refreshHKStockData" :loading="hkStockLoading" style="width: 100%">
+                      <el-button @click="refreshHKStockData" :loading="hkStockLoading" :style="{ width: '100%' }">
                         <el-icon><Refresh /></el-icon>
                         刷新
                       </el-button>
@@ -450,7 +450,7 @@
                   :data="hkStockData"
                   :loading="hkStockLoading"
                   stripe
-                  style="width: 100%"
+                  :style="{ width: '100%' }"
                   class="responsive-table"
                 >
                   <el-table-column prop="code" label="代码" width="80" show-overflow-tooltip />
@@ -531,7 +531,7 @@
                         format="YYYY-MM-DD"
                         value-format="YYYY-MM-DD"
                         @change="handleHKHistoricalDateChange"
-                        style="width: 100%"
+                        :style="{ width: '100%' }"
                       />
                     </el-col>
                     <el-col :xs="12" :sm="6" :md="4" :lg="4" :xl="4">
@@ -542,11 +542,11 @@
                         format="YYYY-MM-DD"
                         value-format="YYYY-MM-DD"
                         @change="handleHKHistoricalDateChange"
-                        style="width: 100%"
+                        :style="{ width: '100%' }"
                       />
                     </el-col>
                     <el-col :xs="24" :sm="12" :md="4" :lg="4" :xl="4">
-                      <el-button @click="refreshHKHistoricalData" :loading="hkHistoricalLoading" style="width: 100%">
+                      <el-button @click="refreshHKHistoricalData" :loading="hkHistoricalLoading" :style="{ width: '100%' }">
                         <el-icon><Refresh /></el-icon>
                         刷新
                       </el-button>
@@ -558,7 +558,7 @@
                   :data="hkHistoricalData"
                   :loading="hkHistoricalLoading"
                   stripe
-                  style="width: 100%"
+                  :style="{ width: '100%' }"
                   class="responsive-table"
                 >
                   <el-table-column prop="code" label="代码" width="80" show-overflow-tooltip fixed="left" />
@@ -630,7 +630,7 @@
                       </el-input>
                     </el-col>
                     <el-col :xs="24" :sm="24" :md="4" :lg="4" :xl="4">
-                      <el-button @click="refreshHKIndexData" :loading="hkIndexLoading" style="width: 100%">
+                      <el-button @click="refreshHKIndexData" :loading="hkIndexLoading" :style="{ width: '100%' }">
                         <el-icon><Refresh /></el-icon>
                         刷新
                       </el-button>
@@ -642,7 +642,7 @@
                   :data="hkIndexData"
                   :loading="hkIndexLoading"
                   stripe
-                  style="width: 100%"
+                  :style="{ width: '100%' }"
                   class="responsive-table"
                 >
                   <el-table-column prop="code" label="代码" width="100" show-overflow-tooltip />
@@ -723,7 +723,7 @@
                         format="YYYY-MM-DD"
                         value-format="YYYY-MM-DD"
                         @change="handleHKIndexHistoricalDateChange"
-                        style="width: 100%"
+                        :style="{ width: '100%' }"
                       />
                     </el-col>
                     <el-col :xs="12" :sm="6" :md="4" :lg="4" :xl="4">
@@ -734,11 +734,11 @@
                         format="YYYY-MM-DD"
                         value-format="YYYY-MM-DD"
                         @change="handleHKIndexHistoricalDateChange"
-                        style="width: 100%"
+                        :style="{ width: '100%' }"
                       />
                     </el-col>
                     <el-col :xs="24" :sm="12" :md="4" :lg="4" :xl="4">
-                      <el-button @click="refreshHKIndexHistoricalData" :loading="hkIndexHistoricalLoading" style="width: 100%">
+                      <el-button @click="refreshHKIndexHistoricalData" :loading="hkIndexHistoricalLoading" :style="{ width: '100%' }">
                         <el-icon><Refresh /></el-icon>
                         刷新
                       </el-button>
@@ -750,7 +750,7 @@
                   :data="hkIndexHistoricalData"
                   :loading="hkIndexHistoricalLoading"
                   stripe
-                  style="width: 100%"
+                  :style="{ width: '100%' }"
                   class="responsive-table"
                 >
                   <el-table-column prop="code" label="代码" width="100" show-overflow-tooltip fixed="left" />
@@ -939,7 +939,7 @@ const getChangeClass = (value: any) => {
 }
 
 // 主标签切换
-const handleMainTabChange = (tab: string) => {
+const handleMainTabChange = (tab: any) => {
   console.log('Main tab changed:', tab)
   if (tab === 'a-share') {
     handleAShareTabChange(aShareTab.value)
@@ -949,7 +949,7 @@ const handleMainTabChange = (tab: string) => {
 }
 
 // A股子标签切换
-const handleAShareTabChange = (tab: string) => {
+const handleAShareTabChange = (tab: any) => {
   console.log('A-share tab changed:', tab)
   switch (tab) {
     case 'stocks':
@@ -968,7 +968,7 @@ const handleAShareTabChange = (tab: string) => {
 }
 
 // 港股子标签切换
-const handleHKShareTabChange = (tab: string) => {
+const handleHKShareTabChange = (tab: any) => {
   console.log('HK-share tab changed:', tab)
   switch (tab) {
     case 'hk-stocks':

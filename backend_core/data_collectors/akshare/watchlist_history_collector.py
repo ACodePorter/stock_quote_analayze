@@ -224,7 +224,7 @@ def collect_watchlist_history():
     fail_count = 0
     for stock_code in set(codes):
         if has_collected(db, stock_code):
-            logger.info(f"[collect_watchlist_history] 股票 {stock_code} 已采集过，跳过")
+            #logger.info(f"[collect_watchlist_history] 股票 {stock_code} 已采集过，跳过")
             continue
         try:
             end_date = (datetime.now() - timedelta(days=1)).strftime('%Y%m%d')

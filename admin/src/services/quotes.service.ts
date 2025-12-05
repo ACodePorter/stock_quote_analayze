@@ -24,7 +24,8 @@ export interface IndustryQuoteParams {
 }
 
 export interface HistoricalQuoteParams {
-  code: string
+  code?: string
+  keyword?: string
   page: number
   pageSize: number
   startDate?: string
@@ -161,6 +162,9 @@ class QuotesService {
     if (params.code) {
       queryParams.append('code', params.code)
     }
+    if (params.keyword) {
+      queryParams.append('keyword', params.keyword)
+    }
 
     queryParams.append('page', params.page.toString())
     queryParams.append('size', params.pageSize.toString())
@@ -227,6 +231,9 @@ class QuotesService {
     if (params.code) {
       queryParams.append('code', params.code)
     }
+    if (params.keyword) {
+      queryParams.append('keyword', params.keyword)
+    }
 
     queryParams.append('page', params.page.toString())
     queryParams.append('size', params.pageSize.toString())
@@ -272,6 +279,9 @@ class QuotesService {
 
     if (params.code) {
       queryParams.append('code', params.code)
+    }
+    if (params.keyword) {
+      queryParams.append('keyword', params.keyword)
     }
 
     queryParams.append('page', params.page.toString())

@@ -15,178 +15,275 @@
     </div>
 
     <!-- 标签页 -->
-    <el-tabs v-model="activeTab" class="mb-8">
-      <!-- AkShare标签页 -->
-      <el-tab-pane label="历史数据采集-AkShare" name="akshare">
-        <el-card>
-          <div class="text-center mb-8">
-            <el-icon class="text-6xl text-gray-400 mb-4"><DataAnalysis /></el-icon>
-            <h2 class="text-2xl font-bold text-gray-900 mb-2">历史数据采集-AkShare</h2>
-            <p class="text-gray-600">使用akshare采集A股历史行情数据（单任务执行，防重复采集）</p>
-          </div>
+    <el-tabs v-model="activeMainTab" class="mb-8">
+      <!-- A股历史数据采集 -->
+      <el-tab-pane label="A股历史数据采集" name="ashare">
+        <el-tabs v-model="activeAShareTab">
+          <!-- AkShare标签页 -->
+          <el-tab-pane label="历史数据采集-AkShare" name="akshare">
+            <el-card>
+              <div class="text-center mb-8">
+                <el-icon class="text-6xl text-gray-400 mb-4"><DataAnalysis /></el-icon>
+                <h2 class="text-2xl font-bold text-gray-900 mb-2">历史数据采集-AkShare</h2>
+                <p class="text-gray-600">使用akshare采集A股历史行情数据（单任务执行，防重复采集）</p>
+              </div>
 
-      <!-- 采集配置表单 -->
-      <div class="max-w-2xl mx-auto">
-        <el-form @submit.prevent="startCollection" :model="form" label-width="120px">
-          <!-- 日期范围 -->
-          <el-row :gutter="20">
-            <el-col :span="12">
-              <el-form-item label="开始日期" required>
-                <el-date-picker
-                  v-model="form.start_date"
-                  type="date"
-                  placeholder="选择开始日期"
-                  format="YYYY-MM-DD"
-                  value-format="YYYY-MM-DD"
-                  style="width: 100%"
-                />
-              </el-form-item>
-            </el-col>
-            <el-col :span="12">
-              <el-form-item label="结束日期" required>
-                <el-date-picker
-                  v-model="form.end_date"
-                  type="date"
-                  placeholder="选择结束日期"
-                  format="YYYY-MM-DD"
-                  value-format="YYYY-MM-DD"
-                  style="width: 100%"
-                />
-              </el-form-item>
-            </el-col>
-          </el-row>
+              <!-- 采集配置表单 -->
+              <div class="max-w-2xl mx-auto">
+                <el-form @submit.prevent="startCollection" :model="form" label-width="120px">
+                  <!-- 日期范围 -->
+                  <el-row :gutter="20">
+                    <el-col :span="12">
+                      <el-form-item label="开始日期" required>
+                        <el-date-picker
+                          v-model="form.start_date"
+                          type="date"
+                          placeholder="选择开始日期"
+                          format="YYYY-MM-DD"
+                          value-format="YYYY-MM-DD"
+                          style="width: 100%"
+                        />
+                      </el-form-item>
+                    </el-col>
+                    <el-col :span="12">
+                      <el-form-item label="结束日期" required>
+                        <el-date-picker
+                          v-model="form.end_date"
+                          type="date"
+                          placeholder="选择结束日期"
+                          format="YYYY-MM-DD"
+                          value-format="YYYY-MM-DD"
+                          style="width: 100%"
+                        />
+                      </el-form-item>
+                    </el-col>
+                  </el-row>
 
-          <!-- 股票选择 -->
-          <el-form-item label="股票选择">
-            <el-radio-group v-model="form.collection_type">
-              <el-radio value="single">单个股票采集</el-radio>
-              <el-radio value="multiple">多个股票采集</el-radio>
-              <el-radio value="all">全量股票采集</el-radio>
-            </el-radio-group>
-          </el-form-item>
+                  <!-- 股票选择 -->
+                  <el-form-item label="股票选择">
+                    <el-radio-group v-model="form.collection_type">
+                      <el-radio value="single">单个股票采集</el-radio>
+                      <el-radio value="multiple">多个股票采集</el-radio>
+                      <el-radio value="all">全量股票采集</el-radio>
+                    </el-radio-group>
+                  </el-form-item>
 
-          <!-- 单个股票代码输入 -->
-          <el-form-item v-if="form.collection_type === 'single'" label="股票代码" required>
-            <el-input
-              v-model="form.single_stock_code"
-              placeholder="请输入股票代码，例如：000001"
-              clearable
-            />
-            <div class="text-sm text-gray-500 mt-1">支持输入单个股票代码进行采集</div>
-          </el-form-item>
+                  <!-- 单个股票代码输入 -->
+                  <el-form-item v-if="form.collection_type === 'single'" label="股票代码" required>
+                    <el-input
+                      v-model="form.single_stock_code"
+                      placeholder="请输入股票代码，例如：000001"
+                      clearable
+                    />
+                    <div class="text-sm text-gray-500 mt-1">支持输入单个股票代码进行采集</div>
+                  </el-form-item>
 
-          <!-- 多个股票代码输入 -->
-          <el-form-item v-if="form.collection_type === 'multiple'" label="股票代码" required>
-            <el-input
-              v-model="form.stock_codes_text"
-              type="textarea"
-              :rows="5"
-              placeholder="请输入股票代码，每行一个，例如：&#10;000001&#10;000002&#10;000858"
-            />
-            <div class="text-sm text-gray-500 mt-1">支持输入多个股票代码，每行一个</div>
-          </el-form-item>
+                  <!-- 多个股票代码输入 -->
+                  <el-form-item v-if="form.collection_type === 'multiple'" label="股票代码" required>
+                    <el-input
+                      v-model="form.stock_codes_text"
+                      type="textarea"
+                      :rows="5"
+                      placeholder="请输入股票代码，每行一个，例如：&#10;000001&#10;000002&#10;000858"
+                    />
+                    <div class="text-sm text-gray-500 mt-1">支持输入多个股票代码，每行一个</div>
+                  </el-form-item>
 
-          <!-- 全量采集说明 -->
-          <el-alert
-            v-if="form.collection_type === 'all'"
-            title="全量采集说明"
-            type="info"
-            :closable="false"
-            show-icon
-          >
-            <p>将采集数据库中所有股票的历史数据。由于akshare限流要求，系统采用单任务执行模式，
-            已采集过的股票数据将被跳过，避免重复采集。</p>
-          </el-alert>
+                  <!-- 全量采集说明 -->
+                  <el-alert
+                    v-if="form.collection_type === 'all'"
+                    title="全量采集说明"
+                    type="info"
+                    :closable="false"
+                    show-icon
+                  >
+                    <p>将采集数据库中所有股票的历史数据。由于akshare限流要求，系统采用单任务执行模式，
+                    已采集过的股票数据将被跳过，避免重复采集。</p>
+                  </el-alert>
 
-          <!-- 测试模式 -->
-          <el-form-item>
-            <el-checkbox v-model="form.test_mode">测试模式（只采集前5只股票）</el-checkbox>
-          </el-form-item>
+                  <!-- 测试模式 -->
+                  <el-form-item>
+                    <el-checkbox v-model="form.test_mode">测试模式（只采集前5只股票）</el-checkbox>
+                  </el-form-item>
 
-          <!-- 操作按钮 -->
-          <el-form-item>
-            <el-button
-              type="primary"
-              :loading="loading"
-              :disabled="!!currentTask"
-              @click="startCollection"
-            >
-              <el-icon v-if="loading" class="mr-2"><Loading /></el-icon>
-              {{ loading ? '启动中...' : (currentTask ? '等待当前任务完成' : '开始采集') }}
-            </el-button>
-            <el-button @click="resetForm">重置</el-button>
-          </el-form-item>
-        </el-form>
-      </div>
-        </el-card>
+                  <!-- 操作按钮 -->
+                  <el-form-item>
+                    <el-button
+                      type="primary"
+                      :loading="loading"
+                      :disabled="!!currentTask"
+                      @click="startCollection"
+                    >
+                      <el-icon v-if="loading" class="mr-2"><Loading /></el-icon>
+                      {{ loading ? '启动中...' : (currentTask ? '等待当前任务完成' : '开始采集') }}
+                    </el-button>
+                    <el-button @click="resetForm">重置</el-button>
+                  </el-form-item>
+                </el-form>
+              </div>
+            </el-card>
+          </el-tab-pane>
+
+          <!-- TuShare标签页 -->
+          <el-tab-pane label="历史数据采集-TuShare" name="tushare">
+            <el-card>
+              <div class="text-center mb-8">
+                <el-icon class="text-6xl text-gray-400 mb-4"><DataAnalysis /></el-icon>
+                <h2 class="text-2xl font-bold text-gray-900 mb-2">历史数据采集-TuShare</h2>
+                <p class="text-gray-600">使用tushare采集A股全量历史行情数据</p>
+              </div>
+
+              <!-- TuShare采集配置表单 -->
+              <div class="max-w-2xl mx-auto">
+                <el-form @submit.prevent="startTushareCollection" :model="tushareForm" label-width="120px">
+                  <!-- 日期范围 -->
+                  <el-row :gutter="20">
+                    <el-col :span="12">
+                      <el-form-item label="开始日期" required>
+                        <el-date-picker
+                          v-model="tushareForm.start_date"
+                          type="date"
+                          placeholder="选择开始日期"
+                          format="YYYY-MM-DD"
+                          value-format="YYYY-MM-DD"
+                          style="width: 100%"
+                        />
+                      </el-form-item>
+                    </el-col>
+                    <el-col :span="12">
+                      <el-form-item label="结束日期" required>
+                        <el-date-picker
+                          v-model="tushareForm.end_date"
+                          type="date"
+                          placeholder="选择结束日期"
+                          format="YYYY-MM-DD"
+                          value-format="YYYY-MM-DD"
+                          style="width: 100%"
+                        />
+                      </el-form-item>
+                    </el-col>
+                  </el-row>
+
+                  <!-- 强制更新选项 -->
+                  <el-form-item>
+                    <el-checkbox v-model="tushareForm.force_update">
+                      强制更新（如果已存在此日期的历史数据，将先删除后插入）
+                    </el-checkbox>
+                    <div class="text-sm text-gray-500 mt-1">
+                      未选择强制更新时，如果已存在数据则跳过插入
+                    </div>
+                  </el-form-item>
+
+                  <!-- 操作按钮 -->
+                  <el-form-item>
+                    <el-button
+                      type="primary"
+                      :loading="tushareLoading"
+                      :disabled="!!currentTask"
+                      @click="startTushareCollection"
+                    >
+                      <el-icon v-if="tushareLoading" class="mr-2"><Loading /></el-icon>
+                      {{ tushareLoading ? '启动中...' : (currentTask ? '等待当前任务完成' : '开始采集') }}
+                    </el-button>
+                    <el-button @click="resetTushareForm">重置</el-button>
+                  </el-form-item>
+                </el-form>
+              </div>
+            </el-card>
+          </el-tab-pane>
+        </el-tabs>
       </el-tab-pane>
 
-      <!-- TuShare标签页 -->
-      <el-tab-pane label="历史数据采集-TuShare" name="tushare">
-        <el-card>
-          <div class="text-center mb-8">
-            <el-icon class="text-6xl text-gray-400 mb-4"><DataAnalysis /></el-icon>
-            <h2 class="text-2xl font-bold text-gray-900 mb-2">历史数据采集-TuShare</h2>
-            <p class="text-gray-600">使用tushare采集A股全量历史行情数据</p>
-          </div>
+      <!-- 港股历史数据采集 -->
+      <el-tab-pane label="港股历史数据采集" name="hkshare">
+        <el-tabs v-model="activeHKShareTab">
+          <el-tab-pane label="港股历史数据采集-AkShare" name="hk_akshare">
+            <el-card>
+              <div class="text-center mb-8">
+                <el-icon class="text-6xl text-gray-400 mb-4"><DataAnalysis /></el-icon>
+                <h2 class="text-2xl font-bold text-gray-900 mb-2">港股历史数据采集-AkShare</h2>
+                <p class="text-gray-600">使用akshare采集港股历史行情数据</p>
+              </div>
 
-          <!-- TuShare采集配置表单 -->
-          <div class="max-w-2xl mx-auto">
-            <el-form @submit.prevent="startTushareCollection" :model="tushareForm" label-width="120px">
-              <!-- 日期范围 -->
-              <el-row :gutter="20">
-                <el-col :span="12">
-                  <el-form-item label="开始日期" required>
-                    <el-date-picker
-                      v-model="tushareForm.start_date"
-                      type="date"
-                      placeholder="选择开始日期"
-                      format="YYYY-MM-DD"
-                      value-format="YYYY-MM-DD"
-                      style="width: 100%"
-                    />
+              <div class="max-w-2xl mx-auto">
+                <el-form @submit.prevent="startHKCollection" :model="hkForm" label-width="120px">
+                  <!-- 日期范围 -->
+                  <el-row :gutter="20">
+                    <el-col :span="12">
+                      <el-form-item label="开始日期" required>
+                        <el-date-picker
+                          v-model="hkForm.start_date"
+                          type="date"
+                          placeholder="选择开始日期"
+                          format="YYYY-MM-DD"
+                          value-format="YYYY-MM-DD"
+                          style="width: 100%"
+                        />
+                      </el-form-item>
+                    </el-col>
+                    <el-col :span="12">
+                      <el-form-item label="结束日期" required>
+                        <el-date-picker
+                          v-model="hkForm.end_date"
+                          type="date"
+                          placeholder="选择结束日期"
+                          format="YYYY-MM-DD"
+                          value-format="YYYY-MM-DD"
+                          style="width: 100%"
+                        />
+                      </el-form-item>
+                    </el-col>
+                  </el-row>
+
+                  <!-- 采集类型 -->
+                  <el-form-item label="采集类型" required>
+                    <el-radio-group v-model="hkForm.collection_type">
+                      <el-radio label="specified">指定股票</el-radio>
+                      <el-radio label="all">全量采集</el-radio>
+                    </el-radio-group>
                   </el-form-item>
-                </el-col>
-                <el-col :span="12">
-                  <el-form-item label="结束日期" required>
-                    <el-date-picker
-                      v-model="tushareForm.end_date"
-                      type="date"
-                      placeholder="选择结束日期"
-                      format="YYYY-MM-DD"
-                      value-format="YYYY-MM-DD"
-                      style="width: 100%"
+
+                  <!-- 港股代码 -->
+                  <el-form-item label="港股代码" required v-if="hkForm.collection_type === 'specified'">
+                    <el-input
+                      v-model="hkForm.stock_codes_text"
+                      type="textarea"
+                      :rows="5"
+                      placeholder="请输入港股代码（5位数字），每行一个，例如：&#10;00700&#10;09988"
                     />
+                    <div class="text-sm text-gray-500 mt-1">请输入需要采集的港股代码</div>
                   </el-form-item>
-                </el-col>
-              </el-row>
 
-              <!-- 强制更新选项 -->
-              <el-form-item>
-                <el-checkbox v-model="tushareForm.force_update">
-                  强制更新（如果已存在此日期的历史数据，将先删除后插入）
-                </el-checkbox>
-                <div class="text-sm text-gray-500 mt-1">
-                  未选择强制更新时，如果已存在数据则跳过插入
-                </div>
-              </el-form-item>
+                  <!-- 全量采集说明 -->
+                  <el-alert
+                    v-if="hkForm.collection_type === 'all'"
+                    title="全量采集说明"
+                    type="info"
+                    :closable="false"
+                    show-icon
+                    class="mb-4"
+                  >
+                    <p>将采集数据库中所有港股的历史数据。由于akshare限流要求，系统采用单任务执行模式，每次采集间隔5秒。</p>
+                  </el-alert>
 
-              <!-- 操作按钮 -->
-              <el-form-item>
-                <el-button
-                  type="primary"
-                  :loading="tushareLoading"
-                  :disabled="!!currentTask"
-                  @click="startTushareCollection"
-                >
-                  <el-icon v-if="tushareLoading" class="mr-2"><Loading /></el-icon>
-                  {{ tushareLoading ? '启动中...' : (currentTask ? '等待当前任务完成' : '开始采集') }}
-                </el-button>
-                <el-button @click="resetTushareForm">重置</el-button>
-              </el-form-item>
-            </el-form>
-          </div>
-        </el-card>
+                  <!-- 操作按钮 -->
+                  <el-form-item>
+                    <el-button
+                      type="primary"
+                      :loading="hkLoading"
+                      :disabled="!!currentTask"
+                      @click="startHKCollection"
+                    >
+                      <el-icon v-if="hkLoading" class="mr-2"><Loading /></el-icon>
+                      {{ hkLoading ? '启动中...' : (currentTask ? '等待当前任务完成' : '开始采集') }}
+                    </el-button>
+                    <el-button @click="resetHKForm">重置</el-button>
+                  </el-form-item>
+                </el-form>
+              </div>
+            </el-card>
+          </el-tab-pane>
+        </el-tabs>
       </el-tab-pane>
     </el-tabs>
 
@@ -333,16 +430,26 @@ interface FormData {
   test_mode: boolean
 }
 
+interface HKFormData {
+  start_date: string
+  end_date: string
+  stock_codes_text: string
+  collection_type: 'specified' | 'all'
+}
+
 interface RequestData {
   start_date: string
   end_date: string
   test_mode: boolean
   stock_codes?: string[]
   full_collection_mode?: boolean
+  market?: string
 }
 
 // 标签页状态
-const activeTab = ref('akshare')
+const activeMainTab = ref('ashare')
+const activeAShareTab = ref('akshare')
+const activeHKShareTab = ref('hk_akshare')
 
 // 表单数据
 const form = ref<FormData>({
@@ -352,6 +459,14 @@ const form = ref<FormData>({
   single_stock_code: '',
   stock_codes_text: '',
   test_mode: false
+})
+
+// HK表单数据
+const hkForm = ref<HKFormData>({
+  start_date: '',
+  end_date: '',
+  stock_codes_text: '',
+  collection_type: 'specified'
 })
 
 // TuShare表单数据
@@ -371,6 +486,7 @@ const tushareForm = ref<TushareFormData>({
 const tasks = ref<Task[]>([])
 const currentTask = ref<CurrentTask | null>(null)
 const loading = ref(false)
+const hkLoading = ref(false)
 const tushareLoading = ref(false)
 const pollingInterval = ref<NodeJS.Timeout | null>(null)
 
@@ -423,7 +539,7 @@ const startCollection = async () => {
     }
 
     console.log('发送请求:', requestData)
-            const response = await axios.post(`${API_BASE}/api/data-collection/historical`, requestData)
+    const response = await axios.post(`${API_BASE}/api/data-collection/historical`, requestData)
     
     if (response.data.status === 'started') {
       ElMessage.success('采集任务已启动')
@@ -452,9 +568,75 @@ const startCollection = async () => {
   }
 }
 
+const startHKCollection = async () => {
+  try {
+    hkLoading.value = true
+    
+    // 验证表单
+    if (!hkForm.value.start_date || !hkForm.value.end_date) {
+      ElMessage.error('请选择开始日期和结束日期')
+      return
+    }
+
+    if (hkForm.value.collection_type === 'specified' && !hkForm.value.stock_codes_text.trim()) {
+      ElMessage.error('请输入港股代码')
+      return
+    }
+    
+    // 检查当前任务状态
+    if (currentTask.value) {
+      ElMessage.error('已有采集任务正在运行，请等待完成后再启动新任务')
+      return
+    }
+    
+    // 准备请求数据
+    const requestData: RequestData = {
+      start_date: hkForm.value.start_date,
+      end_date: hkForm.value.end_date,
+      test_mode: false,
+      market: 'HK'
+    }
+
+    if (hkForm.value.collection_type === 'specified') {
+      const stockCodes = hkForm.value.stock_codes_text
+        .split('\n')
+        .map(code => code.trim())
+        .filter(code => code.length > 0)
+      requestData.stock_codes = stockCodes
+    } else {
+      requestData.full_collection_mode = true
+    }
+
+    console.log('发送港股采集请求:', requestData)
+    const response = await axios.post(`${API_BASE}/api/data-collection/historical`, requestData)
+    
+    if (response.data.status === 'started') {
+      ElMessage.success('港股采集任务已启动')
+      loadTasks()
+      loadCurrentTask()
+    }
+    
+  } catch (error: any) {
+    console.error('启动港股采集任务失败:', error)
+    let errorMsg = '启动港股采集任务失败'
+    
+    if (error.response) {
+      errorMsg = error.response.data?.detail || `服务器错误 (${error.response.status})`
+    } else if (error.request) {
+      errorMsg = '无法连接到服务器，请检查网络连接'
+    } else {
+      errorMsg = error.message || '未知错误'
+    }
+    
+    ElMessage.error(errorMsg)
+  } finally {
+    hkLoading.value = false
+  }
+}
+
 const loadTasks = async () => {
   try {
-          const response = await axios.get(`${API_BASE}/api/data-collection/tasks`)
+    const response = await axios.get(`${API_BASE}/api/data-collection/tasks`)
     tasks.value = response.data
   } catch (error) {
     console.error('加载任务列表失败:', error)
@@ -463,7 +645,7 @@ const loadTasks = async () => {
 
 const loadCurrentTask = async () => {
   try {
-          const response = await axios.get(`${API_BASE}/api/data-collection/current-task`)
+    const response = await axios.get(`${API_BASE}/api/data-collection/current-task`)
     currentTask.value = response.data.current_task
   } catch (error) {
     console.error('加载当前任务信息失败:', error)
@@ -478,7 +660,7 @@ const cancelTask = async (taskId: string) => {
       type: 'warning'
     })
 
-          await axios.delete(`${API_BASE}/api/data-collection/tasks/${taskId}`)
+    await axios.delete(`${API_BASE}/api/data-collection/tasks/${taskId}`)
     ElMessage.success('任务已取消')
     loadTasks()
     loadCurrentTask()
@@ -499,6 +681,15 @@ const resetForm = () => {
     single_stock_code: '',
     stock_codes_text: '',
     test_mode: false
+  }
+}
+
+const resetHKForm = () => {
+  hkForm.value = {
+    start_date: '',
+    end_date: '',
+    stock_codes_text: '',
+    collection_type: 'specified'
   }
 }
 
@@ -613,4 +804,4 @@ onUnmounted(() => {
 .datacollect-view {
   padding: 20px;
 }
-</style> 
+</style>

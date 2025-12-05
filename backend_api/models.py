@@ -563,6 +563,7 @@ class DataCollectionRequest(BaseModel):
     stock_codes: Optional[List[str]] = None
     test_mode: bool = False
     full_collection_mode: bool = False  # 新增：全量采集模式
+    market: str = 'CN'  # CN: A股, HK: 港股
 
 class DataCollectionResponse(BaseModel):
     """数据采集响应模型"""
@@ -574,6 +575,7 @@ class DataCollectionResponse(BaseModel):
     stock_codes: Optional[List[str]] = None
     test_mode: bool = False
     full_collection_mode: bool = False  # 新增：全量采集模式
+    market: str = 'CN'
 
 class DataCollectionStatus(BaseModel):
     """数据采集状态模型"""
