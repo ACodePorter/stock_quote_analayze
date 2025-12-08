@@ -306,14 +306,15 @@ class HKRealtimeQuoteCollector(AKShareCollector):
             # 记录操作日志
             session.execute(text('''
                 INSERT INTO realtime_collect_operation_logs 
-                (operation_type, operation_desc, affected_rows, status, error_message, created_at)
-                VALUES (:operation_type, :operation_desc, :affected_rows, :status, :error_message, :created_at)
+                (operation_type, operation_desc, affected_rows, status, error_message, collect_source, created_at)
+                VALUES (:operation_type, :operation_desc, :affected_rows, :status, :error_message, :collect_source, :created_at)
             '''), {
                 'operation_type': 'hk_realtime_quote_collect',
                 'operation_desc': f'采集并更新{len(df)}条港股实时行情数据',
                 'affected_rows': affected_rows,
                 'status': 'success',
                 'error_message': None,
+                'collect_source': 'akshare',
                 'created_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             })
             session.commit()
@@ -328,14 +329,15 @@ class HKRealtimeQuoteCollector(AKShareCollector):
                 if 'session' in locals():
                     session.execute(text('''
                         INSERT INTO realtime_collect_operation_logs 
-                        (operation_type, operation_desc, affected_rows, status, error_message, created_at)
-                        VALUES (:operation_type, :operation_desc, :affected_rows, :status, :error_message, :created_at)
+                        (operation_type, operation_desc, affected_rows, status, error_message, collect_source, created_at)
+                        VALUES (:operation_type, :operation_desc, :affected_rows, :status, :error_message, :collect_source, :created_at)
                     '''), {
                         'operation_type': 'hk_realtime_quote_collect',
                         'operation_desc': '采集港股实时行情数据失败',
                         'affected_rows': 0,
                         'status': 'error',
                         'error_message': error_msg,
+                        'collect_source': 'akshare',
                         'created_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                     })
                     session.commit()

@@ -47,9 +47,22 @@ class RealtimeQuoteCollector(TushareCollector):
                 affected_rows INTEGER,
                 status TEXT NOT NULL,
                 error_message TEXT,
+                collect_source TEXT DEFAULT 'tushare',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
+        # 添加 collect_source 字段（如果表已存在但字段不存在）
+        session.execute(text('''
+            DO $$
+            BEGIN
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                               WHERE table_name='realtime_collect_operation_logs' 
+                               AND column_name='collect_source') THEN
+                    ALTER TABLE realtime_collect_operation_logs ADD COLUMN collect_source TEXT DEFAULT 'tushare';
+                END IF;
+            END
+            $$;
+        '''))
         session.commit()
         session.close()
         return True
@@ -119,17 +132,18 @@ class RealtimeQuoteCollector(TushareCollector):
                     print(f"采集单条数据失败: {row_e}")
 
             # 记录采集日志（汇总信息）
-            session.execute('''
+            session.execute(text('''
                 INSERT INTO realtime_collect_operation_logs 
-                (operation_type, operation_desc, affected_rows, status, error_message)
-                VALUES (?, ?, ?, ?, ?)
-            ''', (
-                'realtime_quote_collect',
-                f'采集日期: {collect_date}\n输入参数: {input_params}\n成功记录数: {success_count}\n失败记录数: {fail_count}',
-                success_count,
-                'success' if fail_count == 0 else 'partial_success',
-                '\n'.join(fail_detail) if fail_count > 0 else None
-            ))
+                (operation_type, operation_desc, affected_rows, status, error_message, collect_source)
+                VALUES (:operation_type, :operation_desc, :affected_rows, :status, :error_message, :collect_source)
+            '''), {
+                'operation_type': 'realtime_quote_collect',
+                'operation_desc': f'采集日期: {collect_date}\n输入参数: {input_params}\n成功记录数: {success_count}\n失败记录数: {fail_count}',
+                'affected_rows': success_count,
+                'status': 'success' if fail_count == 0 else 'partial_success',
+                'error_message': '\n'.join(fail_detail) if fail_count > 0 else None,
+                'collect_source': 'tushare'
+            })
             session.commit()
             print(f"【采集完成】成功: {success_count}，失败: {fail_count}")
             return True
@@ -137,17 +151,18 @@ class RealtimeQuoteCollector(TushareCollector):
             error_msg = str(e)
             self.logger.error("采集或入库时出错: %s", error_msg, exc_info=True)
             try:
-                session.execute('''
+                session.execute(text('''
                     INSERT INTO realtime_collect_operation_logs 
-                    (operation_type, operation_desc, affected_rows, status, error_message)
-                    VALUES (?, ?, ?, ?, ?)
-                ''', (
-                    'realtime_quote_collect',
-                    f'采集日期: {datetime.date.today().isoformat()}\n输入参数: {input_params if "input_params" in locals() else ""}',
-                    0,
-                    'error',
-                    error_msg
-                ))
+                    (operation_type, operation_desc, affected_rows, status, error_message, collect_source)
+                    VALUES (:operation_type, :operation_desc, :affected_rows, :status, :error_message, :collect_source)
+                '''), {
+                    'operation_type': 'realtime_quote_collect',
+                    'operation_desc': f'采集日期: {datetime.date.today().isoformat()}\n输入参数: {input_params if "input_params" in locals() else ""}',
+                    'affected_rows': 0,
+                    'status': 'error',
+                    'error_message': error_msg,
+                    'collect_source': 'tushare'
+                })
                 session.commit()
             except Exception as log_error:
                 self.logger.error("记录错误日志失败: %s", str(log_error))

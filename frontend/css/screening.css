@@ -291,4 +291,17 @@
     }
 }
 
+/* 隐藏指定的策略标签页 */
+#parkingApronTab,
+#backtraceMa250Tab,
+#highTightFlagTab {
+    display: none !important;
+}
+
+#parking-apron-content,
+#backtrace-ma250-content,
+#high-tight-flag-content {
+    display: none !important;
+}
+
 

@@ -765,14 +765,15 @@ class AkshareDataCollector:
         try:
             self.session.execute(text("""
                 INSERT INTO historical_collect_operation_logs 
-                (operation_type, operation_desc, affected_rows, status, error_message)
-                VALUES (:operation_type, :operation_desc, :affected_rows, :status, :error_message)
+                (operation_type, operation_desc, affected_rows, status, error_message, collect_source)
+                VALUES (:operation_type, :operation_desc, :affected_rows, :status, :error_message, :collect_source)
             """), {
                 'operation_type': 'akshare_historical_collect',
                 'operation_desc': f'采集日期范围: {start_date} 到 {end_date}\n总计股票: {total_stocks}\n成功采集: {success_stocks}\n新增数据: {self.collected_count}\n跳过数据: {self.skipped_count}',
                 'affected_rows': self.collected_count,
                 'status': 'success' if self.failed_count == 0 else 'partial_success',
-                'error_message': '\n'.join(self.failed_stocks) if self.failed_stocks else None
+                'error_message': '\n'.join(self.failed_stocks) if self.failed_stocks else None,
+                'collect_source': 'akshare'
             })
             self.session.commit()
             

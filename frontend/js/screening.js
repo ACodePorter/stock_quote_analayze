@@ -14,6 +14,12 @@ const ScreeningPage = {
     initStrategyTabs() {
         const tabs = document.querySelectorAll('.strategy-tab');
         tabs.forEach(tab => {
+            // 跳过隐藏的标签页（停机坪、回踩年线、高而窄的旗形）
+            const hiddenStrategies = ['parking-apron', 'backtrace-ma250', 'high-tight-flag'];
+            if (hiddenStrategies.includes(tab.dataset.strategy)) {
+                return; // 跳过隐藏的策略
+            }
+            
             tab.addEventListener('click', () => {
                 const strategy = tab.dataset.strategy;
                 this.switchStrategy(strategy);
@@ -23,19 +29,32 @@ const ScreeningPage = {
 
     // 切换策略标签页
     switchStrategy(strategy) {
+        // 检查是否为隐藏的策略
+        const hiddenStrategies = ['parking-apron', 'backtrace-ma250', 'high-tight-flag'];
+        if (hiddenStrategies.includes(strategy)) {
+            console.warn(`策略 ${strategy} 已被隐藏，无法切换`);
+            return;
+        }
+        
         this.currentStrategy = strategy;
 
         // 更新标签页状态
         document.querySelectorAll('.strategy-tab').forEach(t => {
             t.classList.remove('active');
         });
-        document.querySelector(`[data-strategy="${strategy}"]`).classList.add('active');
+        const targetTab = document.querySelector(`[data-strategy="${strategy}"]`);
+        if (targetTab) {
+            targetTab.classList.add('active');
+        }
 
         // 更新内容区域显示
         document.querySelectorAll('.strategy-content').forEach(c => {
             c.classList.remove('active');
         });
-        document.getElementById(`${strategy}-content`).classList.add('active');
+        const targetContent = document.getElementById(`${strategy}-content`);
+        if (targetContent) {
+            targetContent.classList.add('active');
+        }
     },
 
     // 加载头部导航

@@ -285,14 +285,15 @@ class MonthlyDataGenerator:
         try:
             self.session.execute(text("""
                 INSERT INTO historical_collect_operation_logs 
-                (operation_type, operation_desc, affected_rows, status, error_message)
-                VALUES (:operation_type, :operation_desc, :affected_rows, :status, :error_message)
+                (operation_type, operation_desc, affected_rows, status, error_message, collect_source)
+                VALUES (:operation_type, :operation_desc, :affected_rows, :status, :error_message, :collect_source)
             """), {
                 'operation_type': 'generate_monthly_from_daily',
                 'operation_desc': f'生成日期范围: {start_date} 到 {end_date}\n总计A股: {total_stocks}\n成功处理: {success_stocks}\n生成记录: {self.generated_count}',
                 'affected_rows': self.generated_count,
                 'status': 'success' if self.failed_count == 0 else 'partial_success',
-                'error_message': None
+                'error_message': None,
+                'collect_source': 'akshare'
             })
             self.session.commit()
         except Exception as e:

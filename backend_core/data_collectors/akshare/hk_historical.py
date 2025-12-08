@@ -221,15 +221,16 @@ class HKHistoricalQuoteCollector(AKShareCollector):
             try:
                 op_log_stmt = text("""
                     INSERT INTO historical_collect_operation_logs 
-                        (operation_type, operation_desc, affected_rows, status, created_at)
+                        (operation_type, operation_desc, affected_rows, status, collect_source, created_at)
                     VALUES
-                        (:operation_type, :operation_desc, :affected_rows, :status, CURRENT_TIMESTAMP)
+                        (:operation_type, :operation_desc, :affected_rows, :status, :collect_source, CURRENT_TIMESTAMP)
                 """)
                 session.execute(op_log_stmt, {
                     "operation_type": "sync_from_realtime",
                     "operation_desc": f"同步{target_date}实时行情至历史行情",
                     "affected_rows": affected,
-                    "status": "SUCCESS"
+                    "status": "SUCCESS",
+                    "collect_source": "akshare"
                 })
                 session.commit()
             except Exception as log_e:

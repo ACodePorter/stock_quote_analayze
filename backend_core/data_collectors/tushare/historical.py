@@ -62,8 +62,21 @@ class HistoricalQuoteCollector(TushareCollector):
                 affected_rows INTEGER,
                 status TEXT NOT NULL,
                 error_message TEXT,
+                collect_source TEXT DEFAULT 'tushare',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
+        '''))
+        # 添加 collect_source 字段（如果表已存在但字段不存在）
+        session.execute(text('''
+            DO $$
+            BEGIN
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                               WHERE table_name='historical_collect_operation_logs' 
+                               AND column_name='collect_source') THEN
+                    ALTER TABLE historical_collect_operation_logs ADD COLUMN collect_source TEXT DEFAULT 'tushare';
+                END IF;
+            END
+            $$;
         '''))
         session.commit()
         session.close()
@@ -263,14 +276,15 @@ class HistoricalQuoteCollector(TushareCollector):
                     # 记录扩展涨跌幅计算日志
                     session.execute(text('''
                         INSERT INTO historical_collect_operation_logs 
-                        (operation_type, operation_desc, affected_rows, status, error_message)
-                        VALUES (:operation_type, :operation_desc, :affected_rows, :status, :error_message)
+                        (operation_type, operation_desc, affected_rows, status, error_message, collect_source)
+                        VALUES (:operation_type, :operation_desc, :affected_rows, :status, :error_message, :collect_source)
                     '''), {
                         'operation_type': 'extended_change_calculation',
                         'operation_desc': f'计算日期: {target_date}\n总计股票: {calc_result["total"]}\n成功计算: {calc_result["success"]}\n失败计算: {calc_result["failed"]}',
                         'affected_rows': calc_result['success'],
                         'status': 'success' if calc_result['failed'] == 0 else 'partial_success',
-                        'error_message': '\n'.join(calc_result['details']) if calc_result['failed'] > 0 else None
+                        'error_message': '\n'.join(calc_result['details']) if calc_result['failed'] > 0 else None,
+                        'collect_source': 'tushare'
                     })
                     session.commit()
                     
@@ -280,14 +294,15 @@ class HistoricalQuoteCollector(TushareCollector):
                     try:
                         session.execute(text('''
                             INSERT INTO historical_collect_operation_logs 
-                            (operation_type, operation_desc, affected_rows, status, error_message)
-                            VALUES (:operation_type, :operation_desc, :affected_rows, :status, :error_message)
+                            (operation_type, operation_desc, affected_rows, status, error_message, collect_source)
+                            VALUES (:operation_type, :operation_desc, :affected_rows, :status, :error_message, :collect_source)
                         '''), {
                             'operation_type': 'extended_change_calculation',
                             'operation_desc': f'计算日期: {datetime.datetime.strptime(date_str, "%Y%m%d").strftime("%Y-%m-%d")}',
                             'affected_rows': 0,
                             'status': 'error',
-                            'error_message': str(calc_error)
+                            'error_message': str(calc_error),
+                            'collect_source': 'tushare'
                         })
                         session.commit()
                     except Exception as log_error:
@@ -309,14 +324,15 @@ class HistoricalQuoteCollector(TushareCollector):
 
                     session.execute(text('''
                         INSERT INTO historical_collect_operation_logs
-                        (operation_type, operation_desc, affected_rows, status, error_message)
-                        VALUES (:operation_type, :operation_desc, :affected_rows, :status, :error_message)
+                        (operation_type, operation_desc, affected_rows, status, error_message, collect_source)
+                        VALUES (:operation_type, :operation_desc, :affected_rows, :status, :error_message, :collect_source)
                     '''), {
                         'operation_type': 'thirty_day_change_calculation',
                         'operation_desc': f'计算日期: {target_date}\n总计股票: {thirty_result["total"]}\n成功计算: {thirty_result["success"]}\n失败计算: {thirty_result["failed"]}',
                         'affected_rows': thirty_result['success'],
                         'status': 'success' if thirty_result['failed'] == 0 else 'partial_success',
-                        'error_message': '\n'.join(thirty_result['details']) if thirty_result['failed'] > 0 else None
+                        'error_message': '\n'.join(thirty_result['details']) if thirty_result['failed'] > 0 else None,
+                        'collect_source': 'tushare'
                     })
                     session.commit()
 
@@ -326,14 +342,15 @@ class HistoricalQuoteCollector(TushareCollector):
                         target_date = datetime.datetime.strptime(date_str, "%Y%m%d").strftime("%Y-%m-%d")
                         session.execute(text('''
                             INSERT INTO historical_collect_operation_logs 
-                            (operation_type, operation_desc, affected_rows, status, error_message)
-                            VALUES (:operation_type, :operation_desc, :affected_rows, :status, :error_message)
+                            (operation_type, operation_desc, affected_rows, status, error_message, collect_source)
+                            VALUES (:operation_type, :operation_desc, :affected_rows, :status, :error_message, :collect_source)
                         '''), {
                             'operation_type': 'thirty_day_change_calculation',
                             'operation_desc': f'计算日期: {target_date}',
                             'affected_rows': 0,
                             'status': 'error',
-                            'error_message': str(calc_error)
+                            'error_message': str(calc_error),
+                            'collect_source': 'tushare'
                         })
                         session.commit()
                     except Exception as log_error:
@@ -346,14 +363,15 @@ class HistoricalQuoteCollector(TushareCollector):
             try:
                 session.execute(text('''
                     INSERT INTO historical_collect_operation_logs 
-                    (operation_type, operation_desc, affected_rows, status, error_message)
-                    VALUES (:operation_type, :operation_desc, :affected_rows, :status, :error_message)
+                    (operation_type, operation_desc, affected_rows, status, error_message, collect_source)
+                    VALUES (:operation_type, :operation_desc, :affected_rows, :status, :error_message, :collect_source)
                 '''), {
                     'operation_type': 'historical_quote_collect',
                     'operation_desc': f'采集日期: {datetime.date.today().isoformat()}\n输入参数: {input_params if "input_params" in locals() else ""}',
                     'affected_rows': 0,
                     'status': 'error',
-                    'error_message': error_msg
+                    'error_message': error_msg,
+                    'collect_source': 'tushare'
                 })
                 session.commit()
             except Exception as log_error:

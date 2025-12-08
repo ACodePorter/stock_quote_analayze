@@ -50,12 +50,12 @@ LOG_TABLES = {
     "historical_collect": {
         "table_name": "historical_collect_operation_logs",
         "display_name": "历史数据采集日志",
-        "columns": ["id", "operation_type", "operation_desc", "affected_rows", "status", "error_message", "created_at"]
+        "columns": ["id", "operation_type", "operation_desc", "affected_rows", "status", "error_message", "collect_source", "created_at"]
     },
     "realtime_collect": {
         "table_name": "realtime_collect_operation_logs", 
         "display_name": "实时数据采集日志",
-        "columns": ["id", "operation_type", "operation_desc", "affected_rows", "status", "error_message", "created_at"]
+        "columns": ["id", "operation_type", "operation_desc", "affected_rows", "status", "error_message", "collect_source", "created_at"]
     },
     "operation": {
         "table_name": "operation_logs",

@@ -78,8 +78,21 @@ class AkshareRealtimeQuoteCollector(AKShareCollector):
                 affected_rows INTEGER,
                 status TEXT NOT NULL,
                 error_message TEXT,
+                collect_source TEXT DEFAULT 'akshare',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
+        '''))
+        # 添加 collect_source 字段（如果表已存在但字段不存在）
+        session.execute(text('''
+            DO $$
+            BEGIN
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                               WHERE table_name='realtime_collect_operation_logs' 
+                               AND column_name='collect_source') THEN
+                    ALTER TABLE realtime_collect_operation_logs ADD COLUMN collect_source TEXT DEFAULT 'akshare';
+                END IF;
+            END
+            $$;
         '''))
         session.commit()
 
@@ -244,14 +257,15 @@ class AkshareRealtimeQuoteCollector(AKShareCollector):
             # 记录操作日志
             session.execute(text('''
                 INSERT INTO realtime_collect_operation_logs 
-                (operation_type, operation_desc, affected_rows, status, error_message, created_at)
-                VALUES (:operation_type, :operation_desc, :affected_rows, :status, :error_message, :created_at)
+                (operation_type, operation_desc, affected_rows, status, error_message, collect_source, created_at)
+                VALUES (:operation_type, :operation_desc, :affected_rows, :status, :error_message, :collect_source, :created_at)
             '''), {
                 'operation_type': 'realtime_quote_collect',
                 'operation_desc': f'采集并更新{len(df)}条股票实时行情数据',
                 'affected_rows': affected_rows,
                 'status': 'success',
                 'error_message': None,
+                'collect_source': 'akshare',
                 'created_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             })
             session.commit()
@@ -266,14 +280,15 @@ class AkshareRealtimeQuoteCollector(AKShareCollector):
                 if 'session' in locals():
                     session.execute(text('''
                         INSERT INTO realtime_collect_operation_logs 
-                        (operation_type, operation_desc, affected_rows, status, error_message, created_at)
-                        VALUES (:operation_type, :operation_desc, :affected_rows, :status, :error_message, :created_at)
+                        (operation_type, operation_desc, affected_rows, status, error_message, collect_source, created_at)
+                        VALUES (:operation_type, :operation_desc, :affected_rows, :status, :error_message, :collect_source, :created_at)
                     '''), {
                         'operation_type': 'realtime_quote_collect',
                         'operation_desc': '采集股票实时行情数据失败',
                         'affected_rows': 0,
                         'status': 'error',
                         'error_message': error_msg,
+                        'collect_source': 'akshare',
                         'created_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                     })
                     session.commit()

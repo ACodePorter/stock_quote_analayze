@@ -53,6 +53,14 @@
             </template>
           </el-table-column>
           
+          <el-table-column prop="collect_source" label="采集来源" min-width="100" show-overflow-tooltip>
+            <template #default="{ row }">
+              <el-tag :type="getCollectSourceTag(row.collect_source)" size="small">
+                {{ getCollectSourceText(row.collect_source) }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          
           <el-table-column prop="created_at" label="创建时间" min-width="140" show-overflow-tooltip>
             <template #default="{ row }">
               {{ formatDateTime(row.created_at) }}
@@ -179,6 +187,14 @@
           <div class="detail-item">
             <span class="detail-label">状态:</span>
             <span class="detail-value">{{ getStatusText(selectedLog.status) }}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">采集来源:</span>
+            <span class="detail-value">
+              <el-tag :type="getCollectSourceTag(selectedLog.collect_source)" size="small">
+                {{ getCollectSourceText(selectedLog.collect_source) }}
+              </el-tag>
+            </span>
           </div>
           <div class="detail-item">
             <span class="detail-label">创建时间:</span>
@@ -343,6 +359,25 @@ const getStatusText = (status: string): string => {
     'running': '运行中'
   }
   return statusMap[status] || status
+}
+
+// 获取采集来源对应的标签类型
+const getCollectSourceTag = (source: string | undefined): 'primary' | 'success' | 'warning' | 'info' | 'danger' => {
+  if (!source) return 'info'
+  if (source === 'akshare') return 'primary'
+  if (source === 'tushare') return 'success'
+  return 'info'
+}
+
+// 获取采集来源文本
+const getCollectSourceText = (source: string | undefined): string => {
+  if (!source) return '其他'
+  const sourceMap: Record<string, string> = {
+    'akshare': 'akshare',
+    'tushare': 'tushare',
+    'other': '其他'
+  }
+  return sourceMap[source] || source || '其他'
 }
 
 // 显示详情
