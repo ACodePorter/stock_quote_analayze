@@ -8,7 +8,7 @@
 3. 长下影线: 最近2个交易日内出现(阳线或阴线均可)
    - 下影线长度 >= 实体长度的1倍
    - 上影线很短或几乎没有(上影线 <= 实体长度的30%)
-   - 出现长下影线当日振幅超过5%
+   - 出现长下影线当日振幅超过2%
 """
 
 import numpy as np
@@ -64,12 +64,16 @@ class LongLowerShadowStrategy:
         return current_low < ma20
     
     @staticmethod
-    def check_long_lower_shadow(day_data: Dict) -> Tuple[bool, Optional[Dict]]:
+    def check_long_lower_shadow(day_data: Dict, 
+                               lower_shadow_ratio: float = 1.0,
+                               upper_shadow_ratio: float = 0.3) -> Tuple[bool, Optional[Dict]]:
         """
         检查单日是否为长下影线(阳线或阴线)
         
         Args:
             day_data: 单日数据
+            lower_shadow_ratio: 下影线长度 >= 实体长度的倍数（默认1.0）
+            upper_shadow_ratio: 上影线 <= 实体长度的比例（默认0.3）
         
         Returns:
             (是否为长下影线, 形态信息)
@@ -92,14 +96,14 @@ class LongLowerShadowStrategy:
         # 计算上影线长度
         upper_shadow = high_price - max(open_price, close_price)
         
-        # 条件2: 下影线长度 >= 实体长度的1倍
-        is_long_lower_shadow = lower_shadow >= body_length * 1
+        # 条件2: 下影线长度 >= 实体长度的X倍（可配置）
+        is_long_lower_shadow = lower_shadow >= body_length * lower_shadow_ratio
         
         if not is_long_lower_shadow:
             return False, None
         
-        # 条件3: 上影线很短或几乎没有（上影线 <= 实体长度的30%）
-        is_short_upper_shadow = upper_shadow <= body_length * 0.3
+        # 条件3: 上影线很短或几乎没有（上影线 <= 实体长度的Y%，可配置）
+        is_short_upper_shadow = upper_shadow <= body_length * upper_shadow_ratio
         
         if not is_short_upper_shadow:
             return False, None
@@ -121,20 +125,26 @@ class LongLowerShadowStrategy:
     @staticmethod
     def check_long_lower_shadow_conditions(historical_data: List[Dict], 
                                            downtrend_days: int = 20,
-                                           recent_days: int = 2) -> Tuple[bool, Optional[Dict]]:
+                                           recent_days: int = 2,
+                                           lower_shadow_ratio: float = 1.0,
+                                           upper_shadow_ratio: float = 0.3,
+                                           min_amplitude: float = 0.02) -> Tuple[bool, Optional[Dict]]:
         """
-        检查长下影线策略条件
+        检查长下影线策略条件（参数化版本）
         
         策略要求:
         1. 下跌趋势: 当日最低价 < MA20(20日移动平均线)
-        2. 长下影线: 最近2个交易日内出现(阳线或阴线均可)
+        2. 长下影线: 最近N个交易日内出现(阳线或阴线均可)
         3. 上影线很短或几乎没有
-        4. 振幅: 出现长下影线当日振幅超过5%
+        4. 振幅: 出现长下影线当日振幅超过指定值
         
         Args:
             historical_data: 历史数据列表（倒序，最新在前）
             downtrend_days: 下跌趋势判断天数(默认20天)
             recent_days: 检查长下影线的天数(默认2天)
+            lower_shadow_ratio: 下影线长度 >= 实体长度的倍数（默认1.0）
+            upper_shadow_ratio: 上影线 <= 实体长度的比例（默认0.3）
+            min_amplitude: 最小振幅要求（默认0.02）
         
         Returns:
             (是否满足条件, 策略信息)
@@ -168,11 +178,15 @@ class LongLowerShadowStrategy:
                 
             amplitude = (high_price - low_price) / pre_close
             
-            # 振幅必须超过 5%
-            if amplitude <= 0.05:
+            # 振幅必须达到指定值（包含）
+            if amplitude < min_amplitude:
                 continue
 
-            is_pattern, info = LongLowerShadowStrategy.check_long_lower_shadow(day_data)
+            is_pattern, info = LongLowerShadowStrategy.check_long_lower_shadow(
+                day_data, 
+                lower_shadow_ratio=lower_shadow_ratio,
+                upper_shadow_ratio=upper_shadow_ratio
+            )
             if is_pattern:
                 long_lower_shadow_found = True
                 pattern_info = info
@@ -217,19 +231,27 @@ class LongLowerShadowStrategy:
         }
     
     @staticmethod
-    def screening_long_lower_shadow_strategy(db: Session) -> List[Dict]:
+    def screening_long_lower_shadow_strategy(db: Session,
+                                            lower_shadow_ratio: float = 1.0,
+                                            upper_shadow_ratio: float = 0.3,
+                                            min_amplitude: float = 0.02,
+                                            recent_days: int = 2) -> List[Dict]:
         """
-        长下影线选股策略主函数(支持阳线和阴线)
+        长下影线选股策略主函数(支持阳线和阴线，参数化版本)
         
         策略要求:
         1. 股票范围: 排除创业板(3开头)、科创板(688开头)和北证A股(9开头)
         2. 下跌趋势: 当日最低价 < MA20(20日移动平均线)
-        3. 长下影线: 最近2个交易日内出现(阳线或阴线均可)
+        3. 长下影线: 最近N个交易日内出现(阳线或阴线均可)
         4. 上影线很短或几乎没有
-        5. 振幅: 出现长下影线当日振幅超过5%
+        5. 振幅: 出现长下影线当日振幅超过指定值
         
         Args:
             db: 数据库会话
+            lower_shadow_ratio: 下影线长度 >= 实体长度的倍数（默认1.0）
+            upper_shadow_ratio: 上影线 <= 实体长度的比例（默认0.3）
+            min_amplitude: 最小振幅要求（默认0.02）
+            recent_days: 检查最近N个交易日（默认2天）
         
         Returns:
             符合条件的股票列表
@@ -237,6 +259,9 @@ class LongLowerShadowStrategy:
         results = []
         
         try:
+            logger.info(f"开始执行长下影线选股策略 - 参数: 下影线倍数={lower_shadow_ratio}, "
+                       f"上影线比例={upper_shadow_ratio}, 最小振幅={min_amplitude}, 检查天数={recent_days}")
+            
             # 1. 获取A股股票列表（排除创业板、科创板和北证A股）
             stocks_query = db.execute(text("""
                 SELECT DISTINCT code, name 
@@ -249,11 +274,11 @@ class LongLowerShadowStrategy:
             """))
             
             stocks = stocks_query.fetchall()
-            logger.info(f"找到 {len(stocks)} 只A股股票")
+            logger.info(f"找到 {len(stocks)} 只A股股票（已排除创业板、科创板和北证A股）")
             
             # 2. 计算查询日期范围（至少需要20个交易日的数据）
             end_date = datetime.now().date()
-            start_date = end_date - timedelta(days=50)  # 往前推50天以确保有足够数据
+            start_date = end_date - timedelta(days=30)  # 往前推30天以确保有足够数据
             
             start_date_str = start_date.strftime('%Y-%m-%d')
             end_date_str = end_date.strftime('%Y-%m-%d')
@@ -308,9 +333,14 @@ class LongLowerShadowStrategy:
                             'amount': float(row[9]) if row[9] else 0.0
                         })
                     
-                    # 检查长下影线策略条件
+                    # 检查长下影线策略条件（传入参数）
                     is_valid, strategy_info = LongLowerShadowStrategy.check_long_lower_shadow_conditions(
-                        historical_data, downtrend_days=20, recent_days=2
+                        historical_data,
+                        downtrend_days=20,
+                        recent_days=recent_days,
+                        lower_shadow_ratio=lower_shadow_ratio,
+                        upper_shadow_ratio=upper_shadow_ratio,
+                        min_amplitude=min_amplitude
                     )
                     
                     if not is_valid or not strategy_info:

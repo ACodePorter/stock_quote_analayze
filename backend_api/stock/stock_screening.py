@@ -277,11 +277,12 @@ class StockScreeningStrategy:
         results = []
         
         try:
-            # 1. 获取创业板股票列表（代码以3开头）
+            # 1. 获取创业板股票列表（代码以3开头，排除ST股票）
             cyb_stocks_query = db.execute(text("""
                 SELECT DISTINCT code, name 
                 FROM stock_basic_info 
                 WHERE code LIKE '3%' AND LENGTH(code) = 6
+                AND name NOT LIKE '%ST%'
                 ORDER BY code
             """))
             

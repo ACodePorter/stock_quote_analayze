@@ -14,6 +14,7 @@ from stock.stock_screening import StockScreeningStrategy
 from stock.high_tight_flag_strategy import HighTightFlagStrategy
 from stock.keep_increasing_strategy import KeepIncreasingStrategy
 from stock.long_lower_shadow_strategy import LongLowerShadowStrategy
+from stock.low_nine_strategy import LowNineStrategy
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +28,10 @@ async def get_cyb_midline_strategy(
 ):
     """
     创业板中线选股策略
+    
+    股票范围:
+    - 创业板股票（代码以3开头）
+    - 自动排除ST股票（包括ST、*ST、S*ST等所有ST类股票）
     
     策略条件：
     1. 第一个涨停（涨幅>=9.8%）
@@ -247,28 +252,50 @@ async def get_keep_increasing_strategy(
 
 @router.get("/long-lower-shadow-strategy")
 async def get_long_lower_shadow_strategy(
+    lower_shadow_ratio: float = Query(1.0, ge=0.5, le=3.0, description="下影线长度 >= 实体长度的倍数（默认1.0倍）"),
+    upper_shadow_ratio: float = Query(0.3, ge=0.1, le=0.5, description="上影线 <= 实体长度的比例（默认30%）"),
+    min_amplitude: float = Query(0.02, ge=0.01, le=0.1, description="最小振幅要求（默认2%）"),
+    recent_days: int = Query(2, ge=1, le=10, description="检查最近N个交易日（默认2天）"),
     db: Session = Depends(get_db)
 ):
     """
-    长下影阳线选股策略
+    长下影阳线选股策略（参数化版本）
     
     策略条件:
-    1. 下跌趋势: 当前价格 < 60日前价格
-    2. 长下影阳线: 最近7个交易日内出现
-       - 收盘价 > 开盘价 (阳线)
-       - 下影线长度 >= 实体长度的2倍
+    1. 下跌趋势: 当日最低价 < MA20（20日移动平均线）
+    2. 长下影线: 最近N个交易日内出现(阳线或阴线均可)
+       - 下影线长度 >= 实体长度的X倍（可配置）
+       - 上影线很短或几乎没有（<= 实体长度的Y%，可配置）
+    3. 振幅: 出现长下影线当日振幅超过Z%（可配置）
+    
+    参数说明:
+    - lower_shadow_ratio: 下影线倍数（0.5-3.0），默认1.0
+    - upper_shadow_ratio: 上影线比例（0.1-0.5），默认0.3
+    - min_amplitude: 最小振幅（0.01-0.1），默认0.02
+    - recent_days: 检查天数（1-10），默认2
     
     Args:
+        lower_shadow_ratio: 下影线长度倍数
+        upper_shadow_ratio: 上影线比例
+        min_amplitude: 最小振幅
+        recent_days: 检查最近N天
         db: 数据库会话
     
     Returns:
         符合条件的股票列表
     """
     try:
-        logger.info("开始执行长下影阳线选股策略")
+        logger.info(f"开始执行长下影阳线选股策略 - 参数: 下影线倍数={lower_shadow_ratio}, "
+                   f"上影线比例={upper_shadow_ratio}, 最小振幅={min_amplitude}, 检查天数={recent_days}")
         
-        # 执行选股策略
-        results = LongLowerShadowStrategy.screening_long_lower_shadow_strategy(db)
+        # 执行选股策略（传入参数）
+        results = LongLowerShadowStrategy.screening_long_lower_shadow_strategy(
+            db, 
+            lower_shadow_ratio=lower_shadow_ratio,
+            upper_shadow_ratio=upper_shadow_ratio,
+            min_amplitude=min_amplitude,
+            recent_days=recent_days
+        )
         
         logger.info(f"长下影阳线选股策略执行完成，找到 {len(results)} 只符合条件的股票")
         
@@ -277,7 +304,13 @@ async def get_long_lower_shadow_strategy(
             "data": results,
             "total": len(results),
             "search_date": datetime.now().strftime("%Y-%m-%d"),
-            "strategy_name": "长下影阳线"
+            "strategy_name": "长下影阳线",
+            "parameters": {
+                "lower_shadow_ratio": lower_shadow_ratio,
+                "upper_shadow_ratio": upper_shadow_ratio,
+                "min_amplitude": min_amplitude,
+                "recent_days": recent_days
+            }
         })
         
     except Exception as e:
@@ -287,4 +320,58 @@ async def get_long_lower_shadow_strategy(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"长下影阳线选股策略执行失败: {str(e)}"
+        )
+
+
+@router.get("/low-nine-strategy")
+async def get_low_nine_strategy(
+    limit: int = Query(None, description="限制处理股票数量（测试用，None表示处理所有）"),
+    db: Session = Depends(get_db)
+):
+    """
+    低九策略选股
+    
+    策略条件:
+    应用于下跌趋势中，构成条件：
+    连续 9 根K线（或交易日），每一天的收盘价都低于它前面第4天的收盘价。
+    
+    股票范围:
+    - 全部A股
+    - 自动排除ST股票（包括ST、*ST、S*ST等所有ST类股票）
+    
+    Args:
+        limit: 限制处理股票数量（可选，用于测试）
+        db: 数据库会话
+    
+    Returns:
+        符合条件的股票列表
+    """
+    try:
+        if limit:
+            logger.info(f"开始执行低九策略选股（测试模式：限制 {limit} 只股票）")
+        else:
+            logger.info("开始执行低九策略选股（生产模式：处理所有股票）")
+        
+        # 执行选股策略
+        results = LowNineStrategy.screening_low_nine_strategy(db, limit=limit)
+        
+        logger.info(f"低九策略选股执行完成，找到 {len(results)} 只符合条件的股票")
+        
+        return JSONResponse({
+            "success": True,
+            "data": results,
+            "total": len(results),
+            "search_date": datetime.now().strftime("%Y-%m-%d"),
+            "strategy_name": "低九策略",
+            "test_mode": limit is not None,
+            "limit": limit
+        })
+        
+    except Exception as e:
+        logger.error(f"执行低九策略选股失败: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"低九策略选股执行失败: {str(e)}"
         )

@@ -26,6 +26,7 @@
             <button class="strategy-tab" data-strategy="high-tight-flag" id="highTightFlagTab">高而窄的旗形</button>
             <button class="strategy-tab" data-strategy="keep-increasing" id="keepIncreasingTab">持续上涨(MA30向上)</button>
             <button class="strategy-tab" data-strategy="long-lower-shadow" id="longLowerShadowTab">长下影线</button>
+            <button class="strategy-tab" data-strategy="low-nine" id="lowNineTab">低九策略</button>
         </div>
 
         <!-- 创业板中线选股策略标签页内容 -->
@@ -33,7 +34,7 @@
             <div class="strategy-info-card">
                 <h2>策略说明</h2>
                 <ul class="strategy-conditions">
-                    <li><strong>股票范围：</strong>创业板股票（代码以3开头）</li>
+                    <li><strong>股票范围：</strong>创业板股票（代码以3开头，排除ST股票）</li>
                     <li><strong>时间范围：</strong>最近3-4个月的历史数据</li>
                     <li><strong>选股条件：</strong></li>
                     <li class="condition-item">1. 起始一个涨停（涨幅≥9.8%）</li>
@@ -41,6 +42,7 @@
                     <li class="condition-item">3. 第二次上涨突破第一个涨停高点</li>
                     <li class="condition-item">4. 中间包含向上跳空和揉搓线指标</li>
                     <li class="condition-item">5. 当前均线多头排列（MA5 > MA10 > MA20）</li>
+                    <li class="condition-item">6. 自动排除所有ST股票（包括ST、*ST、S*ST等）</li>
                 </ul>
             </div>
 
@@ -316,8 +318,49 @@
                     <li class="condition-item">2. 长下影线: 最近2个交易日内出现(阳线或阴线均可)</li>
                     <li class="condition-item"> - 下影线长度 >= 实体长度的1倍</li>
                     <li class="condition-item"> - 上影线很短或几乎没有（<= 实体长度的30%）</li>
-                    <li class="condition-item"> - 出现长下影线当日振幅超过5%</li>
+                    <li class="condition-item"> - 出现长下影线当日振幅超过2%</li>
                 </ul>
+            </div>
+
+            <!-- 参数配置区域 -->
+            <div class="strategy-params-card">
+                <h3>📊 策略参数配置</h3>
+                <div class="params-grid">
+                    <div class="param-item">
+                        <label for="lowerShadowRatio">
+                            <span class="param-label">下影线倍数</span>
+                            <span class="param-range">(0.5-3.0)</span>
+                        </label>
+                        <input type="number" id="lowerShadowRatio" class="param-input" min="0.5" max="3.0" step="0.1"
+                            value="1.0">
+                        <span class="param-desc">下影线长度 >= 实体长度的倍数</span>
+                    </div>
+
+                    <div class="param-item">
+                        <label for="upperShadowRatio">
+                            <span class="param-label">上影线比例</span>
+                            <span class="param-range">(0.1-0.5)</span>
+                        </label>
+                        <input type="number" id="upperShadowRatio" class="param-input" min="0.1" max="0.5" step="0.05"
+                            value="0.3">
+                        <span class="param-desc">上影线 <= 实体长度的比例</span>
+                    </div>
+
+                    <div class="param-item">
+                        <label for="minAmplitude">
+                        </label>
+                        <input type="number" id="recentDays" class="param-input" min="1" max="10" step="1" value="2">
+                        <span class="param-desc">检查最近N个交易日</span>
+                    </div>
+                </div>
+
+                <div class="param-presets">
+                    <span class="preset-label">快速预设：</span>
+                    <button class="preset-btn" onclick="setLongShadowPreset('conservative')">保守</button>
+                    <button class="preset-btn" onclick="setLongShadowPreset('balanced')">平衡</button>
+                    <button class="preset-btn" onclick="setLongShadowPreset('aggressive')">激进</button>
+                    <button class="preset-btn" onclick="setLongShadowPreset('default')">默认</button>
+                </div>
             </div>
 
             <div class="screening-actions">
@@ -365,11 +408,117 @@
                 </div>
             </div>
         </div>
+
+        <!-- 低九策略标签页内容 -->
+        <div id="low-nine-content" class="strategy-content">
+            <div class="strategy-info-card">
+                <h2>策略说明</h2>
+                <ul class="strategy-conditions">
+                    <li><strong>股票范围:</strong>全部A股（排除ST股票）</li>
+                    <li><strong>时间范围:</strong>最近13个交易日</li>
+                    <li><strong>选股条件:</strong></li>
+                    <li class="condition-item">应用于下跌趋势中，连续 9 根K线（或交易日），每一天的收盘价都低于它前面第4天的收盘价</li>
+                    <li class="condition-item">自动排除所有ST股票（包括ST、*ST、S*ST等）</li>
+                </ul>
+            </div>
+
+            <div class="screening-actions">
+                <button id="refreshBtn-low-nine" class="refresh-btn" data-strategy="low-nine">刷新筛选</button>
+                <span id="searchDate-low-nine" class="search-date"></span>
+            </div>
+
+            <div id="loadingIndicator-low-nine" class="loading-indicator" style="display:none;">
+                <div class="spinner"></div>
+                <span>正在筛选股票，请稍候...</span>
+            </div>
+
+            <div id="errorMessage-low-nine" class="error-message" style="display:none;"></div>
+
+            <div id="resultsContainer-low-nine" class="results-container">
+                <div class="results-header">
+                    <span id="resultsCount-low-nine" class="results-count">共找到 0 只符合条件的股票</span>
+                </div>
+                <div id="resultsTable-low-nine" class="results-table-wrapper">
+                    <table class="results-table">
+                        <thead>
+                            <tr>
+                                <th>股票代码</th>
+                                <th>股票名称</th>
+                                <th>形态开始日期</th>
+                                <th>形态结束日期</th>
+                                <th>形态开始价格</th>
+                                <th>9天跌幅</th>
+                                <th>9天最高价</th>
+                                <th>9天最低价</th>
+                                <th>当前价格</th>
+                                <th>当前涨跌幅</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="resultsTableBody-low-nine">
+                            <tr>
+                                <td colspan="11" class="empty-state">点击"刷新筛选"按钮开始筛选</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
     </main>
 
     <script src="js/config.js"></script>
     <script src="js/common.js"></script>
     <script src="components/header.js"></script>
+
+    <script>
+        // 长下影线策略参数预设
+        function setLongShadowPreset(preset) {
+            const presets = {
+                'default': {
+                    lowerShadowRatio: 1.0,
+                    upperShadowRatio: 0.3,
+                    minAmplitude: 0.02,
+                    recentDays: 2
+                },
+                'conservative': {
+                    lowerShadowRatio: 2.0,
+                    upperShadowRatio: 0.2,
+                    minAmplitude: 0.05,
+                    recentDays: 1
+                },
+                'balanced': {
+                    lowerShadowRatio: 1.5,
+                    upperShadowRatio: 0.25,
+                    minAmplitude: 0.03,
+                    recentDays: 2
+                },
+                'aggressive': {
+                    lowerShadowRatio: 0.8,
+                    upperShadowRatio: 0.4,
+                    minAmplitude: 0.01,
+                    recentDays: 5
+                }
+            };
+
+            const params = presets[preset];
+            if (params) {
+                document.getElementById('lowerShadowRatio').value = params.lowerShadowRatio;
+                document.getElementById('upperShadowRatio').value = params.upperShadowRatio;
+                document.getElementById('minAmplitude').value = params.minAmplitude;
+                document.getElementById('recentDays').value = params.recentDays;
+
+                // 显示提示
+                const presetNames = {
+                    'default': '默认',
+                    'conservative': '保守',
+                    'balanced': '平衡',
+                    'aggressive': '激进'
+                };
+                console.log(`已应用${presetNames[preset]}预设参数`);
+            }
+        }
+    </script>
+
     <script src="js/screening.js"></script>
 </body>
 

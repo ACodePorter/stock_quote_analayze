@@ -164,6 +164,17 @@ async def query_logs(
         # 获取字段映射
         field_mapping = get_field_mapping(table_config)
         
+        # 检查哪些字段实际存在于表中
+        existing_columns_result = db.execute(text("""
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name = :table_name
+        """), {"table_name": table_name})
+        existing_columns = {row[0] for row in existing_columns_result.fetchall()}
+        
+        # 过滤出实际存在的列
+        available_columns = [col for col in table_config["columns"] if col in existing_columns]
+        
         # 构建查询条件
         where_conditions = []
         params = {}
@@ -205,8 +216,8 @@ async def query_logs(
         # 计算分页
         offset = (page - 1) * page_size
         
-        # 查询数据
-        columns_str = ", ".join(table_config["columns"])
+        # 查询数据（只查询存在的列）
+        columns_str = ", ".join(available_columns) if available_columns else "*"
         order_by_field = field_mapping["created_at"] or "id"
         query_sql = f"""
             SELECT {columns_str}
@@ -225,11 +236,19 @@ async def query_logs(
         logs = []
         for row in rows:
             log_dict = {}
-            for i, column in enumerate(table_config["columns"]):
-                value = row[i]
-                if isinstance(value, datetime):
-                    value = value.isoformat()
-                log_dict[column] = value
+            # 使用实际查询到的列数量
+            for i, column in enumerate(available_columns):
+                if i < len(row):
+                    value = row[i]
+                    if isinstance(value, datetime):
+                        value = value.isoformat()
+                    log_dict[column] = value
+                else:
+                    log_dict[column] = None
+            # 对于配置中存在但表中不存在的字段，设置为 None
+            for column in table_config["columns"]:
+                if column not in available_columns:
+                    log_dict[column] = None
             logs.append(log_dict)
         
         return {
@@ -354,7 +373,19 @@ async def get_recent_logs(
     table_name = table_config["table_name"]
     
     try:
-        columns_str = ", ".join(table_config["columns"])
+        # 检查哪些字段实际存在于表中
+        existing_columns_result = db.execute(text("""
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name = :table_name
+        """), {"table_name": table_name})
+        existing_columns = {row[0] for row in existing_columns_result.fetchall()}
+        
+        # 过滤出实际存在的列
+        available_columns = [col for col in table_config["columns"] if col in existing_columns]
+        
+        # 查询数据（只查询存在的列）
+        columns_str = ", ".join(available_columns) if available_columns else "*"
         query_sql = f"""
             SELECT {columns_str}
             FROM {table_name}
@@ -369,11 +400,19 @@ async def get_recent_logs(
         logs = []
         for row in rows:
             log_dict = {}
-            for i, column in enumerate(table_config["columns"]):
-                value = row[i]
-                if isinstance(value, datetime):
-                    value = value.isoformat()
-                log_dict[column] = value
+            # 使用实际查询到的列
+            for i, column in enumerate(available_columns):
+                if i < len(row):
+                    value = row[i]
+                    if isinstance(value, datetime):
+                        value = value.isoformat()
+                    log_dict[column] = value
+                else:
+                    log_dict[column] = None
+            # 对于配置中存在但表中不存在的字段，设置为 None
+            for column in table_config["columns"]:
+                if column not in available_columns:
+                    log_dict[column] = None
             logs.append(log_dict)
         
         return {

@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>清除缓存说明</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+
+        .card {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            color: #333;
+        }
+
+        h2 {
+            color: #666;
+            margin-top: 30px;
+        }
+
+        .step {
+            background: #e3f2fd;
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 4px solid #2196F3;
+            border-radius: 4px;
+        }
+
+        .important {
+            background: #fff3cd;
+            padding: 15px;
+            border-left: 4px solid #ffc107;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+
+        code {
+            background: #f5f5f5;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .button {
+            display: inline-block;
+            padding: 10px 20px;
+            background: #4CAF50;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="card">
+        <h1>🔄 清除浏览器缓存 - 低九策略调试</h1>
+
+        <div class="important">
+            <strong>⚠️ 重要提示：</strong>
+            JavaScript文件被浏览器缓存了，需要强制刷新才能加载最新版本！
+        </div>
+
+        <h2>方法1: 硬刷新（最简单）</h2>
+        <div class="step">
+            <strong>步骤：</strong>
+            <ol>
+                <li>在选股页面按住 <code>Ctrl + Shift + R</code> (Windows)</li>
+                <li>或者按住 <code>Ctrl + F5</code></li>
+                <li>或者按住 <code>Shift</code> 然后点击浏览器的刷新按钮</li>
+            </ol>
+        </div>
+
+        <h2>方法2: 清除浏览器缓存（彻底）</h2>
+        <div class="step">
+            <strong>Chrome/Edge：</strong>
+            <ol>
+                <li>按 <code>Ctrl + Shift + Delete</code></li>
+                <li>选择"缓存的图片和文件"</li>
+                <li>时间范围选择"全部时间"</li>
+                <li>点击"清除数据"</li>
+                <li>刷新页面</li>
+            </ol>
+        </div>
+
+        <h2>方法3: 开发者工具禁用缓存</h2>
+        <div class="step">
+            <strong>步骤：</strong>
+            <ol>
+                <li>按 <code>F12</code> 打开开发者工具</li>
+                <li>切换到 <strong>Network</strong> 标签</li>
+                <li>勾选 <strong>"Disable cache"</strong> 选项</li>
+                <li>保持开发者工具打开状态</li>
+                <li>刷新页面（<code>F5</code>）</li>
+            </ol>
+        </div>
+
+        <h2>验证是否成功</h2>
+        <div class="step">
+            刷新后，在控制台应该看到以下日志：
+            <pre style="background: #f5f5f5; padding: 10px; border-radius: 4px; overflow-x: auto;">
+[低九策略] 找到 7 个刷新按钮
+[低九策略] 绑定按钮: refreshBtn-low-nine, 策略: low-nine
+            </pre>
+            如果看到这些日志，说明缓存已清除成功！
+        </div>
+
+        <div class="important">
+            <strong>💡 提示：</strong>
+            如果以上方法都不行，请尝试：
+            <ul>
+                <li>关闭浏览器，重新打开</li>
+                <li>使用无痕模式（<code>Ctrl + Shift + N</code>）</li>
+                <li>检查 screening.js 文件的修改时间是否是最新的</li>
+            </ul>
+        </div>
+
+        <a href="screening.html" class="button">返回选股页面</a>
+    </div>
+
+    <script>
+        console.log('✅ 如果你看到这条消息，说明HTML文件已经更新了！');
+        console.log('📝 现在请按照上面的步骤清除JavaScript缓存');
+    </script>
+</body>
+
+</html>

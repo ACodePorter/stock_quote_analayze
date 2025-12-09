@@ -19,7 +19,7 @@ const ScreeningPage = {
             if (hiddenStrategies.includes(tab.dataset.strategy)) {
                 return; // 跳过隐藏的策略
             }
-            
+
             tab.addEventListener('click', () => {
                 const strategy = tab.dataset.strategy;
                 this.switchStrategy(strategy);
@@ -35,7 +35,7 @@ const ScreeningPage = {
             console.warn(`策略 ${strategy} 已被隐藏，无法切换`);
             return;
         }
-        
+
         this.currentStrategy = strategy;
 
         // 更新标签页状态
@@ -178,7 +178,32 @@ const ScreeningPage = {
             } else if (strategy === 'keep-increasing') {
                 url = `${apiBaseUrl}/api/screening/keep-increasing-strategy`;
             } else if (strategy === 'long-lower-shadow') {
-                url = `${apiBaseUrl}/api/screening/long-lower-shadow-strategy`;
+                // 读取参数并转换为数字
+                let lowerShadowRatio = parseFloat(document.getElementById('lowerShadowRatio')?.value);
+                if (isNaN(lowerShadowRatio)) lowerShadowRatio = 1.0;
+
+                let upperShadowRatio = parseFloat(document.getElementById('upperShadowRatio')?.value);
+                if (isNaN(upperShadowRatio)) upperShadowRatio = 0.3;
+
+                let minAmplitude = parseFloat(document.getElementById('minAmplitude')?.value);
+                if (isNaN(minAmplitude)) minAmplitude = 0.02;
+
+                // 智能处理振幅参数：如果用户输入 > 0.5（可能是百分比），则自动除以100
+                // 例如：输入 2 -> 0.02, 输入 5 -> 0.05
+                if (minAmplitude > 0.5) {
+                    console.log(`[长下影线] 检测到振幅参数 ${minAmplitude} > 0.5，自动转换为 ${minAmplitude / 100}`);
+                    minAmplitude = minAmplitude / 100;
+                }
+
+                let recentDays = parseInt(document.getElementById('recentDays')?.value);
+                if (isNaN(recentDays)) recentDays = 2;
+
+                // 构造带参数的URL
+                url = `${apiBaseUrl}/api/screening/long-lower-shadow-strategy?` +
+                    `lower_shadow_ratio=${lowerShadowRatio}&` +
+                    `upper_shadow_ratio=${upperShadowRatio}&` +
+                    `min_amplitude=${minAmplitude}&` +
+                    `recent_days=${recentDays}`;
             } else {
                 throw new Error('未知的策略类型');
             }
@@ -214,7 +239,28 @@ const ScreeningPage = {
         } catch (error) {
             console.error('加载选股结果失败:', error);
             if (errorMessage) {
-                errorMessage.textContent = `加载失败: ${error.message}`;
+                // 处理不同类型的错误对象
+                let errorMsg = '未知错误';
+                if (typeof error === 'string') {
+                    errorMsg = error;
+                } else if (error && error.message) {
+                    errorMsg = error.message;
+                } else if (error && error.detail) {
+                    if (Array.isArray(error.detail)) {
+                        errorMsg = error.detail.map(e => `${e.loc.join('.')}: ${e.msg}`).join(', ');
+                    } else {
+                        errorMsg = JSON.stringify(error.detail);
+                    }
+                } else {
+                    try {
+                        errorMsg = JSON.stringify(error);
+                        if (errorMsg === '{}') errorMsg = error.toString();
+                    } catch (e) {
+                        errorMsg = error.toString();
+                    }
+                }
+
+                errorMessage.textContent = `加载失败: ${errorMsg}`;
                 errorMessage.style.display = 'block';
             }
             let colSpan;
