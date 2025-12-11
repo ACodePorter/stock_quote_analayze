@@ -56,6 +56,68 @@ def is_hk_stock(db: Session, stock_code: str) -> bool:
     logger.debug(f"[is_hk_stock] {code_str} 不是港股")
     return False
 
+def normalize_stock_code(stock_code: str) -> str:
+    """
+    清理和规范化股票代码格式。
+    去除空格、点号后缀等，确保代码格式正确。
+    
+    Args:
+        stock_code: 原始股票代码
+        
+    Returns:
+        str: 清理后的股票代码
+    """
+    if not stock_code:
+        return stock_code
+    
+    code = str(stock_code).strip()
+    # 如果包含点号（如 000001.SZ），只取点号前的部分
+    if '.' in code:
+        code = code.split('.')[0]
+    return code
+
+def get_market_from_db(db: Session, stock_code: str) -> str:
+    """
+    从stock_basic_info表中获取股票的market值。
+    
+    Args:
+        db: 数据库会话
+        stock_code: 股票代码
+        
+    Returns:
+        str: market值（如 'SZ' 或 'SH'），如果未找到则返回空字符串
+    """
+    try:
+        result = db.execute(
+            text("SELECT market FROM stock_basic_info WHERE code = :code LIMIT 1"),
+            {"code": stock_code}
+        ).fetchone()
+        if result and result[0]:
+            return str(result[0]).strip()
+    except Exception as e:
+        logger.warning(f"[get_market_from_db] 查询股票 {stock_code} 的market值失败: {e}")
+    return ""
+
+def build_sina_symbol(stock_code: str, market: str) -> str:
+    """
+    构建新浪接口需要的symbol参数格式。
+    格式：小写市场标识 + 股票代码，如 "sz000001" 或 "sh600000"
+    
+    Args:
+        stock_code: 股票代码（如 "000001"）
+        market: 市场标识（如 "SZ" 或 "SH"）
+        
+    Returns:
+        str: 新浪接口的symbol参数（如 "sz000001"）
+    """
+    if not market:
+        return ""
+    
+    # 将市场标识转换为小写
+    market_lower = market.lower()
+    # 组合成新浪接口格式
+    return f"{market_lower}{stock_code}"
+
 def log_collection(db: Session, stock_code: str, affected_rows: int, status: str, error_message: str = None):
     """写入采集日志。"""
     log = WatchlistHistoryCollectionLogs(
@@ -223,6 +285,13 @@ def collect_watchlist_history():
     success_count = 0
     fail_count = 0
     for stock_code in set(codes):
+        # 清理和规范化股票代码格式
+        stock_code = normalize_stock_code(stock_code)
+        
+        if not stock_code:
+            logger.warning(f"[collect_watchlist_history] 股票代码为空，跳过")
+            continue
+            
         if has_collected(db, stock_code):
             #logger.info(f"[collect_watchlist_history] 股票 {stock_code} 已采集过，跳过")
             continue
@@ -237,7 +306,9 @@ def collect_watchlist_history():
             if is_hk:
                 # 港股处理逻辑
                 logger.info(f"[collect_watchlist_history] 检测到港股代码: {stock_code}")
-                df = ak.stock_hk_hist(symbol=stock_code, period='daily', start_date='19950101', end_date=end_date, adjust='')
+                # 确保港股代码格式正确（5位数字）
+                hk_code = stock_code.zfill(5) if stock_code.isdigit() else stock_code
+                df = ak.stock_hk_hist(symbol=hk_code, period='daily', start_date='19950101', end_date=end_date, adjust='')
                 
                 # 检查返回的DataFrame是否为空
                 if df.empty:
@@ -257,12 +328,48 @@ def collect_watchlist_history():
                 log_collection(db, stock_code, affected_rows, 'success')
                 success_count += 1
             else:
-                # A股处理逻辑（保持原有逻辑）
+                # A股处理逻辑
                 logger.info(f"[collect_watchlist_history] 开始采集A股 {stock_code} 的历史数据")
-                df = ak.stock_zh_a_hist(symbol=stock_code, period='daily', start_date='19950101', end_date=end_date, adjust='')
+                # 确保A股代码格式正确（6位数字）
+                a_code = stock_code.zfill(6) if stock_code.isdigit() and len(stock_code) < 6 else stock_code
+                df = None
+                
+                # 先尝试调用 stock_zh_a_hist（东方财富接口）
+                try:
+                    df = ak.stock_zh_a_hist(symbol=a_code, period='daily', start_date='19950101', end_date=end_date, adjust='')
+                    logger.info(f"[collect_watchlist_history] 成功使用 stock_zh_a_hist 接口获取A股 {stock_code} 的历史数据")
+                except Exception as e1:
+                    logger.warning(f"[collect_watchlist_history] 调用 stock_zh_a_hist 失败，尝试使用新浪接口，错误详情: {e1}")
+                    
+                    # 如果 stock_zh_a_hist 失败，尝试调用新浪接口
+                    try:
+                        # 从stock_basic_info表获取market值
+                        market = get_market_from_db(db, stock_code)
+                        if not market:
+                            # 如果表中没有market值，尝试根据股票代码推断
+                            if stock_code.startswith('0') or stock_code.startswith('3'):
+                                market = 'SZ'
+                            else:
+                                market = 'SH'
+                            logger.info(f"[collect_watchlist_history] 未在stock_basic_info表中找到market值，根据代码推断为: {market}")
+                        
+                        # 构建新浪接口需要的symbol参数（格式：sz000001 或 sh600000）
+                        sina_symbol = build_sina_symbol(a_code, market)
+                        if not sina_symbol:
+                            raise ValueError(f"无法构建新浪接口的symbol参数，stock_code: {stock_code}, market: {market}")
+                        
+                        logger.info(f"[collect_watchlist_history] 使用新浪接口，symbol: {sina_symbol}")
+                        # 调用新浪接口
+                        # 注意：新浪接口的symbol参数格式为 "sz000001" 或 "sh600000"（小写市场标识+股票代码）
+                        # stock_zh_a_hist 接口支持这种格式作为备用数据源
+                        df = ak.stock_zh_a_hist(symbol=sina_symbol, period='daily', start_date='19950101', end_date=end_date, adjust='')
+                        logger.info(f"[collect_watchlist_history] 成功使用新浪接口获取A股 {stock_code} 的历史数据")
+                    except Exception as e2:
+                        logger.error(f"[collect_watchlist_history] 调用新浪接口也失败: {e2}")
+                        raise Exception(f"stock_zh_a_hist和新浪接口都失败: stock_zh_a_hist错误={e1}, 新浪接口错误={e2}")
                 
                 # 检查返回的DataFrame是否为空
-                if df.empty:
+                if df is None or df.empty:
                     logger.warning(f"A股 {stock_code} 返回空数据，可能该股票已退市或代码无效")
                     log_collection(db, stock_code, 0, 'fail', '返回空数据，可能该股票已退市或代码无效')
                     fail_count += 1

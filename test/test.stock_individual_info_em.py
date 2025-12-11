@@ -96,9 +96,9 @@ def main():
         print(f"从雪球获取港股个股信息失败：{e}")
 
 
-    stock_hk_hist_df = ak.stock_hk_hist(symbol="00700", period='daily', start_date="19700101",end_date="22220101",adjust="")    
-    print("港股历史行情数据获取成功，内容如下：")
-    print(stock_hk_hist_df)
+    # stock_hk_hist_df = ak.stock_hk_hist(symbol="00700", period='daily', start_date="19700101",end_date="22220101",adjust="")    
+    # print("港股历史行情数据获取成功，内容如下：")
+    # print(stock_hk_hist_df)
 
     stock_hk_daily_hfq_df = ak.stock_hk_daily(symbol="00539", adjust="")
     print("港股每日复权行情数据获取成功，内容如下：")

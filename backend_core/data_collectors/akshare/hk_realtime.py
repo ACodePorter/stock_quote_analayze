@@ -121,20 +121,25 @@ class HKRealtimeQuoteCollector(AKShareCollector):
             self._init_db()  # 确保表结构存在
             affected_rows = 0 
             session = SessionLocal()
-            # 先调用新浪财经港股实时行情接口，如失败再调用东方财富接口
+            # 优先使用 stock_hk_spot_em（东方财富接口），因为它返回的数据更全
+            # 如果失败，再尝试 stock_hk_spot（新浪财经接口）
             df = None
-            # 先尝试调用 stock_hk_spot（新浪财经接口）
+            source_name = None
+            
+            # 先尝试调用 stock_hk_spot_em（东方财富接口，数据更全）
             try:
-                df = self._retry_on_failure(ak.stock_hk_spot)
-                self.logger.info("成功使用 stock_hk_spot 接口获取港股实时行情数据")
+                df = self._retry_on_failure(ak.stock_hk_spot_em)
+                source_name = "stock_hk_spot_em"
+                self.logger.info("成功使用 stock_hk_spot_em 接口获取港股实时行情数据")
             except Exception as e1:
-                self.logger.warning(f"调用 stock_hk_spot 失败，尝试使用 stock_hk_spot_em，错误详情: {e1}")
-                # 如果 stock_hk_spot 失败，则尝试调用东方财富接口
+                self.logger.warning(f"调用 stock_hk_spot_em 失败，尝试使用 stock_hk_spot，错误详情: {e1}")
+                # 如果 stock_hk_spot_em 失败，则尝试调用新浪财经接口
                 try:
-                    df = self._retry_on_failure(ak.stock_hk_spot_em)
-                    self.logger.info("成功使用 stock_hk_spot_em 接口获取港股实时行情数据")
+                    df = self._retry_on_failure(ak.stock_hk_spot)
+                    source_name = "stock_hk_spot"
+                    self.logger.info("成功使用 stock_hk_spot 接口获取港股实时行情数据")
                 except Exception as e2:
-                    self.logger.error(f"调用 stock_hk_spot_em 也失败: {e2}")
+                    self.logger.error(f"调用 stock_hk_spot 也失败: {e2}")
                     if 'session' in locals():
                         session.close()
                     return False
@@ -144,7 +149,13 @@ class HKRealtimeQuoteCollector(AKShareCollector):
                 if 'session' in locals():
                     session.close()
                 return False
-            self.logger.info("采集到 %d 条港股行情数据", len(df))
+            
+            data_count = len(df)
+            self.logger.info("采集到 %d 条港股行情数据（数据源: %s）", data_count, source_name)
+            
+            # 检查数据量是否正常（港股应该有2000+只股票）
+            if data_count < 1000:
+                self.logger.warning(f"警告：港股实时行情数据量异常偏少（{data_count}条），正常应该有2000+条。可能是接口限制或数据源问题。")
             
             # 打印列名和第一条数据用于调试
             if len(df) > 0:
@@ -158,23 +169,31 @@ class HKRealtimeQuoteCollector(AKShareCollector):
             for idx, row in df.iterrows():
                 try:
                     # 港股代码格式：5位数字，如 "00700"
-                    # 兼容不同的字段名，使用更安全的方式访问
+                    # 兼容不同的字段名，使用更安全的方式访问（使用row.get()方法）
                     code = None
-                    if '代码' in row.index:
-                        code = str(row['代码']).strip()
-                    elif '股票代码' in row.index:
-                        code = str(row['股票代码']).strip()
+                    # 尝试多种可能的字段名
+                    for field_name in ['代码', '股票代码', 'symbol', 'code']:
+                        if field_name in df.columns:
+                            val = row.get(field_name)
+                            if val is not None and pd.notna(val):
+                                code = str(val).strip()
+                                if code:
+                                    break
                     
                     if not code:
-                        self.logger.warning(f"无法获取股票代码，跳过该行: {row.to_dict() if hasattr(row, 'to_dict') else row}")
+                        self.logger.warning(f"无法获取股票代码，跳过该行。可用字段: {list(df.columns)}, 行数据: {row.to_dict() if hasattr(row, 'to_dict') else str(row)}")
                         continue
                     
                     # 兼容不同的名称字段：中文名称、名称
                     name = None
-                    if '中文名称' in row.index:
-                        name = str(row['中文名称']).strip()
-                    elif '名称' in row.index:
-                        name = str(row['名称']).strip()
+                    # 尝试多种可能的字段名
+                    for field_name in ['中文名称', '名称', 'name', '股票名称']:
+                        if field_name in df.columns:
+                            val = row.get(field_name)
+                            if val is not None and pd.notna(val):
+                                name = str(val).strip()
+                                if name:
+                                    break
                     
                     if not name:
                         self.logger.warning(f"股票 {code} 无法获取名称，跳过")
@@ -185,18 +204,22 @@ class HKRealtimeQuoteCollector(AKShareCollector):
                     
                     # 处理英文名称，兼容不同的字段名
                     english_name = None
-                    if '英文名称' in row.index:
-                        english_name = str(row['英文名称']).strip() if pd.notna(row['英文名称']) else None
-                    elif '英文名' in row.index:
-                        english_name = str(row['英文名']).strip() if pd.notna(row['英文名']) else None
+                    for field_name in ['英文名称', '英文名', 'engname', 'english_name']:
+                        if field_name in df.columns:
+                            val = row.get(field_name)
+                            if val is not None and pd.notna(val):
+                                english_name = str(val).strip()
+                                if english_name:
+                                    break
                     
                     # 安全地获取数值字段
-                    def safe_get_value(key, alt_key=None):
+                    def safe_get_value(*keys):
                         """安全地获取Series中的值"""
-                        if key in row.index:
-                            return row[key] if pd.notna(row[key]) else None
-                        elif alt_key and alt_key in row.index:
-                            return row[alt_key] if pd.notna(row[alt_key]) else None
+                        for key in keys:
+                            if key and key in df.columns:
+                                val = row.get(key)
+                                if val is not None and pd.notna(val):
+                                    return val
                         return None
                     
                     data = {
@@ -204,15 +227,15 @@ class HKRealtimeQuoteCollector(AKShareCollector):
                         'name': name,
                         'trade_date': trade_date,
                         'english_name': english_name,
-                        'current_price': self._safe_value(safe_get_value('最新价', '现价')),
-                        'change_percent': self._safe_value(safe_get_value('涨跌幅', '涨跌%')),
-                        'change_amount': self._safe_value(safe_get_value('涨跌额', '涨跌')),
-                        'volume': self._safe_value(safe_get_value('成交量')),
-                        'amount': self._safe_value(safe_get_value('成交额')),
-                        'high': self._safe_value(safe_get_value('最高')),
-                        'low': self._safe_value(safe_get_value('最低')),
-                        'open': self._safe_value(safe_get_value('今开', '开盘')),
-                        'pre_close': self._safe_value(safe_get_value('昨收', '昨收价')),
+                        'current_price': self._safe_value(safe_get_value('最新价', '现价', 'lasttrade')),
+                        'change_percent': self._safe_value(safe_get_value('涨跌幅', '涨跌%', 'changepercent')),
+                        'change_amount': self._safe_value(safe_get_value('涨跌额', '涨跌', 'pricechange')),
+                        'volume': self._safe_value(safe_get_value('成交量', 'volume')),
+                        'amount': self._safe_value(safe_get_value('成交额', 'amount')),
+                        'high': self._safe_value(safe_get_value('最高', 'high')),
+                        'low': self._safe_value(safe_get_value('最低', 'low')),
+                        'open': self._safe_value(safe_get_value('今开', '开盘', 'open')),
+                        'pre_close': self._safe_value(safe_get_value('昨收', '昨收价', 'prevclose')),
                         'update_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                     }
 
