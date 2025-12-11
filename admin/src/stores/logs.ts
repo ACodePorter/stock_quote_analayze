@@ -15,6 +15,7 @@ export const useLogsStore = defineStore('logs', () => {
     level: 'all',
     startDate: null,
     endDate: null,
+    collect_source: null,
     keyword: ''
   })
   const pagination = ref({
@@ -41,24 +42,24 @@ export const useLogsStore = defineStore('logs', () => {
   const fetchLogs = async () => {
     loading.value = true
     error.value = null
-    
+
     try {
       console.log('🔍 开始获取历史采集日志，分页参数:', {
         page: pagination.value.current,
         pageSize: pagination.value.pageSize
       })
-      
+
       const response = await logsService.getLogs({
         ...filters.value,
         page: pagination.value.current,
         pageSize: pagination.value.pageSize
       })
-      
+
       console.log('📊 历史采集日志API响应:', response)
-      
+
       historicalLogs.value = response.data
       pagination.value.total = response.total
-      
+
       console.log('✅ 历史采集日志获取成功:', {
         logsCount: historicalLogs.value.length,
         total: pagination.value.total,
@@ -76,24 +77,24 @@ export const useLogsStore = defineStore('logs', () => {
   const fetchRealtimeLogs = async () => {
     loading.value = true
     error.value = null
-    
+
     try {
       console.log('🔍 开始获取实时行情采集日志，分页参数:', {
         page: pagination.value.current,
         pageSize: pagination.value.pageSize
       })
-      
+
       const response = await logsService.getRealtimeLogs({
         ...filters.value,
         page: pagination.value.current,
         pageSize: pagination.value.pageSize
       })
-      
+
       console.log('📊 实时行情采集日志API响应:', response)
-      
+
       realtimeLogs.value = response.data
       pagination.value.total = response.total
-      
+
       console.log('✅ 实时行情采集日志获取成功:', {
         logsCount: realtimeLogs.value.length,
         total: pagination.value.total,
@@ -111,24 +112,24 @@ export const useLogsStore = defineStore('logs', () => {
   const fetchOperationLogs = async () => {
     loading.value = true
     error.value = null
-    
+
     try {
       console.log('🔍 开始获取操作日志，分页参数:', {
         page: pagination.value.current,
         pageSize: pagination.value.pageSize
       })
-      
+
       const response = await logsService.getOperationLogs({
         ...filters.value,
         page: pagination.value.current,
         pageSize: pagination.value.pageSize
       })
-      
+
       console.log('📊 操作日志API响应:', response)
-      
+
       operationLogs.value = response.data
       pagination.value.total = response.total
-      
+
       console.log('✅ 操作日志获取成功:', {
         logsCount: operationLogs.value.length,
         total: pagination.value.total,

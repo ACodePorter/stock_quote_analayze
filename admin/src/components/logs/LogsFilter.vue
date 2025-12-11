@@ -95,6 +95,7 @@ const localFilters = reactive<LogFilter>({
   level: 'all',
   startDate: null,
   endDate: null,
+  collect_source: null,
   keyword: ''
 })
 
@@ -115,6 +116,7 @@ const clearFilters = () => {
     level: 'all',
     startDate: null,
     endDate: null,
+    collect_source: null,
     keyword: ''
   })
   applyFilters()

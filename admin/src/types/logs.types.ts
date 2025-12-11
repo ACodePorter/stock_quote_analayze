@@ -4,6 +4,7 @@ export interface LogEntry {
   level: 'INFO' | 'WARNING' | 'ERROR' | 'DEBUG'
   message: string
   source: string
+  collect_source: string
   details?: string
   user_id?: number
   ip_address?: string
@@ -13,6 +14,7 @@ export interface LogEntry {
 export interface HistoricalCollectLogEntry {
   id: number
   operation_type: string
+  collect_source: string
   operation_desc: string
   affected_rows: number
   status: string
@@ -24,6 +26,7 @@ export interface HistoricalCollectLogEntry {
 export interface RealtimeCollectLogEntry {
   id: number
   operation_type: string
+  collect_source: string
   operation_desc: string
   affected_rows: number
   status: string
@@ -46,10 +49,11 @@ export interface OperationLogEntry {
 export type AnyLogEntry = LogEntry | HistoricalCollectLogEntry | RealtimeCollectLogEntry | OperationLogEntry
 
 export interface LogFilter {
-  type: 'all' | 'historical_collect' | 'realtime_collect' | 'operation'
+  type: 'all' | 'historical_collect' | 'realtime_collect' | 'operation' | 'collect_source'
   level: 'all' | 'INFO' | 'WARNING' | 'ERROR' | 'DEBUG'
   startDate: string | null
   endDate: string | null
+  collect_source: string | null
   keyword: string
 }
 
